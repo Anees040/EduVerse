@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "805229990400",
+    "firebase_url": "https://eduverse-8780a-default-rtdb.firebaseio.com",
+    "project_id": "eduverse-8780a",
+    "storage_bucket": "eduverse-8780a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:805229990400:android:5dbbc248581ced2af6bee5",
+        "android_client_info": {
+          "package_name": "com.example.learnly"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAIUS5saYasA9qONlfVNrc7EX_nBUnze24"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
