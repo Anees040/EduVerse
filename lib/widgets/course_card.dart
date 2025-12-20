@@ -187,7 +187,7 @@ class CourseCard extends StatelessWidget {
                                     Icon(Icons.star, size: iconSize, color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor),
                                     SizedBox(width: isCompact ? 4 : 6),
                                     Text(
-                                      '${instructorRating!.toStringAsFixed(1)}',
+                                      instructorRating!.toStringAsFixed(1),
                                       style: TextStyle(
                                         fontSize: smallTextFont,
                                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
