@@ -15,6 +15,8 @@ class StudentCourseDetailScreen extends StatefulWidget {
   final String imageUrl;
   final String description;
   final int? createdAt;
+  final String? initialVideoId;
+  final int? initialVideoTimestampSeconds;
 
   const StudentCourseDetailScreen({
     super.key,
@@ -23,6 +25,8 @@ class StudentCourseDetailScreen extends StatefulWidget {
     required this.imageUrl,
     required this.description,
     this.createdAt,
+    this.initialVideoId,
+    this.initialVideoTimestampSeconds,
   });
 
   @override
@@ -107,14 +111,19 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         courseUid: widget.courseUid,
       );
 
-      // Find first uncompleted video
+      // Determine start index: if notification requested a specific video, use it
       int startIndex = 0;
-      for (int i = 0; i < videos.length; i++) {
-        final videoId = videos[i]['videoId'];
-        if (progress[videoId] == null ||
-            progress[videoId]['isCompleted'] != true) {
-          startIndex = i;
-          break;
+      if (widget.initialVideoId != null) {
+        final idx = videos.indexWhere((v) => v['videoId'] == widget.initialVideoId);
+        if (idx != -1) startIndex = idx;
+      } else {
+        for (int i = 0; i < videos.length; i++) {
+          final videoId = videos[i]['videoId'];
+          if (progress[videoId] == null ||
+              progress[videoId]['isCompleted'] != true) {
+            startIndex = i;
+            break;
+          }
         }
       }
 
@@ -125,6 +134,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         _overallProgress = overallProgress;
         _hasReviewed = hasReviewed;
         _teacherUid = courseDetails?['teacherUid'];
+        // If notification provided a timestamp for the initial video, seed local progress
+        if (widget.initialVideoId != null && widget.initialVideoTimestampSeconds != null) {
+          final vid = widget.initialVideoId!;
+          if (_progress[vid] == null) {
+            _progress[vid] = {'positionSeconds': widget.initialVideoTimestampSeconds};
+          }
+        }
         _isLoading = false;
       });
     } catch (e) {
