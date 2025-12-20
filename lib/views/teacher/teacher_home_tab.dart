@@ -10,7 +10,13 @@ import 'package:eduverse/utils/app_theme.dart';
 class TeacherHomeTab extends StatefulWidget {
   final String uid;
   final String role;
-  const TeacherHomeTab({super.key, required this.uid, required this.role});
+  final VoidCallback? onSeeAllCourses;
+  const TeacherHomeTab({
+    super.key,
+    required this.uid,
+    required this.role,
+    this.onSeeAllCourses,
+  });
 
   @override
   State<TeacherHomeTab> createState() => _TeacherHomeTabState();
@@ -161,397 +167,421 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    final isDark = AppTheme.isDarkMode(context);
+
     if (isLoading) {
-      return const Center(
-        child: CircularProgressIndicator(color: AppTheme.primaryColor),
+      return Center(
+        child: CircularProgressIndicator(
+          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+        ),
       );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Welcome Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: AppTheme.primaryGradient,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: AppTheme.primaryColor.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Hello, $userName!",
-                        style: const TextStyle(
-                          fontSize: 24,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        "Manage your courses and students",
-                        style: TextStyle(fontSize: 14, color: Colors.white70),
-                      ),
-                    ],
+    return Container(
+      color: AppTheme.getBackgroundColor(context),
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Welcome Card
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                gradient: isDark
+                    ? AppTheme.darkPrimaryGradient
+                    : AppTheme.primaryGradient,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                            .withOpacity(0.3),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
                   ),
-                ),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: const Icon(
-                    Icons.person_outline,
-                    color: Colors.white,
-                    size: 40,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Quick Stats
-          Row(
-            children: [
-              Expanded(
-                child: _buildStatCard(
-                  "Total Courses",
-                  courses.length.toString(),
-                  Icons.book,
-                  AppTheme.primaryColor,
-                ),
+                ],
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildStatCard(
-                  "Total Students",
-                  uniqueStudentCount.toString(),
-                  Icons.people,
-                  AppTheme.accentColor,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-
-          // Search Bar
-          Container(
-            decoration: BoxDecoration(
-              color: AppTheme.getCardColor(context),
-              borderRadius: BorderRadius.circular(16),
-              border: isDark
-                  ? Border.all(color: AppTheme.darkBorderColor)
-                  : null,
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 2),
-                      ),
-                    ],
-            ),
-            child: TextField(
-              controller: _searchController,
-              onChanged: (value) {
-                setState(() {
-                  searchQuery = value;
-                });
-              },
-              style: TextStyle(color: AppTheme.getTextPrimary(context)),
-              decoration: InputDecoration(
-                hintText: "Search courses...",
-                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: isDark
-                      ? AppTheme.darkPrimaryLight
-                      : AppTheme.primaryColor,
-                ),
-                suffixIcon: searchQuery.isNotEmpty
-                    ? IconButton(
-                        icon: Icon(
-                          Icons.clear,
-                          color: AppTheme.getTextSecondary(context),
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          setState(() {
-                            searchQuery = "";
-                          });
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: AppTheme.getCardColor(context),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 16,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 28),
-
-          // Your Courses Section
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                "Your Courses",
-                style: TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.getTextPrimary(context),
-                ),
-              ),
-              TextButton(onPressed: () {}, child: const Text("See All")),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          SizedBox(
-            height: 210,
-            child: filteredCourses.isEmpty
-                ? Center(
+              child: Row(
+                children: [
+                  Expanded(
                     child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          searchQuery.isNotEmpty
-                              ? Icons.search_off
-                              : Icons.book_outlined,
-                          size: 48,
-                          color: Colors.grey.shade400,
+                        Text(
+                          "Hello, $userName!",
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          searchQuery.isNotEmpty
-                              ? "No courses match '$searchQuery'"
-                              : "No courses created yet",
-                          style: TextStyle(color: Colors.grey.shade500),
-                          textAlign: TextAlign.center,
+                        const Text(
+                          "Manage your courses and students",
+                          style: TextStyle(fontSize: 14, color: Colors.white70),
                         ),
                       ],
                     ),
-                  )
-                : ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: filteredCourses.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 16),
-                    itemBuilder: (context, index) {
-                      final course = filteredCourses[index];
-                      return Container(
-                        width: 170,
-                        decoration: BoxDecoration(
-                          color: AppTheme.getCardColor(context),
-                          borderRadius: BorderRadius.circular(20),
-                          border: isDark
-                              ? Border.all(color: AppTheme.darkBorderColor)
-                              : null,
-                          boxShadow: isDark
-                              ? null
-                              : [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.08),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: const Icon(
+                      Icons.person_outline,
+                      color: Colors.white,
+                      size: 40,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Quick Stats
+            Row(
+              children: [
+                Expanded(
+                  child: _buildStatCard(
+                    "Total Courses",
+                    courses.length.toString(),
+                    Icons.book,
+                    isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildStatCard(
+                    "Total Students",
+                    uniqueStudentCount.toString(),
+                    Icons.people,
+                    isDark ? AppTheme.darkAccent : AppTheme.accentColor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Search Bar
+            Container(
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius: BorderRadius.circular(16),
+                border: isDark
+                    ? Border.all(color: AppTheme.darkBorderColor)
+                    : null,
+                boxShadow: isDark
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 2),
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                top: Radius.circular(20),
-                              ),
-                              child: Image.network(
-                                course['imageUrl'] as String,
-                                height: 100,
-                                width: double.infinity,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
+                      ],
+              ),
+              child: TextField(
+                controller: _searchController,
+                onChanged: (value) {
+                  setState(() {
+                    searchQuery = value;
+                  });
+                },
+                style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                decoration: InputDecoration(
+                  hintText: "Search courses...",
+                  hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: isDark
+                        ? AppTheme.darkPrimaryLight
+                        : AppTheme.primaryColor,
+                  ),
+                  suffixIcon: searchQuery.isNotEmpty
+                      ? IconButton(
+                          icon: Icon(
+                            Icons.clear,
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                          onPressed: () {
+                            _searchController.clear();
+                            setState(() {
+                              searchQuery = "";
+                            });
+                          },
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: AppTheme.getCardColor(context),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 28),
+
+            // Your Courses Section
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "Your Courses",
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextPrimary(context),
+                  ),
+                ),
+                TextButton(
+                  onPressed: widget.onSeeAllCourses,
+                  child: const Text("See All"),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            SizedBox(
+              height: 210,
+              child: filteredCourses.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            searchQuery.isNotEmpty
+                                ? Icons.search_off
+                                : Icons.book_outlined,
+                            size: 48,
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            searchQuery.isNotEmpty
+                                ? "No courses match '$searchQuery'"
+                                : "No courses created yet",
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: filteredCourses.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 16),
+                      itemBuilder: (context, index) {
+                        final course = filteredCourses[index];
+                        return Container(
+                          width: 170,
+                          decoration: BoxDecoration(
+                            color: AppTheme.getCardColor(context),
+                            borderRadius: BorderRadius.circular(20),
+                            border: isDark
+                                ? Border.all(color: AppTheme.darkBorderColor)
+                                : null,
+                            boxShadow: isDark
+                                ? null
+                                : [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 10,
+                                      offset: const Offset(0, 4),
+                                    ),
+                                  ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              ClipRRect(
+                                borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(20),
+                                ),
+                                child: Image.network(
+                                  course['imageUrl'] as String,
                                   height: 100,
-                                  color: AppTheme.primaryColor.withOpacity(0.1),
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 40,
-                                    color: AppTheme.primaryColor,
+                                  width: double.infinity,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, __, ___) => Container(
+                                    height: 100,
+                                    color: AppTheme.primaryColor.withOpacity(
+                                      0.1,
+                                    ),
+                                    child: const Icon(
+                                      Icons.image,
+                                      size: 40,
+                                      color: AppTheme.primaryColor,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    course['title'] as String,
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                      color: AppTheme.getTextPrimary(context),
-                                    ),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  const SizedBox(height: 6),
-                                  Row(
-                                    children: [
-                                      Icon(
-                                        Icons.people,
-                                        size: 14,
-                                        color: AppTheme.getTextSecondary(
-                                          context,
-                                        ),
+                              Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      course['title'] as String,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14,
+                                        color: AppTheme.getTextPrimary(context),
                                       ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        "${course['enrolledCount'] ?? 0} Students",
-                                        style: TextStyle(
-                                          fontSize: 12,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Row(
+                                      children: [
+                                        Icon(
+                                          Icons.people,
+                                          size: 14,
                                           color: AppTheme.getTextSecondary(
                                             context,
                                           ),
                                         ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          "${course['enrolledCount'] ?? 0} Students",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: AppTheme.getTextSecondary(
+                                              context,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      DateFormat('MMM dd, yyyy').format(
+                                        DateTime.fromMillisecondsSinceEpoch(
+                                          course['createdAt'] ?? 0,
+                                        ).toLocal(),
                                       ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    DateFormat('MMM dd, yyyy').format(
-                                      DateTime.fromMillisecondsSinceEpoch(
-                                        course['createdAt'] ?? 0,
-                                      ).toLocal(),
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: AppTheme.getTextSecondary(
+                                          context,
+                                        ),
+                                      ),
                                     ),
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: AppTheme.getTextSecondary(context),
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-          ),
-
-          const SizedBox(height: 28),
-
-          // AI Assistant Card
-          Text(
-            "AI Assistant",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.getTextPrimary(context),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
             ),
-          ),
-          const SizedBox(height: 12),
 
-          _buildFeatureCard(
-            icon: Icons.smart_toy_outlined,
-            title: "Get Help from AI",
-            subtitle: "Ask questions and get instant assistance",
-            color: AppTheme.primaryColor,
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AIChatScreen()),
-              );
-            },
-          ),
+            const SizedBox(height: 28),
 
-          const SizedBox(height: 24),
-
-          // Announcements
-          Text(
-            "Announcements",
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.getTextPrimary(context),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.getCardColor(context),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: AppTheme.warning.withOpacity(isDark ? 0.5 : 0.3),
+            // AI Assistant Card
+            Text(
+              "AI Assistant",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
               ),
-              boxShadow: isDark
-                  ? null
-                  : [
-                      BoxShadow(
-                        color: AppTheme.warning.withOpacity(0.1),
-                        blurRadius: 10,
-                        offset: const Offset(0, 4),
-                      ),
-                    ],
             ),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: AppTheme.warning.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.campaign,
-                    color: AppTheme.warning,
-                    size: 24,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "Midterm Schedule Released",
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        "Please upload question papers on time.",
-                        style: TextStyle(fontSize: 13),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+            const SizedBox(height: 12),
+
+            _buildFeatureCard(
+              icon: Icons.smart_toy_outlined,
+              title: "Get Help from AI",
+              subtitle: "Ask questions and get instant assistance",
+              color: AppTheme.primaryColor,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AIChatScreen()),
+                );
+              },
             ),
-          ),
-        ],
+
+            const SizedBox(height: 24),
+
+            // Announcements
+            Text(
+              "Announcements",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: AppTheme.warning.withOpacity(isDark ? 0.5 : 0.3),
+                ),
+                boxShadow: isDark
+                    ? null
+                    : [
+                        BoxShadow(
+                          color: AppTheme.warning.withOpacity(0.1),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: AppTheme.warning.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.campaign,
+                      color: AppTheme.warning,
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Midterm Schedule Released",
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          "Please upload question papers on time.",
+                          style: TextStyle(fontSize: 13),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -563,19 +593,19 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     Color color,
   ) {
     // Use vibrant colors in dark mode
-    final displayColor = isDark 
-        ? (color == AppTheme.primaryColor 
-            ? const Color(0xFF9B7DFF) // Vibrant purple for courses
-            : const Color(0xFF4ECDC4)) // Vibrant teal for students
+    final displayColor = isDark
+        ? (color == AppTheme.primaryColor
+              ? const Color(0xFF9B7DFF) // Vibrant purple for courses
+              : const Color(0xFF4ECDC4)) // Vibrant teal for students
         : color;
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
         borderRadius: BorderRadius.circular(16),
-        border: isDark 
-            ? Border.all(color: displayColor.withOpacity(0.3)) 
+        border: isDark
+            ? Border.all(color: displayColor.withOpacity(0.3))
             : null,
         boxShadow: isDark
             ? [
@@ -598,7 +628,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              gradient: isDark 
+              gradient: isDark
                   ? LinearGradient(
                       colors: [
                         displayColor.withOpacity(0.25),
@@ -610,7 +640,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                   : null,
               color: isDark ? null : color.withOpacity(0.1),
               borderRadius: BorderRadius.circular(12),
-              border: isDark 
+              border: isDark
                   ? Border.all(color: displayColor.withOpacity(0.3))
                   : null,
             ),
@@ -650,10 +680,10 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     required VoidCallback onTap,
   }) {
     // Use brighter, more vibrant colors in dark mode
-    final displayColor = isDark 
+    final displayColor = isDark
         ? const Color(0xFF9B7DFF) // Brighter purple/violet for AI
         : color;
-    
+
     return GestureDetector(
       onTap: onTap,
       child: Container(
@@ -662,7 +692,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: isDark ? displayColor.withOpacity(0.3) : color.withOpacity(0.2),
+            color: isDark
+                ? displayColor.withOpacity(0.3)
+                : color.withOpacity(0.2),
           ),
           boxShadow: isDark
               ? [
@@ -685,7 +717,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                gradient: isDark 
+                gradient: isDark
                     ? LinearGradient(
                         colors: [
                           displayColor.withOpacity(0.25),
@@ -697,7 +729,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                     : null,
                 color: isDark ? null : color.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: isDark 
+                border: isDark
                     ? Border.all(color: displayColor.withOpacity(0.3))
                     : null,
               ),
@@ -730,7 +762,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             Icon(
               Icons.arrow_forward_ios,
               size: 16,
-              color: isDark ? displayColor.withOpacity(0.7) : AppTheme.getTextSecondary(context),
+              color: isDark
+                  ? displayColor.withOpacity(0.7)
+                  : AppTheme.getTextSecondary(context),
             ),
           ],
         ),

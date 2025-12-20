@@ -43,6 +43,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   bool _hasReviewed = false;
   String? _teacherUid;
   bool _isBookmarked = false;
+  Duration _currentVideoPosition = Duration.zero;
 
   @override
   void initState() {
@@ -139,6 +140,9 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   void _onVideoPositionChanged(Duration position) async {
     if (_videos.isEmpty) return;
 
+    // Track current position for Q&A timestamps
+    _currentVideoPosition = position;
+
     final videoId = _videos[_currentVideoIndex]['videoId'];
     final isCompleted = position.inSeconds >= 30;
 
@@ -207,10 +211,17 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDarkMode(context);
     return Scaffold(
-      backgroundColor: AppTheme.backgroundColor,
+      backgroundColor: AppTheme.getBackgroundColor(context),
       body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? Center(
+              child: CircularProgressIndicator(
+                color: isDark
+                    ? AppTheme.darkPrimaryLight
+                    : AppTheme.primaryColor,
+              ),
+            )
           : Column(
               children: [
                 // Fixed video player at top
@@ -232,17 +243,34 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
 
                         // Course description
                         _buildDescription(),
-                        
+
                         // Q&A Section
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           child: QASectionWidget(
                             courseUid: widget.courseUid,
-                            videoId: _videos.isNotEmpty 
-                                ? _videos[_currentVideoIndex]['videoId'] 
+                            videoId: _videos.isNotEmpty
+                                ? _videos[_currentVideoIndex]['videoId']
+                                : null,
+                            videoTitle: _videos.isNotEmpty
+                                ? _videos[_currentVideoIndex]['title']
                                 : null,
                             isTeacher: false,
                             courseName: widget.courseTitle,
+                            getCurrentVideoPosition: () =>
+                                _currentVideoPosition,
+                            onTimestampTap: (duration) {
+                              // Show a snackbar since we can't directly seek
+                              // In a real implementation, you'd add seek functionality
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    'Go to ${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')} in the video',
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                ),
+                              );
+                            },
                           ),
                         ),
 
@@ -257,9 +285,14 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildTitleBar() {
+    final isDark = AppTheme.isDarkMode(context);
     return Container(
       padding: const EdgeInsets.all(16),
-      color: AppTheme.primaryColor,
+      decoration: BoxDecoration(
+        gradient: isDark
+            ? AppTheme.darkPrimaryGradient
+            : AppTheme.primaryGradient,
+      ),
       child: Row(
         children: [
           IconButton(
@@ -331,18 +364,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildProgressSection() {
+    final isDark = AppTheme.isDarkMode(context);
     final progressPercent = (_overallProgress * 100).toInt();
 
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
-      ),
+      decoration: AppTheme.getCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -352,8 +380,11 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: _overallProgress >= 1.0
-                      ? AppTheme.success.withOpacity(0.1)
-                      : AppTheme.primaryColor.withOpacity(0.1),
+                      ? AppTheme.getSuccessColor(context).withOpacity(0.1)
+                      : (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                            .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -361,8 +392,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                       ? Icons.emoji_events
                       : Icons.trending_up,
                   color: _overallProgress >= 1.0
-                      ? AppTheme.success
-                      : AppTheme.primaryColor,
+                      ? AppTheme.getSuccessColor(context)
+                      : (isDark
+                            ? AppTheme.darkPrimaryLight
+                            : AppTheme.primaryColor),
                 ),
               ),
               const SizedBox(width: 12),
@@ -374,16 +407,17 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                       _overallProgress >= 1.0
                           ? 'Course Completed! 🎉'
                           : 'Your Progress',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
+                        color: AppTheme.getTextPrimary(context),
                       ),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       '${_countCompletedVideos()} of ${_videos.length} videos completed',
                       style: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppTheme.getTextSecondary(context),
                         fontSize: 13,
                       ),
                     ),
@@ -396,8 +430,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: _overallProgress >= 1.0
-                      ? AppTheme.success
-                      : AppTheme.primaryColor,
+                      ? AppTheme.getSuccessColor(context)
+                      : (isDark
+                            ? AppTheme.darkPrimaryLight
+                            : AppTheme.primaryColor),
                 ),
               ),
             ],
@@ -407,11 +443,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
             borderRadius: BorderRadius.circular(8),
             child: LinearProgressIndicator(
               value: _overallProgress,
-              backgroundColor: Colors.grey.shade200,
+              backgroundColor: isDark
+                  ? AppTheme.darkBorder
+                  : Colors.grey.shade200,
               valueColor: AlwaysStoppedAnimation<Color>(
                 _overallProgress >= 1.0
-                    ? AppTheme.success
-                    : AppTheme.accentColor,
+                    ? AppTheme.getSuccessColor(context)
+                    : (isDark ? AppTheme.darkAccent : AppTheme.accentColor),
               ),
               minHeight: 10,
             ),
@@ -423,56 +461,90 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                 ? Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: AppTheme.success.withOpacity(0.1),
+                      color: AppTheme.getSuccessColor(context).withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: AppTheme.success.withOpacity(0.3),
+                        color: AppTheme.getSuccessColor(
+                          context,
+                        ).withOpacity(0.3),
                       ),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
                           Icons.check_circle,
-                          color: AppTheme.success,
+                          color: AppTheme.getSuccessColor(context),
                           size: 20,
                         ),
-                        SizedBox(width: 8),
+                        const SizedBox(width: 8),
                         Text(
                           'Thank you for your review!',
                           style: TextStyle(
-                            color: AppTheme.success,
+                            color: AppTheme.getSuccessColor(context),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
                   )
-                : ElevatedButton.icon(
-                    onPressed: _showReviewDialog,
-                    icon: const Icon(Icons.rate_review),
-                    label: const Text('Leave a Review'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accentColor,
-                      foregroundColor: Colors.white,
-                      minimumSize: const Size(double.infinity, 48),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                : Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              (isDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.accentColor)
+                                  .withOpacity(0.4),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: _showReviewDialog,
+                      icon: const Icon(Icons.rate_review),
+                      label: const Text('Leave a Review'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.accentColor,
+                        foregroundColor: const Color(0xFFF0F8FF),
+                        minimumSize: const Size(double.infinity, 48),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
             // Certificate button
             const SizedBox(height: 12),
-            ElevatedButton.icon(
-              onPressed: _viewCertificate,
-              icon: const Icon(Icons.workspace_premium),
-              label: const Text('View Certificate'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFFD700), // Gold
-                foregroundColor: Colors.black87,
-                minimumSize: const Size(double.infinity, 48),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFFFFD700).withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _viewCertificate,
+                icon: const Icon(Icons.workspace_premium),
+                label: const Text('View Certificate'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFFFD700), // Gold
+                  foregroundColor: Colors.black87,
+                  minimumSize: const Size(double.infinity, 48),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
               ),
             ),
@@ -493,15 +565,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildVideoList() {
+    final isDark = AppTheme.isDarkMode(context);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
-      ),
+      decoration: AppTheme.getCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -509,11 +576,20 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                const Icon(Icons.playlist_play, color: AppTheme.primaryColor),
+                Icon(
+                  Icons.playlist_play,
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
+                ),
                 const SizedBox(width: 8),
-                const Text(
+                Text(
                   'Course Videos',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: AppTheme.getTextPrimary(context),
+                  ),
                 ),
                 const Spacer(),
                 Container(
@@ -522,13 +598,19 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
+                    color:
+                        (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                            .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     '${_videos.length} videos',
-                    style: const TextStyle(
-                      color: AppTheme.primaryColor,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
@@ -537,12 +619,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               ],
             ),
           ),
-          const Divider(height: 1),
+          Divider(height: 1, color: AppTheme.getDividerColor(context)),
           ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: _videos.length,
-            separatorBuilder: (_, __) => const Divider(height: 1),
+            separatorBuilder: (_, __) =>
+                Divider(height: 1, color: AppTheme.getDividerColor(context)),
             itemBuilder: (context, index) => _buildVideoItem(index),
           ),
         ],
@@ -551,6 +634,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildVideoItem(int index) {
+    final isDark = AppTheme.isDarkMode(context);
     final video = _videos[index];
     final isPlaying = index == _currentVideoIndex;
     final isCompleted = _progress[video['videoId']]?['isCompleted'] == true;
@@ -559,7 +643,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       onTap: () => _playVideo(index),
       child: Container(
         padding: const EdgeInsets.all(12),
-        color: isPlaying ? AppTheme.primaryColor.withOpacity(0.05) : null,
+        color: isPlaying
+            ? (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                  .withOpacity(0.05)
+            : null,
         child: Row(
           children: [
             // Video number with status
@@ -569,10 +656,12 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: isCompleted
-                    ? AppTheme.success
+                    ? AppTheme.getSuccessColor(context)
                     : isPlaying
-                    ? AppTheme.primaryColor
-                    : Colors.grey.shade200,
+                    ? (isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor)
+                    : (isDark ? AppTheme.darkElevated : Colors.grey.shade200),
               ),
               child: Center(
                 child: isCompleted
@@ -587,7 +676,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                         '${index + 1}',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: Colors.grey.shade600,
+                          color: AppTheme.getTextSecondary(context),
                         ),
                       ),
               ),
@@ -605,8 +694,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                     style: TextStyle(
                       fontWeight: isPlaying ? FontWeight.bold : FontWeight.w500,
                       color: isPlaying
-                          ? AppTheme.primaryColor
-                          : AppTheme.textPrimary,
+                          ? (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                          : AppTheme.getTextPrimary(context),
                     ),
                   ),
                   if (video['description'] != null &&
@@ -617,7 +708,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                         video['description'],
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppTheme.getTextSecondary(context),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -632,14 +723,14 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.success.withOpacity(0.1),
+                  color: AppTheme.getSuccessColor(context).withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Text(
+                child: Text(
                   '✓ Done',
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppTheme.success,
+                    color: AppTheme.getSuccessColor(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -648,23 +739,31 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: AppTheme.primaryColor.withOpacity(0.1),
+                  color:
+                      (isDark
+                              ? AppTheme.darkPrimaryLight
+                              : AppTheme.primaryColor)
+                          .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: const Row(
+                child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
                       Icons.play_circle,
                       size: 14,
-                      color: AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                     ),
-                    SizedBox(width: 4),
+                    const SizedBox(width: 4),
                     Text(
                       'Playing',
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppTheme.primaryColor,
+                        color: isDark
+                            ? AppTheme.darkPrimaryLight
+                            : AppTheme.primaryColor,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -678,26 +777,30 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Widget _buildDescription() {
+    final isDark = AppTheme.isDarkMode(context);
     return Container(
       margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
-        ],
-      ),
+      decoration: AppTheme.getCardDecoration(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
-              Icon(Icons.info_outline, color: AppTheme.primaryColor),
-              SizedBox(width: 8),
+              Icon(
+                Icons.info_outline,
+                color: isDark
+                    ? AppTheme.darkPrimaryLight
+                    : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
               Text(
                 'About This Course',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.getTextPrimary(context),
+                ),
               ),
             ],
           ),
@@ -706,7 +809,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
             widget.description.isNotEmpty
                 ? widget.description
                 : 'No description provided.',
-            style: TextStyle(color: Colors.grey.shade700, height: 1.5),
+            style: TextStyle(
+              color: AppTheme.getTextSecondary(context),
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -746,11 +852,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   void _showReviewDialog() {
     double rating = 5.0;
     final reviewController = TextEditingController();
+    final isDark = AppTheme.isDarkMode(context);
 
     showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.getCardColor(context),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
@@ -759,16 +867,22 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: AppTheme.accentColor.withOpacity(0.1),
+                  color: (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
+                      .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.rate_review,
-                  color: AppTheme.accentColor,
+                  color: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(child: Text('Rate This Course')),
+              Expanded(
+                child: Text(
+                  'Rate This Course',
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                ),
+              ),
             ],
           ),
           content: SingleChildScrollView(
@@ -778,7 +892,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               children: [
                 Text(
                   'How would you rate "${widget.courseTitle}"?',
-                  style: TextStyle(color: Colors.grey.shade600),
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)),
                 ),
                 const SizedBox(height: 20),
                 // Star rating
@@ -808,9 +922,11 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                 Center(
                   child: Text(
                     _getRatingText(rating),
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.accentColor,
+                      color: isDark
+                          ? AppTheme.darkAccent
+                          : AppTheme.accentColor,
                     ),
                   ),
                 ),
@@ -818,18 +934,30 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                 TextField(
                   controller: reviewController,
                   maxLines: 4,
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
                   decoration: InputDecoration(
                     hintText:
                         'Share your experience with this course (optional)',
-                    hintStyle: TextStyle(color: Colors.grey.shade400),
+                    hintStyle: TextStyle(color: AppTheme.getTextHint(context)),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(
+                        color: AppTheme.getBorderColor(context),
+                      ),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: AppTheme.getBorderColor(context),
+                      ),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(
-                        color: AppTheme.primaryColor,
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkPrimaryLight
+                            : AppTheme.primaryColor,
+                        width: 2,
                       ),
                     ),
                   ),
@@ -842,7 +970,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               onPressed: () => Navigator.pop(ctx),
               child: Text(
                 'Cancel',
-                style: TextStyle(color: Colors.grey.shade600),
+                style: TextStyle(color: AppTheme.getTextSecondary(context)),
               ),
             ),
             ElevatedButton(
@@ -851,11 +979,17 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                 await _submitReview(rating, reviewController.text);
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.accentColor,
-                foregroundColor: Colors.white,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.accentColor,
+                foregroundColor: const Color(0xFFF0F8FF),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
+                elevation: 6,
+                shadowColor:
+                    (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
+                        .withOpacity(0.5),
               ),
               child: const Text('Submit Review'),
             ),

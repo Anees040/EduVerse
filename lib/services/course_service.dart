@@ -30,9 +30,15 @@ class CourseService {
       if (courseData['enrolledStudents'] != null) {
         enrolledCount = (courseData['enrolledStudents'] as Map).length;
       }
+      // Count videos
+      int videoCount = 0;
+      if (courseData['videos'] != null) {
+        videoCount = (courseData['videos'] as Map).length;
+      }
       courses.add({
         "courseUid": key,
         "enrolledCount": enrolledCount,
+        "videoCount": videoCount,
         ...courseData,
       });
     });
@@ -265,12 +271,70 @@ class CourseService {
   /// Get all videos for a course
   Future<List<Map<String, dynamic>>> getCourseVideos({
     required String courseUid,
+    String? teacherUid,
   }) async {
-    final snapshot = await _db
+    // First try from /courses path
+    var snapshot = await _db
         .child("courses")
         .child(courseUid)
         .child("videos")
         .get();
+
+    // If not found and teacherUid is provided, try from teacher's courses
+    if (!snapshot.exists && teacherUid != null) {
+      snapshot = await _db
+          .child("teacher")
+          .child(teacherUid)
+          .child("courses")
+          .child(courseUid)
+          .child("videos")
+          .get();
+    }
+
+    // If still not found, try to find the teacher by looking up all teachers
+    if (!snapshot.exists) {
+      final teachersSnapshot = await _db.child("teacher").get();
+      if (teachersSnapshot.exists) {
+        final teachers = teachersSnapshot.value as Map<dynamic, dynamic>;
+        for (final entry in teachers.entries) {
+          final tData = entry.value as Map<dynamic, dynamic>?;
+          if (tData != null && tData['courses'] != null) {
+            final courses = tData['courses'] as Map<dynamic, dynamic>;
+            if (courses.containsKey(courseUid)) {
+              final courseData = courses[courseUid] as Map<dynamic, dynamic>?;
+              if (courseData != null && courseData['videos'] != null) {
+                final videosData =
+                    courseData['videos'] as Map<dynamic, dynamic>;
+                final List<Map<String, dynamic>> videos = [];
+                videosData.forEach((key, value) {
+                  videos.add({
+                    "videoId": key,
+                    ...Map<String, dynamic>.from(value as Map),
+                  });
+                });
+                videos.sort(
+                  (a, b) => (a['order'] ?? 0).compareTo(b['order'] ?? 0),
+                );
+                return videos;
+              }
+              // Check for legacy single video
+              if (courseData != null && courseData['videoUrl'] != null) {
+                return [
+                  {
+                    "videoId": "main",
+                    "url": courseData['videoUrl'],
+                    "title": courseData['title'] ?? "Course Video",
+                    "description": "",
+                    "order": 0,
+                  },
+                ];
+              }
+              break;
+            }
+          }
+        }
+      }
+    }
 
     if (!snapshot.exists) {
       // Check if there's a legacy single video
@@ -528,59 +592,80 @@ class CourseService {
     for (final entry in enrolledCourses.entries) {
       final String courseUid = entry.key;
       final Map data = entry.value;
+      final String? teacherUid = data["teacherUid"];
 
+      Map<String, dynamic>? courseData;
+
+      // First try to get from /courses path
       final courseSnapshot = await _db.child("courses").child(courseUid).get();
 
-      if (courseSnapshot.exists) {
-        final courseData = Map<String, dynamic>.from(
-          courseSnapshot.value as Map,
-        );
-        final teacherUid = data["teacherUid"] ?? courseData["teacherUid"];
+      if (courseSnapshot.exists && courseSnapshot.value != null) {
+        courseData = Map<String, dynamic>.from(courseSnapshot.value as Map);
+      } else if (teacherUid != null) {
+        // Fallback: get from teacher's courses path
+        final teacherCourseSnapshot = await _db
+            .child("teacher")
+            .child(teacherUid)
+            .child("courses")
+            .child(courseUid)
+            .get();
 
-        // Fetch teacher info
-        String? teacherName;
-        double? teacherRating;
-        int? reviewCount;
+        if (teacherCourseSnapshot.exists &&
+            teacherCourseSnapshot.value != null) {
+          courseData = Map<String, dynamic>.from(
+            teacherCourseSnapshot.value as Map,
+          );
+        }
+      }
 
-        if (teacherUid != null) {
-          final teacherSnapshot = await _db
-              .child("teacher")
-              .child(teacherUid)
-              .get();
-          if (teacherSnapshot.exists) {
-            final teacherData = Map<String, dynamic>.from(
-              teacherSnapshot.value as Map,
+      // If still no course data, skip this entry
+      if (courseData == null) continue;
+
+      final effectiveTeacherUid = teacherUid ?? courseData["teacherUid"];
+
+      // Fetch teacher info
+      String? teacherName;
+      double? teacherRating;
+      int? reviewCount;
+
+      if (effectiveTeacherUid != null) {
+        final teacherSnapshot = await _db
+            .child("teacher")
+            .child(effectiveTeacherUid)
+            .get();
+        if (teacherSnapshot.exists) {
+          final teacherData = Map<String, dynamic>.from(
+            teacherSnapshot.value as Map,
+          );
+          teacherName = teacherData['name'];
+
+          // Calculate teacher rating from reviews
+          if (teacherData['reviews'] != null) {
+            final reviews = Map<String, dynamic>.from(
+              teacherData['reviews'] as Map,
             );
-            teacherName = teacherData['name'];
-
-            // Calculate teacher rating from reviews
-            if (teacherData['reviews'] != null) {
-              final reviews = Map<String, dynamic>.from(
-                teacherData['reviews'] as Map,
-              );
-              reviewCount = reviews.length;
-              if (reviewCount > 0) {
-                double totalRating = 0;
-                reviews.forEach((_, review) {
-                  totalRating += (review['rating'] ?? 0).toDouble();
-                });
-                teacherRating = totalRating / reviewCount;
-              }
+            reviewCount = reviews.length;
+            if (reviewCount > 0) {
+              double totalRating = 0;
+              reviews.forEach((_, review) {
+                totalRating += (review['rating'] ?? 0).toDouble();
+              });
+              teacherRating = totalRating / reviewCount;
             }
           }
         }
-
-        courses.add({
-          "courseUid": courseUid,
-          "teacherUid": teacherUid,
-          "enrolledAt": data["enrolledAt"],
-          "isEnrolled": true,
-          "teacherName": teacherName,
-          "teacherRating": teacherRating,
-          "reviewCount": reviewCount,
-          ...courseData,
-        });
       }
+
+      courses.add({
+        "courseUid": courseUid,
+        "teacherUid": effectiveTeacherUid,
+        "enrolledAt": data["enrolledAt"],
+        "isEnrolled": true,
+        "teacherName": teacherName,
+        "teacherRating": teacherRating,
+        "reviewCount": reviewCount,
+        ...courseData,
+      });
     }
 
     return courses;
@@ -603,23 +688,42 @@ class CourseService {
     final Map<dynamic, dynamic> courses =
         coursesSnap.value as Map<dynamic, dynamic>;
 
-    // 2️⃣ Collect unique student UIDs
-    final Set<String> studentUids = {};
+    // 2️⃣ Collect student UIDs with their enrolled courses
+    final Map<String, Map<String, dynamic>> studentCourseMap = {};
 
     for (final courseEntry in courses.entries) {
-      final enrolledStudents = courseEntry.value['enrolledStudents'];
+      final courseId = courseEntry.key.toString();
+      final courseData = courseEntry.value;
+      final enrolledStudents = courseData['enrolledStudents'];
+
       if (enrolledStudents != null) {
         final Map<dynamic, dynamic> studentsMap =
             enrolledStudents as Map<dynamic, dynamic>;
 
-        studentUids.addAll(studentsMap.keys.map((e) => e.toString()));
+        for (final studentEntry in studentsMap.entries) {
+          final studentUid = studentEntry.key.toString();
+          final enrollmentData = studentEntry.value;
+
+          if (!studentCourseMap.containsKey(studentUid)) {
+            studentCourseMap[studentUid] = {};
+          }
+          studentCourseMap[studentUid]![courseId] = {
+            'enrolledAt': enrollmentData is Map
+                ? enrollmentData['enrolledAt']
+                : null,
+            'teacherUid': teacherUid,
+          };
+        }
       }
     }
 
-    if (studentUids.isEmpty) return [];
+    if (studentCourseMap.isEmpty) return [];
 
     // 3️⃣ Fetch student profiles in parallel
-    final futures = studentUids.map((uid) async {
+    final futures = studentCourseMap.entries.map((entry) async {
+      final uid = entry.key;
+      final enrolledCourses = entry.value;
+
       final snap = await db.child('student').child(uid).get();
       if (!snap.exists) return null;
 
@@ -627,7 +731,8 @@ class CourseService {
         snap.value as Map<dynamic, dynamic>,
       );
 
-      data['uid'] = uid; // attach uid
+      data['uid'] = uid;
+      data['enrolledCourses'] = enrolledCourses;
       return data;
     });
 

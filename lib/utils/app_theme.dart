@@ -167,6 +167,91 @@ class AppTheme {
         : accentColor;
   }
 
+  /// Get button color - uses teal accent for consistent look in dark mode
+  static Color getButtonColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkAccent // Vibrant Teal for buttons in dark mode
+        : primaryColor;
+  }
+
+  /// Get button text color - softer white for less harsh look
+  static Color getButtonTextColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? const Color(0xFFF0F8FF) // Soft white with blue tint
+        : const Color(0xFFF5F5F5); // Soft white
+  }
+
+  /// Get button shadow color for glow effect
+  static Color getButtonShadowColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? darkAccent.withOpacity(0.5)
+        : primaryColor.withOpacity(0.4);
+  }
+
+  /// Get button box decoration with glow effect
+  static BoxDecoration getButtonDecoration(
+    BuildContext context, {
+    Color? color,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final buttonColor = color ?? (isDark ? darkAccent : primaryColor);
+    return BoxDecoration(
+      color: buttonColor,
+      borderRadius: BorderRadius.circular(14),
+      boxShadow: [
+        BoxShadow(
+          color: buttonColor.withOpacity(isDark ? 0.4 : 0.3),
+          blurRadius: isDark ? 12 : 8,
+          spreadRadius: isDark ? 1 : 0,
+          offset: const Offset(0, 4),
+        ),
+        if (isDark)
+          BoxShadow(
+            color: buttonColor.withOpacity(0.2),
+            blurRadius: 20,
+            spreadRadius: -2,
+            offset: const Offset(0, 2),
+          ),
+      ],
+    );
+  }
+
+  /// Get styled button (ElevatedButton.styleFrom) with consistent glow
+  static ButtonStyle getElevatedButtonStyle(
+    BuildContext context, {
+    Color? backgroundColor,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = backgroundColor ?? (isDark ? darkAccent : primaryColor);
+    return ElevatedButton.styleFrom(
+      backgroundColor: bgColor,
+      foregroundColor: isDark
+          ? const Color(0xFFF0F8FF)
+          : const Color(0xFFF5F5F5),
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      elevation: isDark ? 8 : 4,
+      shadowColor: bgColor.withOpacity(isDark ? 0.5 : 0.4),
+      textStyle: TextStyle(
+        fontSize: 15,
+        fontWeight: FontWeight.w600,
+        letterSpacing: isDark ? 0.8 : 0.5,
+      ),
+    );
+  }
+
+  /// Get button gradient for premium button styling
+  static LinearGradient getButtonGradient(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return isDark
+        ? const LinearGradient(
+            colors: [Color(0xFF2EC4B6), Color(0xFF22A094)], // Teal gradient
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          )
+        : primaryGradient;
+  }
+
   /// Get primary color based on theme (for interactive elements)
   static Color getPrimaryColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
@@ -483,17 +568,22 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
 
-      // Elevated Button Theme
+      // Elevated Button Theme - with subtle shadow
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
-          foregroundColor: textOnPrimary,
+          foregroundColor: const Color(0xFFF5F5F5), // Softer white
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          elevation: 2,
-          textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+          elevation: 4,
+          shadowColor: primaryColor.withOpacity(0.4),
+          textStyle: const TextStyle(
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.5,
+          ),
         ),
       ),
 
@@ -625,21 +715,23 @@ class AppTheme {
         ),
       ),
 
-      // Elevated Button Theme - Vibrant glowing buttons
+      // Elevated Button Theme - Vibrant teal buttons with glow effect
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          backgroundColor: darkPrimary,
-          foregroundColor: const Color(0xFF0B0F1A),
+          backgroundColor: darkAccent, // Vibrant Teal - consistent across app
+          foregroundColor: const Color(
+            0xFFF0F8FF,
+          ), // Softer white with slight blue tint
           padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 28),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(14),
           ),
-          elevation: 4,
-          shadowColor: darkPrimary.withOpacity(0.4),
+          elevation: 8,
+          shadowColor: darkAccent.withOpacity(0.5),
           textStyle: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0.5,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+            letterSpacing: 0.8,
           ),
         ),
       ),

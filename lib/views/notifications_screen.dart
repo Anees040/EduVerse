@@ -1,7 +1,9 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/notification_service.dart';
+import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/views/student/student_course_detail_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -12,6 +14,7 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationService _notificationService = NotificationService();
+  final CourseService _courseService = CourseService();
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
 
   @override
@@ -71,6 +74,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         onPressed: () => Navigator.pop(ctx, true),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.red,
+                          foregroundColor: const Color(0xFFF5F5F5),
+                          elevation: 6,
+                          shadowColor: Colors.red.withOpacity(0.5),
                         ),
                         child: const Text('Clear All'),
                       ),
@@ -264,9 +270,44 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         child: const Icon(Icons.delete, color: Colors.white),
       ),
       child: InkWell(
-        onTap: () {
+        onTap: () async {
+          // Mark as read first
           if (!isRead && notificationId != null) {
             _notificationService.markAsRead(_uid, notificationId);
+          }
+
+          // Navigate to course Q&A for qa_answer notifications
+          final relatedCourseId = notification['relatedCourseId'] as String?;
+          if (relatedCourseId != null &&
+              (type == 'qa_answer' ||
+                  type == 'course_update' ||
+                  type == 'enrollment')) {
+            try {
+              // Fetch course details
+              final courseDetails = await _courseService.getCourseDetails(
+                courseUid: relatedCourseId,
+              );
+              if (courseDetails != null && mounted) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => StudentCourseDetailScreen(
+                      courseUid: relatedCourseId,
+                      courseTitle: courseDetails['title'] ?? 'Course',
+                      imageUrl: courseDetails['imageUrl'] ?? '',
+                      description: courseDetails['description'] ?? '',
+                      createdAt: courseDetails['createdAt'],
+                    ),
+                  ),
+                );
+              }
+            } catch (e) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Failed to open course: $e')),
+                );
+              }
+            }
           }
         },
         child: Container(

@@ -13,6 +13,8 @@ class QAService {
     required String studentUid,
     required String studentName,
     required String question,
+    int? videoTimestampSeconds,
+    String? videoTitle,
   }) async {
     final questionRef = _db
         .child('courses')
@@ -31,6 +33,8 @@ class QAService {
       'answer': null,
       'answeredAt': null,
       'teacherName': null,
+      'videoTimestamp': videoTimestampSeconds,
+      'videoTitle': videoTitle,
     });
   }
 
@@ -142,5 +146,58 @@ class QAService {
         .child('questions')
         .child(questionId)
         .remove();
+  }
+
+  /// Edit a question
+  Future<void> editQuestion({
+    required String courseUid,
+    required String questionId,
+    required String newQuestion,
+  }) async {
+    await _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId)
+        .update({
+          'question': newQuestion,
+          'editedAt': DateTime.now().millisecondsSinceEpoch,
+        });
+  }
+
+  /// Edit an answer
+  Future<void> editAnswer({
+    required String courseUid,
+    required String questionId,
+    required String newAnswer,
+  }) async {
+    await _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId)
+        .update({
+          'answer': newAnswer,
+          'answerEditedAt': DateTime.now().millisecondsSinceEpoch,
+        });
+  }
+
+  /// Delete an answer (reverts question to unanswered state)
+  Future<void> deleteAnswer({
+    required String courseUid,
+    required String questionId,
+  }) async {
+    await _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId)
+        .update({
+          'answer': null,
+          'isAnswered': false,
+          'answeredAt': null,
+          'teacherName': null,
+          'answerEditedAt': null,
+        });
   }
 }

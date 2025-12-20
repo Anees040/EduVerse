@@ -250,8 +250,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark
-                  ? AppTheme.darkPrimaryLight
+                  ? AppTheme.darkAccent
                   : AppTheme.primaryColor,
+              foregroundColor: const Color(0xFFF0F8FF),
+              elevation: 6,
+              shadowColor:
+                  (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.5),
             ),
             child: const Text('Save'),
           ),
@@ -434,8 +439,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark
-                  ? AppTheme.darkPrimaryLight
+                  ? AppTheme.darkAccent
                   : AppTheme.primaryColor,
+              foregroundColor: const Color(0xFFF0F8FF),
+              elevation: 6,
+              shadowColor:
+                  (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.5),
             ),
             child: const Text('Change'),
           ),
@@ -867,8 +877,16 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
+              backgroundColor: AppTheme.isDarkMode(context)
+                  ? AppTheme.darkAccent
+                  : AppTheme.error,
+              foregroundColor: const Color(0xFFF0F8FF),
+              elevation: 6,
+              shadowColor:
+                  (AppTheme.isDarkMode(context)
+                          ? AppTheme.darkAccent
+                          : AppTheme.error)
+                      .withOpacity(0.5),
             ),
             child: const Text("Logout"),
           ),

@@ -25,7 +25,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   final TextEditingController descriptionController = TextEditingController();
   final TextEditingController videoController = TextEditingController();
   final ImagePicker _picker = ImagePicker();
-  
+
   XFile? selectedVideo;
   XFile? coverImageFile;
   Uint8List? coverImageBytes; // For web display
@@ -40,41 +40,41 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
       );
       return;
     }
-    
+
     setState(() {
       _loading = true;
       _uploadStatus = 'Uploading cover image...';
     });
-    
+
     try {
       String? imageUrl = await uploadToCloudinaryFromXFile(coverImageFile!);
-      
+
       if (imageUrl == null) {
         throw Exception("Failed to upload cover image");
       }
-      
+
       setState(() {
         _uploadStatus = 'Uploading video... (this may take a while)';
       });
-      
+
       String? videoUrl = await uploadToCloudinaryFromXFile(selectedVideo!);
 
       if (videoUrl == null) {
         throw Exception("Failed to upload video");
       }
-      
+
       setState(() {
         _uploadStatus = 'Saving course to database...';
       });
 
       await userService.saveCourseTofirebase(
         teacherUid: authService.currentUser!.uid,
-        imageUrl : imageUrl,
-        videoUrl : videoUrl,
-        title : titleController.text,
-        description : descriptionController.text, 
+        imageUrl: imageUrl,
+        videoUrl: videoUrl,
+        title: titleController.text,
+        description: descriptionController.text,
       );
-      
+
       // Success is handled in onPressed
     } finally {
       if (mounted) {
@@ -83,19 +83,19 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
           _uploadStatus = '';
         });
       }
-    }  
+    }
   }
 
   Future<void> pickVideo() async {
     final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
-    
+
     if (video != null) {
       setState(() {
         selectedVideo = video;
       });
     }
   }
-  
+
   Future<void> pickCoverImage() async {
     final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
 
@@ -108,10 +108,11 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDarkMode(context);
     return Scaffold(
+      backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.white),
@@ -119,7 +120,11 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         ),
         title: const Text("Add Course", style: TextStyle(color: Colors.white)),
         flexibleSpace: Container(
-          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+          decoration: BoxDecoration(
+            gradient: isDark
+                ? AppTheme.darkPrimaryGradient
+                : AppTheme.primaryGradient,
+          ),
         ),
       ),
       body: SingleChildScrollView(
@@ -133,18 +138,35 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                 width: double.infinity,
                 height: 200,
                 decoration: BoxDecoration(
-                  color: Colors.grey.shade200,
-                  gradient: coverImageBytes == null ? LinearGradient(
-                    colors: [Colors.grey.shade300, Colors.grey.shade200],
-                  ) : null,
+                  color: isDark ? AppTheme.darkCard : Colors.grey.shade200,
+                  gradient: coverImageBytes == null
+                      ? LinearGradient(
+                          colors: isDark
+                              ? [AppTheme.darkCard, AppTheme.darkSurface]
+                              : [Colors.grey.shade300, Colors.grey.shade200],
+                        )
+                      : null,
                 ),
                 child: coverImageBytes == null
                     ? Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Icon(Icons.add_photo_alternate, size: 60, color: AppTheme.primaryColor.withOpacity(0.5)),
+                          Icon(
+                            Icons.add_photo_alternate,
+                            size: 60,
+                            color:
+                                (isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor)
+                                    .withOpacity(0.5),
+                          ),
                           const SizedBox(height: 8),
-                          Text("Tap to add cover image", style: TextStyle(color: Colors.grey.shade600)),
+                          Text(
+                            "Tap to add cover image",
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                          ),
                         ],
                       )
                     : Image.memory(
@@ -165,19 +187,48 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "Course Details",
-                      style:
-                          TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getTextPrimary(context),
+                      ),
                     ),
                     const SizedBox(height: 16),
 
                     /// Title
                     TextFormField(
                       controller: titleController,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      decoration: InputDecoration(
                         labelText: "Course Title",
-                        border: OutlineInputBorder(),
+                        labelStyle: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: AppTheme.getCardColor(context),
                       ),
                       validator: (value) =>
                           value!.isEmpty ? "Title is required" : null,
@@ -188,9 +239,35 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                     TextFormField(
                       controller: descriptionController,
                       maxLines: 4,
-                      decoration: const InputDecoration(
+                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      decoration: InputDecoration(
                         labelText: "Course Description",
-                        border: OutlineInputBorder(),
+                        labelStyle: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                          ),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: AppTheme.getBorderColor(context),
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(
+                            color: isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor,
+                            width: 2,
+                          ),
+                        ),
+                        filled: true,
+                        fillColor: AppTheme.getCardColor(context),
                       ),
                       validator: (value) =>
                           value!.isEmpty ? "Description is required" : null,
@@ -201,9 +278,13 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           "Course Video",
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500),
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: AppTheme.getTextPrimary(context),
+                          ),
                         ),
                         const SizedBox(height: 8),
 
@@ -213,83 +294,137 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                             width: double.infinity,
                             height: 120,
                             decoration: BoxDecoration(
-                              border: Border.all(color: Colors.grey),
-                              borderRadius: BorderRadius.circular(8),
-                              color: Colors.grey.shade100,
+                              border: Border.all(
+                                color: AppTheme.getBorderColor(context),
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                              color: AppTheme.getCardColor(context),
                             ),
                             child: selectedVideo == null
-                                ? const Column(
+                                ? Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
-                                      Icon(Icons.video_library,
-                                          size: 40, color: Colors.grey),
-                                      SizedBox(height: 8),
-                                      Text("Tap to select course video"),
+                                      Icon(
+                                        Icons.video_library,
+                                        size: 40,
+                                        color: AppTheme.getTextSecondary(
+                                          context,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        "Tap to select course video",
+                                        style: TextStyle(
+                                          color: AppTheme.getTextSecondary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   )
                                 : Row(
                                     mainAxisAlignment: MainAxisAlignment.center,
-                                    children: const [
-                                      Icon(Icons.check_circle,
-                                          color: Colors.green, size: 30),
-                                      SizedBox(width: 8),
-                                      Text("Video selected"),
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle,
+                                        color: AppTheme.getSuccessColor(
+                                          context,
+                                        ),
+                                        size: 30,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        "Video selected",
+                                        style: TextStyle(
+                                          color: AppTheme.getTextPrimary(
+                                            context,
+                                          ),
+                                        ),
+                                      ),
                                     ],
                                   ),
                           ),
                         ),
-
                       ],
                     ),
                     const SizedBox(height: 14),
+
                     /// Submit Button
-                    SizedBox(
+                    Container(
                       width: double.infinity,
                       height: 50,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color:
+                                (isDark
+                                        ? AppTheme.darkAccent
+                                        : const Color.fromARGB(255, 17, 51, 96))
+                                    .withOpacity(0.4),
+                            blurRadius: 10,
+                            spreadRadius: 1,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
                       child: ElevatedButton(
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                              const Color.fromARGB(255, 17, 51, 96),
+                          backgroundColor: isDark
+                              ? AppTheme.darkAccent
+                              : const Color.fromARGB(255, 17, 51, 96),
+                          foregroundColor: const Color(0xFFF0F8FF),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                        onPressed: _loading ? null : () async {
-                          if (!_formKey.currentState!.validate() || selectedVideo == null || coverImageFile == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text("Please fill all fields")),
-                            );
-                            return; 
-                          }
-                          try {
-                            await uploadAndSaveCourse();
+                        onPressed: _loading
+                            ? null
+                            : () async {
+                                if (!_formKey.currentState!.validate() ||
+                                    selectedVideo == null ||
+                                    coverImageFile == null) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Please fill all fields"),
+                                    ),
+                                  );
+                                  return;
+                                }
+                                try {
+                                  await uploadAndSaveCourse();
 
-                            // Show success SnackBar
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text("Course uploaded successfully!"),
-                                backgroundColor: Colors.green,
-                                duration: Duration(seconds: 2),
-                              ),
-                            );
+                                  // Show success SnackBar
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text(
+                                        "Course uploaded successfully!",
+                                      ),
+                                      backgroundColor: Colors.green,
+                                      duration: Duration(seconds: 2),
+                                    ),
+                                  );
 
-                            // Optional: reset form & clear selected files
-                            _formKey.currentState!.reset();
-                            setState(() {
-                              selectedVideo = null;
-                              coverImageFile = null;
-                              coverImageBytes = null;
-                            });
-
-                          } catch (e) {
-                            // Show error SnackBar
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text("Failed to upload course: $e"),
-                                backgroundColor: Colors.red,
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
+                                  // Optional: reset form & clear selected files
+                                  _formKey.currentState!.reset();
+                                  setState(() {
+                                    selectedVideo = null;
+                                    coverImageFile = null;
+                                    coverImageBytes = null;
+                                  });
+                                } catch (e) {
+                                  // Show error SnackBar
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        "Failed to upload course: $e",
+                                      ),
+                                      backgroundColor: Colors.red,
+                                      duration: const Duration(seconds: 3),
+                                    ),
+                                  );
+                                }
+                              },
                         child: _loading
                             ? const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
@@ -300,19 +435,24 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                                     height: 20,
                                     child: CircularProgressIndicator(
                                       strokeWidth: 2,
-                                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.white,
+                                      ),
                                     ),
                                   ),
                                   SizedBox(width: 12),
                                   Text(
                                     "Uploading...",
-                                    style: TextStyle(fontSize: 16, color: Colors.white),
+                                    style: TextStyle(
+                                      fontSize: 16,
+                                      color: Colors.white,
+                                    ),
                                   ),
                                 ],
                               )
                             : const Text(
                                 "Add Course",
-                                style: TextStyle(fontSize: 16, color: Colors.white),
+                                style: TextStyle(fontSize: 16),
                               ),
                       ),
                     ),
@@ -322,9 +462,17 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.blue.shade50,
+                          color:
+                              (isDark ? AppTheme.darkPrimaryLight : Colors.blue)
+                                  .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.blue.shade200),
+                          border: Border.all(
+                            color:
+                                (isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : Colors.blue)
+                                    .withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -333,7 +481,11 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                               height: 24,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade600),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : Colors.blue.shade600,
+                                ),
                               ),
                             ),
                             const SizedBox(width: 16),
@@ -341,7 +493,9 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                               child: Text(
                                 _uploadStatus,
                                 style: TextStyle(
-                                  color: Colors.blue.shade800,
+                                  color: isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : Colors.blue.shade800,
                                   fontWeight: FontWeight.w500,
                                 ),
                               ),

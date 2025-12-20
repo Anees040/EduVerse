@@ -224,21 +224,36 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
               ),
             ),
             const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: _createNewCourse,
-              icon: const Icon(Icons.add),
-              label: const Text('Create First Course'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark
-                    ? AppTheme.darkPrimaryLight
-                    : AppTheme.primaryColor,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 32,
-                  vertical: 16,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color:
+                        (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                            .withOpacity(0.4),
+                    blurRadius: 10,
+                    spreadRadius: 1,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: ElevatedButton.icon(
+                onPressed: _createNewCourse,
+                icon: const Icon(Icons.add),
+                label: const Text('Create First Course'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
+                  foregroundColor: const Color(0xFFF0F8FF),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 32,
+                    vertical: 16,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
                 ),
               ),
             ),
@@ -287,6 +302,8 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
                 imageUrl: course['imageUrl'] ?? '',
                 createdAt: course['createdAt'],
                 isTeacherView: true,
+                enrolledCount: course['enrolledCount'] ?? 0,
+                videoCount: course['videoCount'] ?? 0,
                 onTap: () => _openCourseManagement(course),
               );
             }, childCount: courses.length),

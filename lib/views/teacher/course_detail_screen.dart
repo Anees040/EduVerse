@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/video_player_widget.dart';
+import 'package:eduverse/utils/app_theme.dart';
 
 class CourseDetailScreen extends StatelessWidget {
   final String courseTitle;
@@ -21,10 +22,16 @@ class CourseDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = AppTheme.isDarkMode(context);
     return Scaffold(
+      backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
         title: Text(courseTitle),
-        backgroundColor: const Color.fromARGB(255, 17, 51, 96),
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: isDark ? AppTheme.darkPrimaryGradient : AppTheme.primaryGradient,
+          ),
+        ),
         foregroundColor: Colors.white,
       ),
       body: SingleChildScrollView(
@@ -42,8 +49,12 @@ class CourseDetailScreen extends StatelessWidget {
                 : Container(
                     width: double.infinity,
                     height: 200,
-                    color: Colors.grey.shade300,
-                    child: const Icon(Icons.image, size: 50, color: Colors.grey),
+                    color: isDark ? AppTheme.darkCard : Colors.grey.shade300,
+                    child: Icon(
+                      Icons.image, 
+                      size: 50, 
+                      color: AppTheme.getTextSecondary(context),
+                    ),
                   ),
             const SizedBox(height: 16),
 
@@ -52,7 +63,10 @@ class CourseDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
                 "$enrolledStudents students enrolled",
-                style: const TextStyle(fontSize: 16, color: Colors.grey),
+                style: TextStyle(
+                  fontSize: 16, 
+                  color: AppTheme.getTextSecondary(context),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -63,17 +77,24 @@ class CourseDetailScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 16.0),
                 child: Text(
                   "Created at: ${DateTime.fromMillisecondsSinceEpoch(createdAt!).toLocal()}",
-                  style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  style: TextStyle(
+                    fontSize: 14, 
+                    color: AppTheme.getTextSecondary(context),
+                  ),
                 ),
               ),
-            const Divider(height: 32),
+            Divider(height: 32, color: AppTheme.getDividerColor(context)),
 
             // Course overview / description
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
                 "Course Overview",
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 20, 
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getTextPrimary(context),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -81,7 +102,10 @@ class CourseDetailScreen extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
                 description.isNotEmpty ? description : "No description provided",
-                style: const TextStyle(fontSize: 16),
+                style: TextStyle(
+                  fontSize: 16,
+                  color: AppTheme.getTextSecondary(context),
+                ),
               ),
             ),
             const SizedBox(height: 16),
@@ -93,9 +117,13 @@ class CourseDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       "Course Video",
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      style: TextStyle(
+                        fontSize: 20, 
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getTextPrimary(context),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     AspectRatio(

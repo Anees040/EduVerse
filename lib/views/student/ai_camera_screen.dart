@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:eduverse/services/gemini_api_service.dart';
+import 'package:eduverse/services/ai_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
 class MathwayHelpScreen extends StatefulWidget {
