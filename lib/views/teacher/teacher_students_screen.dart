@@ -1,6 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
 class TeacherStudentsScreen extends StatefulWidget {
@@ -14,9 +16,8 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
   bool isLoading = true;
   List<Map<String, dynamic>> students = [];
   Map<String, String> courseNames = {}; // courseId -> courseName
-  String selectedCourse = 'All';
-  String searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
+
+  // For now no filtering; show all students the teacher has
 
   @override
   void initState() {
@@ -43,14 +44,82 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
         courseNames[courseId] = title;
       }
 
-      // Fetch all enrolled students
+      // Fetch all enrolled students (primary method)
       final fetchedStudents = await CourseService()
           .getAllEnrolledStudentsForTeacher(teacherUid: teacherId);
 
-      setState(() {
-        students = fetchedStudents;
-        isLoading = false;
-      });
+      // If primary fetch returned no students, attempt a robust fallback
+      // by scanning the teacher's course data for enrolledStudents and
+      // fetching student profiles directly.
+      if (fetchedStudents.isEmpty && courseNames.isNotEmpty) {
+        final Set<String> studentUids = {};
+
+        // Try to collect student UIDs from teacher's courses (teacherCourses)
+        // Note: we have `teacherCourses` variable above in this scope
+        for (final course in teacherCourses) {
+          if (course is Map && course['enrolledStudents'] != null) {
+            final Map<dynamic, dynamic> enrolled = course['enrolledStudents'] as Map<dynamic, dynamic>;
+            studentUids.addAll(enrolled.keys.map((e) => e.toString()));
+          }
+        }
+
+        if (studentUids.isNotEmpty) {
+          final db = FirebaseDatabase.instance.ref();
+          final futures = studentUids.map((uid) async {
+            final snap = await db.child('student').child(uid).get();
+            if (!snap.exists) return null;
+            final data = Map<String, dynamic>.from(snap.value as Map<dynamic, dynamic>);
+            data['uid'] = uid;
+
+            // Build enrolledCourses map limited to teacher's courses
+            final Map<String, dynamic> enrolledCourses = {};
+            for (final course in teacherCourses) {
+              final cid = course['courseUid']?.toString();
+              if (cid == null) continue;
+              final enrolledMap = course['enrolledStudents'] as Map<dynamic, dynamic>?;
+              if (enrolledMap != null && enrolledMap.containsKey(uid)) {
+                final entry = enrolledMap[uid];
+                enrolledCourses[cid] = {
+                  'enrolledAt': (entry is Map && entry['enrolledAt'] != null) ? entry['enrolledAt'] : DateTime.now().millisecondsSinceEpoch,
+                };
+              }
+            }
+            data['enrolledCourses'] = enrolledCourses;
+            return data;
+          }).toList();
+
+          final results = (await Future.wait(futures)).whereType<Map<String, dynamic>>().toList();
+          setState(() {
+            students = results;
+            isLoading = false;
+          });
+        } else if (kDebugMode) {
+          // Debug-only mock so designers can preview the UI
+          final sampleCourseId = courseNames.keys.first;
+          final mock = [
+            {
+              'uid': 'debug_student_1',
+              'name': 'Sam Developer',
+              'email': 'sam.dev@example.com',
+              'enrolledCourses': {sampleCourseId: {'enrolledAt': DateTime.now().millisecondsSinceEpoch}}
+            }
+          ];
+          setState(() {
+            students = mock;
+            isLoading = false;
+          });
+        } else {
+          setState(() {
+            students = fetchedStudents;
+            isLoading = false;
+          });
+        }
+      } else {
+        setState(() {
+          students = fetchedStudents;
+          isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() => isLoading = false);
       if (mounted) {
@@ -61,48 +130,8 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
     }
   }
 
-  List<String> get allCourseOptions {
-    // Return 'All' plus course names from teacher's courses
-    return ['All', ...courseNames.values];
-  }
-
-  String? _getCourseUidByName(String name) {
-    if (name == 'All') return null;
-    for (final entry in courseNames.entries) {
-      if (entry.value == name) return entry.key;
-    }
-    return null;
-  }
-
-  // Filter students by selected course
-  List<Map<String, dynamic>> get filteredStudents {
-    // Start with all students
-    var list = students;
-
-    // Filter by course selection
-    if (selectedCourse != 'All') {
-      final courseUid = _getCourseUidByName(selectedCourse);
-      if (courseUid != null) {
-        list = list.where((student) {
-          final enrolledCourses =
-              student['enrolledCourses'] as Map<dynamic, dynamic>?;
-          return enrolledCourses != null && enrolledCourses.containsKey(courseUid);
-        }).toList();
-      }
-    }
-
-    // Filter by search query (name or email)
-    if (searchQuery.trim().isNotEmpty) {
-      final q = searchQuery.toLowerCase();
-      list = list.where((student) {
-        final name = (student['name'] ?? '').toString().toLowerCase();
-        final email = (student['email'] ?? '').toString().toLowerCase();
-        return name.contains(q) || email.contains(q);
-      }).toList();
-    }
-
-    return list;
-  }
+  // For now return all students (no filtering)
+  List<Map<String, dynamic>> get filteredStudents => students;
 
   @override
   Widget build(BuildContext context) {
@@ -123,114 +152,17 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Search + Filter Row
-                  Row(
-                    children: [
-                      // Search field
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkCard : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: isDark
-                                  ? AppTheme.darkBorder.withOpacity(0.6)
-                                  : Colors.grey.shade200,
-                              width: 1,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                Icons.search,
-                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: TextField(
-                                  controller: _searchController,
-                                  decoration: InputDecoration(
-                                    hintText: 'Search students by name or email',
-                                    border: InputBorder.none,
-                                    isDense: true,
-                                  ),
-                                  onChanged: (val) {
-                                    setState(() {
-                                      searchQuery = val;
-                                    });
-                                  },
-                                ),
-                              ),
-                              if (searchQuery.isNotEmpty)
-                                GestureDetector(
-                                  onTap: () {
-                                    _searchController.clear();
-                                    setState(() {
-                                      searchQuery = '';
-                                    });
-                                  },
-                                  child: Icon(
-                                    Icons.close,
-                                    size: 18,
-                                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
+                  // Students list header
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Students',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
                       ),
-
-                      const SizedBox(width: 12),
-
-                      // Dropdown filter
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkCard : Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: isDark
-                                ? AppTheme.darkAccent.withOpacity(0.3)
-                                : AppTheme.primaryColor.withOpacity(0.3),
-                            width: 1.5,
-                          ),
-                        ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: selectedCourse,
-                            dropdownColor: isDark ? AppTheme.darkCard : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            icon: Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                              size: 24,
-                            ),
-                            style: TextStyle(
-                              color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                            items: allCourseOptions.map((course) {
-                              return DropdownMenuItem<String>(
-                                value: course,
-                                child: Text(
-                                  course.length > 24 ? '${course.substring(0, 24)}...' : course,
-                                ),
-                              );
-                            }).toList(),
-                            onChanged: (value) {
-                              setState(() {
-                                selectedCourse = value!;
-                              });
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -248,9 +180,7 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                 ),
                                 const SizedBox(height: 16),
                                 Text(
-                                  selectedCourse == 'All'
-                                      ? 'No students enrolled yet'
-                                      : 'No students in this course',
+                                  'No students enrolled yet',
                                   style: TextStyle(
                                     fontSize: 16,
                                     color: AppTheme.getTextSecondary(context),
@@ -341,7 +271,31 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                   child: InkWell(
                                     borderRadius: BorderRadius.circular(20),
                                     onTap: () {
-                                      // Could show student details in future
+                                      // Show simple student details dialog
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+                                          title: Text(studentName),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Email: $studentEmail'),
+                                              const SizedBox(height: 8),
+                                              Text('Courses:'),
+                                              const SizedBox(height: 6),
+                                              ...enrolledCourseNames.map((c) => Text('• $c')),
+                                            ],
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () => Navigator.pop(context),
+                                              child: const Text('Close'),
+                                            ),
+                                          ],
+                                        ),
+                                      );
                                     },
                                     child: Padding(
                                       padding: const EdgeInsets.all(16),
@@ -496,99 +450,51 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                                   runSpacing: 8,
                                                   children: enrolledCourseNames
                                                       .map(
-                                                        (name) => InkWell(
-                                                          onTap: () {
-                                                            // Quick filter by tapped course
-                                                            setState(() {
-                                                              selectedCourse = name;
-                                                            });
-                                                          },
-                                                          borderRadius:
-                                                              BorderRadius.circular(
-                                                                  12),
-                                                          child: Container(
-                                                            padding:
-                                                                const EdgeInsets.symmetric(
-                                                                  horizontal: 12,
-                                                                  vertical: 6,
-                                                                ),
-                                                            decoration: BoxDecoration(
-                                                              gradient: LinearGradient(
-                                                                colors: isDark
-                                                                    ? [
-                                                                        AppTheme
-                                                                            .darkAccent
-                                                                            .withOpacity(
-                                                                              0.2,
-                                                                            ),
-                                                                        AppTheme
-                                                                            .darkPrimaryLight
-                                                                            .withOpacity(
-                                                                              0.15,
-                                                                            ),
-                                                                      ]
-                                                                    : [
-                                                                        courseTagColor
-                                                                            .withOpacity(
-                                                                              0.12,
-                                                                            ),
-                                                                        courseTagColor
-                                                                            .withOpacity(
-                                                                              0.08,
-                                                                            ),
-                                                                      ],
-                                                                begin: Alignment.topLeft,
-                                                                end: Alignment.bottomRight,
-                                                              ),
-                                                              borderRadius:
-                                                                  BorderRadius.circular(
-                                                                    12,
-                                                                  ),
-                                                              border: Border.all(
-                                                                color: isDark
-                                                                    ? AppTheme
-                                                                          .darkAccent
-                                                                          .withOpacity(
-                                                                            0.4,
-                                                                          )
-                                                                    : courseTagColor
-                                                                          .withOpacity(
-                                                                            0.3,
-                                                                          ),
-                                                                width: 1,
-                                                              ),
+                                                        (name) => Container(
+                                                          padding: const EdgeInsets.symmetric(
+                                                            horizontal: 12,
+                                                            vertical: 6,
+                                                          ),
+                                                          decoration: BoxDecoration(
+                                                            gradient: LinearGradient(
+                                                              colors: isDark
+                                                                  ? [
+                                                                      AppTheme.darkAccent.withOpacity(0.2),
+                                                                      AppTheme.darkPrimaryLight.withOpacity(0.15),
+                                                                    ]
+                                                                  : [
+                                                                      courseTagColor.withOpacity(0.12),
+                                                                      courseTagColor.withOpacity(0.08),
+                                                                    ],
+                                                              begin: Alignment.topLeft,
+                                                              end: Alignment.bottomRight,
                                                             ),
-                                                            child: Row(
-                                                              mainAxisSize:
-                                                                  MainAxisSize.min,
-                                                              children: [
-                                                                Icon(
-                                                                  Icons
-                                                                      .book_outlined,
-                                                                  size: 12,
-                                                                  color: isDark
-                                                                      ? AppTheme
-                                                                            .darkAccent
-                                                                      : courseTagColor,
-                                                                ),
-                                                                const SizedBox(
-                                                                  width: 4,
-                                                                ),
-                                                                Text(
-                                                                  name,
-                                                                  style: TextStyle(
-                                                                    fontSize: 11,
-                                                                    fontWeight:
-                                                                        FontWeight
-                                                                            .w600,
-                                                                    color: isDark
-                                                                        ? AppTheme
-                                                                              .darkAccent
-                                                                        : courseTagColor,
-                                                                  ),
-                                                                ),
-                                                              ],
+                                                            borderRadius: BorderRadius.circular(12),
+                                                            border: Border.all(
+                                                              color: isDark
+                                                                  ? AppTheme.darkAccent.withOpacity(0.4)
+                                                                  : courseTagColor.withOpacity(0.3),
+                                                              width: 1,
                                                             ),
+                                                          ),
+                                                          child: Row(
+                                                            mainAxisSize: MainAxisSize.min,
+                                                            children: [
+                                                              Icon(
+                                                                Icons.book_outlined,
+                                                                size: 12,
+                                                                color: isDark ? AppTheme.darkAccent : courseTagColor,
+                                                              ),
+                                                              const SizedBox(width: 4),
+                                                              Text(
+                                                                name,
+                                                                style: TextStyle(
+                                                                  fontSize: 11,
+                                                                  fontWeight: FontWeight.w600,
+                                                                  color: isDark ? AppTheme.darkAccent : courseTagColor,
+                                                                ),
+                                                              ),
+                                                            ],
                                                           ),
                                                         ),
                                                       )
@@ -647,46 +553,6 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                                 ),
                                               ],
                                             ),
-                                          ),
-                                          // Make entire student tile tappable to show details
-                                          GestureDetector(
-                                            behavior: HitTestBehavior.translucent,
-                                            onTap: () {
-                                              // Show student detail dialog
-                                              showDialog(
-                                                context: context,
-                                                builder: (context) {
-                                                  return AlertDialog(
-                                                    backgroundColor: isDark
-                                                        ? AppTheme.darkCard
-                                                        : Colors.white,
-                                                    title: Text(studentName),
-                                                    content: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text('Email: $studentEmail'),
-                                                        const SizedBox(height: 8),
-                                                        Text('Courses:'),
-                                                        const SizedBox(height: 6),
-                                                        ...enrolledCourseNames.map((c) => Padding(
-                                                              padding: const EdgeInsets.symmetric(vertical: 2),
-                                                              child: Text('• $c'),
-                                                            )),
-                                                      ],
-                                                    ),
-                                                    actions: [
-                                                      TextButton(
-                                                        onPressed: () => Navigator.pop(context),
-                                                        child: const Text('Close'),
-                                                      ),
-                                                    ],
-                                                  );
-                                                },
-                                              );
-                                            },
                                           ),
                                         ],
                                       ),
