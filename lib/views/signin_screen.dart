@@ -135,7 +135,7 @@ class _SigninScreenState extends State<SigninScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: isStudent
-                                      ? AppTheme.getPrimaryColor(context)
+                                      ? AppTheme.getButtonColor(context)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -175,7 +175,7 @@ class _SigninScreenState extends State<SigninScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: !isStudent
-                                      ? AppTheme.getPrimaryColor(context)
+                                      ? AppTheme.getButtonColor(context)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),

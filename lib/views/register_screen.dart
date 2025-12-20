@@ -203,7 +203,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: isStudent
-                                      ? AppTheme.getPrimaryColor(context)
+                                      ? AppTheme.getButtonColor(context)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),
@@ -243,7 +243,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: !isStudent
-                                      ? AppTheme.getPrimaryColor(context)
+                                      ? AppTheme.getButtonColor(context)
                                       : Colors.transparent,
                                   borderRadius: BorderRadius.circular(10),
                                 ),

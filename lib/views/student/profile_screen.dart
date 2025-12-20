@@ -254,34 +254,48 @@ class _ProfileScreenState extends State<ProfileScreen>
               style: TextStyle(color: AppTheme.getTextSecondary(context)),
             ),
           ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await UserService().updateUserName(
-                  uid: widget.uid,
-                  role: widget.role,
-                  name: _nameController.text.trim(),
-                );
-                Navigator.pop(ctx);
-                fetchUserData();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Profile updated successfully!'),
-                    backgroundColor: AppTheme.success,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to update profile: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark
-                  ? AppTheme.darkPrimaryLight
-                  : AppTheme.primaryColor,
+          Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.4),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3),
+                ),
+              ],
             ),
-            child: const Text('Save'),
+            child: ElevatedButton(
+              onPressed: () async {
+                try {
+                  await UserService().updateUserName(
+                    uid: widget.uid,
+                    role: widget.role,
+                    name: _nameController.text.trim(),
+                  );
+                  Navigator.pop(ctx);
+                  fetchUserData();
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Profile updated successfully!'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                } catch (e) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update profile: $e')),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
+                foregroundColor: const Color(0xFFF0F8FF),
+              ),
+              child: const Text('Save'),
+            ),
           ),
         ],
       ),
@@ -462,8 +476,13 @@ class _ProfileScreenState extends State<ProfileScreen>
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark
-                  ? AppTheme.darkPrimaryLight
+                  ? AppTheme.darkAccent
                   : AppTheme.primaryColor,
+              foregroundColor: const Color(0xFFF0F8FF),
+              elevation: 6,
+              shadowColor:
+                  (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.5),
             ),
             child: const Text('Change'),
           ),
@@ -937,8 +956,16 @@ class _ProfileScreenState extends State<ProfileScreen>
               }
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
+              backgroundColor: AppTheme.isDarkMode(context)
+                  ? AppTheme.darkAccent
+                  : AppTheme.error,
+              foregroundColor: const Color(0xFFF0F8FF),
+              elevation: 6,
+              shadowColor:
+                  (AppTheme.isDarkMode(context)
+                          ? AppTheme.darkAccent
+                          : AppTheme.error)
+                      .withOpacity(0.5),
             ),
             child: const Text("Logout"),
           ),

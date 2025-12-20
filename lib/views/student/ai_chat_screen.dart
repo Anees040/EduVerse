@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:eduverse/services/gemini_api_service.dart';
+import 'package:flutter/services.dart';
+import 'package:eduverse/services/ai_service.dart';
 import 'package:eduverse/services/chat_history_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
@@ -146,8 +147,13 @@ class _AIChatScreenState extends State<AIChatScreen> {
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark
-                  ? AppTheme.darkPrimaryLight
+                  ? AppTheme.darkAccent
                   : AppTheme.primaryColor,
+              foregroundColor: const Color(0xFFF0F8FF),
+              elevation: 6,
+              shadowColor:
+                  (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.5),
             ),
             child: const Text('Rename'),
           ),
@@ -206,14 +212,19 @@ class _AIChatScreenState extends State<AIChatScreen> {
         text: aiText,
       );
     } catch (e) {
+      final errorMessage = "Sorry, something went wrong. Please try again.";
       setState(() {
         messages.removeLast();
-        messages.add({
-          "sender": "ai",
-          "text": "Sorry, something went wrong. Please try again.",
-        });
+        messages.add({"sender": "ai", "text": errorMessage});
         _isLoading = false;
       });
+
+      // Save error response to history so chat is not lost
+      await chatHistoryService.addMessage(
+        chatId: currentChatId!,
+        sender: 'ai',
+        text: errorMessage,
+      );
     }
 
     _scrollToBottom();
@@ -500,12 +511,12 @@ StatelessWidgets are lightweight and performant - use them when your widget does
   // Check if user query matches any prebuilt answer
   String? _getPrebuiltAnswer(String query) {
     final normalizedQuery = query.toLowerCase().trim();
-    
+
     // Direct match
     if (_prebuiltAnswers.containsKey(normalizedQuery)) {
       return _prebuiltAnswers[normalizedQuery];
     }
-    
+
     // Fuzzy matching for common variations
     for (final entry in _prebuiltAnswers.entries) {
       final key = entry.key;
@@ -514,29 +525,38 @@ StatelessWidgets are lightweight and performant - use them when your widget does
         return entry.value;
       }
     }
-    
+
     return null;
   }
 
   bool _queryMatches(String query, String key) {
     // Remove common question words
     final cleanQuery = query
-        .replaceAll(RegExp(r'\b(what|is|are|the|a|an|in|explain|describe|tell me about|can you explain)\b'), '')
+        .replaceAll(
+          RegExp(
+            r'\b(what|is|are|the|a|an|in|explain|describe|tell me about|can you explain)\b',
+          ),
+          '',
+        )
         .replaceAll(RegExp(r'[?.,!]'), '')
         .trim()
         .replaceAll(RegExp(r'\s+'), ' ');
-    
+
     final cleanKey = key
         .replaceAll(RegExp(r'\b(what|is|are|the|a|an|in|explain)\b'), '')
         .trim()
         .replaceAll(RegExp(r'\s+'), ' ');
-    
+
     // Check for keyword matches
     final queryWords = cleanQuery.split(' ').where((w) => w.length > 2).toSet();
     final keyWords = cleanKey.split(' ').where((w) => w.length > 2).toSet();
-    
+
     // If most key words are in query, it's a match
-    final matchCount = keyWords.where((kw) => queryWords.any((qw) => qw.contains(kw) || kw.contains(qw))).length;
+    final matchCount = keyWords
+        .where(
+          (kw) => queryWords.any((qw) => qw.contains(kw) || kw.contains(qw)),
+        )
+        .length;
     return matchCount >= keyWords.length * 0.7;
   }
 
@@ -548,7 +568,7 @@ StatelessWidgets are lightweight and performant - use them when your widget does
       await Future.delayed(const Duration(milliseconds: 500));
       return prebuiltAnswer;
     }
-    
+
     // If no prebuilt answer, use AI service
     final response = await aiService.sendMessage(userText);
     return response;
@@ -585,11 +605,13 @@ StatelessWidgets are lightweight and performant - use them when your widget does
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
             tooltip: 'New Chat',
-            onPressed: () {
+            onPressed: () async {
               setState(() {
                 currentChatId = null;
                 messages = [];
               });
+              // Refresh chat history to show the previous chat in history
+              await _loadChatHistory();
             },
           ),
         ],
@@ -644,18 +666,31 @@ StatelessWidgets are lightweight and performant - use them when your widget does
                 // New Chat Button
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: _startNewChat,
-                    icon: const Icon(Icons.add, size: 20),
-                    label: const Text('New Chat'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.3),
+                          blurRadius: 10,
+                          spreadRadius: 1,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: ElevatedButton.icon(
+                      onPressed: _startNewChat,
+                      icon: const Icon(Icons.add, size: 20),
+                      label: const Text('New Chat'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: isDark
+                            ? AppTheme.darkPrimary
+                            : AppTheme.primaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
                     ),
                   ),
@@ -852,7 +887,9 @@ StatelessWidgets are lightweight and performant - use them when your widget does
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.error,
-              foregroundColor: Colors.white,
+              foregroundColor: const Color(0xFFF5F5F5),
+              elevation: 6,
+              shadowColor: AppTheme.error.withOpacity(0.5),
             ),
             child: const Text('Delete'),
           ),
@@ -1079,18 +1116,28 @@ StatelessWidgets are lightweight and performant - use them when your widget does
                   decoration: BoxDecoration(
                     color: isUser
                         ? (isDark
-                              ? AppTheme.darkPrimaryLight
+                              ? AppTheme
+                                    .darkAccent // Teal for user messages
                               : AppTheme.primaryColor)
-                        : AppTheme.getCardColor(context),
+                        : (isDark
+                              ? AppTheme
+                                    .darkElevated // Better contrast for AI messages
+                              : AppTheme.getCardColor(context)),
                     borderRadius: BorderRadius.only(
                       topLeft: const Radius.circular(16),
                       topRight: const Radius.circular(16),
                       bottomLeft: Radius.circular(isUser ? 16 : 4),
                       bottomRight: Radius.circular(isUser ? 4 : 16),
                     ),
+                    border: isDark && !isUser
+                        ? Border.all(
+                            color: AppTheme.darkBorder.withOpacity(0.5),
+                            width: 1,
+                          )
+                        : null,
                     boxShadow: [
                       BoxShadow(
-                        color: isDark ? Colors.black26 : Colors.grey.shade200,
+                        color: isDark ? Colors.black38 : Colors.grey.shade200,
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -1122,7 +1169,10 @@ StatelessWidgets are lightweight and performant - use them when your widget does
                           style: TextStyle(
                             color: isUser
                                 ? Colors.white
-                                : AppTheme.getTextPrimary(context),
+                                : (isDark
+                                      ? AppTheme
+                                            .darkTextPrimary // Brighter text for AI responses
+                                      : AppTheme.textPrimary),
                             fontSize: 15,
                             height: 1.5,
                           ),
@@ -1173,22 +1223,33 @@ StatelessWidgets are lightweight and performant - use them when your widget does
                   color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(24),
                 ),
-                child: TextField(
-                  controller: _controller,
-                  maxLines: null,
-                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                  decoration: InputDecoration(
-                    hintText: 'Ask me anything...',
-                    hintStyle: TextStyle(
-                      color: AppTheme.getTextSecondary(context),
-                    ),
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 14,
+                child: KeyboardListener(
+                  focusNode: FocusNode(),
+                  onKeyEvent: (event) {
+                    if (event is KeyDownEvent &&
+                        event.logicalKey == LogicalKeyboardKey.enter &&
+                        !HardwareKeyboard.instance.isShiftPressed) {
+                      if (_controller.text.trim().isNotEmpty && !_isLoading) {
+                        sendMessage();
+                      }
+                    }
+                  },
+                  child: TextField(
+                    controller: _controller,
+                    maxLines: null,
+                    style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                    decoration: InputDecoration(
+                      hintText: 'Ask me anything...',
+                      hintStyle: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 14,
+                      ),
                     ),
                   ),
-                  onSubmitted: (_) => sendMessage(),
                 ),
               ),
             ),
@@ -1196,18 +1257,23 @@ StatelessWidgets are lightweight and performant - use them when your widget does
             Container(
               decoration: BoxDecoration(
                 gradient: isDark
-                    ? AppTheme.darkPrimaryGradient
+                    ? const LinearGradient(
+                        colors: [
+                          Color(0xFF2EC4B6),
+                          Color(0xFF22A094),
+                        ], // Vibrant teal
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                      )
                     : AppTheme.primaryGradient,
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
                     color:
-                        (isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor)
-                            .withOpacity(0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+                        (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                            .withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 3),
                   ),
                 ],
               ),

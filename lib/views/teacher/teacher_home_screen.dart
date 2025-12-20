@@ -23,11 +23,21 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   final NotificationService _notificationService = NotificationService();
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
 
+  void _navigateToCoursesTab() {
+    setState(() {
+      _selectedIndex = 1; // Courses tab index
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _screens = [
-      TeacherHomeTab(role: widget.role, uid: widget.uid),
+      TeacherHomeTab(
+        role: widget.role,
+        uid: widget.uid,
+        onSeeAllCourses: _navigateToCoursesTab,
+      ),
       const TeacherCoursesScreen(),
       const TeacherStudentsScreen(),
       TeacherProfileScreen(uid: widget.uid, role: widget.role),
