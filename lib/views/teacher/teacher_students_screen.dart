@@ -57,7 +57,7 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
         // Try to collect student UIDs from teacher's courses (teacherCourses)
         // Note: we have `teacherCourses` variable above in this scope
         for (final course in teacherCourses) {
-          if (course is Map && course['enrolledStudents'] != null) {
+          if (course['enrolledStudents'] != null) {
             final Map<dynamic, dynamic> enrolled = course['enrolledStudents'] as Map<dynamic, dynamic>;
             studentUids.addAll(enrolled.keys.map((e) => e.toString()));
           }
