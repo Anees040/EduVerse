@@ -48,8 +48,10 @@ class CourseCard extends StatelessWidget {
     final isDark = AppTheme.isDarkMode(context);
     final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
     final tealAccent = isDark ? const Color(0xFF4ECDC4) : AppTheme.accentColor;
-    // Dedicated button color: purple for light theme, cyan for dark theme
-    final buttonColor = isDark ? AppTheme.darkPrimary : AppTheme.primaryLight;
+    // Use same color as the 'Create Course' button:
+    // - Light theme: primaryColor
+    // - Dark theme: darkPrimaryLight
+    final buttonColor = isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor;
 
     return GestureDetector(
       onTap: onTap,
@@ -185,7 +187,33 @@ class CourseCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  if (description != null && description!.isNotEmpty && !isTeacherView) ...[
+                  // For teacher view show quick stats (students, videos)
+                  if (isTeacherView) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Icon(Icons.people, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${enrolledCount ?? 0} students',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(Icons.video_collection, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${videoCount ?? 0} videos',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ] else if (description != null && description!.isNotEmpty) ...[
                     const SizedBox(height: 4),
                     Text(
                       description!,
@@ -214,13 +242,13 @@ class CourseCard extends StatelessWidget {
                       ],
                     ),
                     child: ElevatedButton.icon(
-                      onPressed: isEnrolled ? onTap : onEnroll,
+                      onPressed: isTeacherView ? (onTap ?? onEnroll) : (isEnrolled ? onTap : onEnroll),
                       icon: Icon(
-                        isEnrolled ? Icons.play_arrow_rounded : Icons.add_rounded,
+                        isTeacherView ? Icons.settings : (isEnrolled ? Icons.play_arrow_rounded : Icons.add_rounded),
                         size: 16,
                       ),
                       label: Text(
-                        isEnrolled ? 'Continue' : 'Enroll',
+                        isTeacherView ? 'Manage' : (isEnrolled ? 'Continue' : 'Enroll'),
                         style: const TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w600,
