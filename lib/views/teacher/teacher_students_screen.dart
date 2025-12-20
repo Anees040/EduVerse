@@ -14,8 +14,9 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
   bool isLoading = true;
   List<Map<String, dynamic>> students = [];
   Map<String, String> courseNames = {}; // courseId -> courseName
-
   String selectedCourse = 'All';
+  String searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -75,16 +76,32 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
 
   // Filter students by selected course
   List<Map<String, dynamic>> get filteredStudents {
-    if (selectedCourse == 'All') return students;
+    // Start with all students
+    var list = students;
 
-    final courseUid = _getCourseUidByName(selectedCourse);
-    if (courseUid == null) return students;
+    // Filter by course selection
+    if (selectedCourse != 'All') {
+      final courseUid = _getCourseUidByName(selectedCourse);
+      if (courseUid != null) {
+        list = list.where((student) {
+          final enrolledCourses =
+              student['enrolledCourses'] as Map<dynamic, dynamic>?;
+          return enrolledCourses != null && enrolledCourses.containsKey(courseUid);
+        }).toList();
+      }
+    }
 
-    return students.where((student) {
-      final enrolledCourses =
-          student['enrolledCourses'] as Map<dynamic, dynamic>?;
-      return enrolledCourses != null && enrolledCourses.containsKey(courseUid);
-    }).toList();
+    // Filter by search query (name or email)
+    if (searchQuery.trim().isNotEmpty) {
+      final q = searchQuery.toLowerCase();
+      list = list.where((student) {
+        final name = (student['name'] ?? '').toString().toLowerCase();
+        final email = (student['email'] ?? '').toString().toLowerCase();
+        return name.contains(q) || email.contains(q);
+      }).toList();
+    }
+
+    return list;
   }
 
   @override
@@ -106,23 +123,70 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // 🔍 Filter Dropdown
+                  // Search + Filter Row
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        "Filter by Course:",
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: isDark
-                              ? AppTheme.darkTextPrimary
-                              : const Color.fromARGB(255, 17, 51, 96),
+                      // Search field
+                      Expanded(
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkCard : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: isDark
+                                  ? AppTheme.darkBorder.withOpacity(0.6)
+                                  : Colors.grey.shade200,
+                              width: 1,
+                            ),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.search,
+                                color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: TextField(
+                                  controller: _searchController,
+                                  decoration: InputDecoration(
+                                    hintText: 'Search students by name or email',
+                                    border: InputBorder.none,
+                                    isDense: true,
+                                  ),
+                                  onChanged: (val) {
+                                    setState(() {
+                                      searchQuery = val;
+                                    });
+                                  },
+                                ),
+                              ),
+                              if (searchQuery.isNotEmpty)
+                                GestureDetector(
+                                  onTap: () {
+                                    _searchController.clear();
+                                    setState(() {
+                                      searchQuery = '';
+                                    });
+                                  },
+                                  child: Icon(
+                                    Icons.close,
+                                    size: 18,
+                                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
+
+                      const SizedBox(width: 12),
+
+                      // Dropdown filter
                       Container(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
+                          horizontal: 12,
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
@@ -134,134 +198,27 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                 : AppTheme.primaryColor.withOpacity(0.3),
                             width: 1.5,
                           ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: isDark
-                                  ? AppTheme.darkAccent.withOpacity(0.15)
-                                  : AppTheme.primaryColor.withOpacity(0.1),
-                              blurRadius: 8,
-                              spreadRadius: 0,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: selectedCourse,
-                            dropdownColor: isDark
-                                ? AppTheme.darkCard
-                                : Colors.white,
+                            dropdownColor: isDark ? AppTheme.darkCard : Colors.white,
                             borderRadius: BorderRadius.circular(14),
-                            icon: Container(
-                              padding: const EdgeInsets.only(left: 8),
-                              child: Icon(
-                                Icons.keyboard_arrow_down_rounded,
-                                color: isDark
-                                    ? AppTheme.darkAccent
-                                    : AppTheme.primaryColor,
-                                size: 24,
-                              ),
+                            icon: Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                              size: 24,
                             ),
                             style: TextStyle(
-                              color: isDark
-                                  ? AppTheme.darkTextPrimary
-                                  : Colors.black87,
+                              color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                             items: allCourseOptions.map((course) {
-                              final isSelected = course == selectedCourse;
-                              final isAll = course == 'All';
                               return DropdownMenuItem<String>(
                                 value: course,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 8,
-                                    horizontal: 12,
-                                  ),
-                                  margin: const EdgeInsets.symmetric(
-                                    vertical: 2,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? (isDark
-                                            ? AppTheme.darkAccent.withOpacity(0.15)
-                                            : AppTheme.primaryColor.withOpacity(0.1))
-                                        : Colors.transparent,
-                                    borderRadius: BorderRadius.circular(10),
-                                    border: isSelected
-                                        ? Border.all(
-                                            color: isDark
-                                                ? AppTheme.darkAccent.withOpacity(0.4)
-                                                : AppTheme.primaryColor.withOpacity(0.3),
-                                            width: 1,
-                                          )
-                                        : null,
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      // Icon for each item
-                                      Container(
-                                        padding: const EdgeInsets.all(6),
-                                        decoration: BoxDecoration(
-                                          color: isSelected
-                                              ? (isDark
-                                                  ? AppTheme.darkAccent.withOpacity(0.2)
-                                                  : AppTheme.primaryColor.withOpacity(0.15))
-                                              : (isDark
-                                                  ? Colors.white.withOpacity(0.08)
-                                                  : Colors.grey.shade100),
-                                          borderRadius: BorderRadius.circular(8),
-                                        ),
-                                        child: Icon(
-                                          isAll ? Icons.filter_list_rounded : Icons.book_outlined,
-                                          size: 16,
-                                          color: isSelected
-                                              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                                              : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      // Course name
-                                      Expanded(
-                                        child: Text(
-                                          course.length > 20
-                                              ? '${course.substring(0, 20)}...'
-                                              : course,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: isSelected
-                                                ? (isDark
-                                                      ? AppTheme.darkAccent
-                                                      : AppTheme.primaryColor)
-                                                : (isDark
-                                                      ? AppTheme.darkTextPrimary
-                                                      : Colors.black87),
-                                            fontWeight: isSelected
-                                                ? FontWeight.w600
-                                                : FontWeight.w500,
-                                            fontSize: 14,
-                                          ),
-                                        ),
-                                      ),
-                                      // Check indicator for selected
-                                      if (isSelected)
-                                        Container(
-                                          padding: const EdgeInsets.all(2),
-                                          decoration: BoxDecoration(
-                                            color: isDark
-                                                ? AppTheme.darkAccent
-                                                : AppTheme.primaryColor,
-                                            shape: BoxShape.circle,
-                                          ),
-                                          child: const Icon(
-                                            Icons.check,
-                                            size: 12,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                    ],
-                                  ),
+                                child: Text(
+                                  course.length > 24 ? '${course.substring(0, 24)}...' : course,
                                 ),
                               );
                             }).toList(),
@@ -539,91 +496,99 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                                   runSpacing: 8,
                                                   children: enrolledCourseNames
                                                       .map(
-                                                        (name) => Container(
-                                                          padding:
-                                                              const EdgeInsets.symmetric(
-                                                                horizontal: 12,
-                                                                vertical: 6,
-                                                              ),
-                                                          decoration: BoxDecoration(
-                                                            gradient: LinearGradient(
-                                                              colors: isDark
-                                                                  ? [
-                                                                      AppTheme
-                                                                          .darkAccent
-                                                                          .withOpacity(
-                                                                            0.2,
-                                                                          ),
-                                                                      AppTheme
-                                                                          .darkPrimaryLight
-                                                                          .withOpacity(
-                                                                            0.15,
-                                                                          ),
-                                                                    ]
-                                                                  : [
-                                                                      courseTagColor
-                                                                          .withOpacity(
-                                                                            0.12,
-                                                                          ),
-                                                                      courseTagColor
-                                                                          .withOpacity(
-                                                                            0.08,
-                                                                          ),
-                                                                    ],
-                                                              begin: Alignment
-                                                                  .topLeft,
-                                                              end: Alignment
-                                                                  .bottomRight,
-                                                            ),
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
+                                                        (name) => InkWell(
+                                                          onTap: () {
+                                                            // Quick filter by tapped course
+                                                            setState(() {
+                                                              selectedCourse = name;
+                                                            });
+                                                          },
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                  12),
+                                                          child: Container(
+                                                            padding:
+                                                                const EdgeInsets.symmetric(
+                                                                  horizontal: 12,
+                                                                  vertical: 6,
                                                                 ),
-                                                            border: Border.all(
-                                                              color: isDark
-                                                                  ? AppTheme
-                                                                        .darkAccent
-                                                                        .withOpacity(
-                                                                          0.4,
-                                                                        )
-                                                                  : courseTagColor
-                                                                        .withOpacity(
-                                                                          0.3,
-                                                                        ),
-                                                              width: 1,
-                                                            ),
-                                                          ),
-                                                          child: Row(
-                                                            mainAxisSize:
-                                                                MainAxisSize
-                                                                    .min,
-                                                            children: [
-                                                              Icon(
-                                                                Icons
-                                                                    .book_outlined,
-                                                                size: 12,
+                                                            decoration: BoxDecoration(
+                                                              gradient: LinearGradient(
+                                                                colors: isDark
+                                                                    ? [
+                                                                        AppTheme
+                                                                            .darkAccent
+                                                                            .withOpacity(
+                                                                              0.2,
+                                                                            ),
+                                                                        AppTheme
+                                                                            .darkPrimaryLight
+                                                                            .withOpacity(
+                                                                              0.15,
+                                                                            ),
+                                                                      ]
+                                                                    : [
+                                                                        courseTagColor
+                                                                            .withOpacity(
+                                                                              0.12,
+                                                                            ),
+                                                                        courseTagColor
+                                                                            .withOpacity(
+                                                                              0.08,
+                                                                            ),
+                                                                      ],
+                                                                begin: Alignment.topLeft,
+                                                                end: Alignment.bottomRight,
+                                                              ),
+                                                              borderRadius:
+                                                                  BorderRadius.circular(
+                                                                    12,
+                                                                  ),
+                                                              border: Border.all(
                                                                 color: isDark
                                                                     ? AppTheme
                                                                           .darkAccent
-                                                                    : courseTagColor,
+                                                                          .withOpacity(
+                                                                            0.4,
+                                                                          )
+                                                                    : courseTagColor
+                                                                          .withOpacity(
+                                                                            0.3,
+                                                                          ),
+                                                                width: 1,
                                                               ),
-                                                              const SizedBox(
-                                                                width: 4,
-                                                              ),
-                                                              Text(
-                                                                name,
-                                                                style: TextStyle(
-                                                                  fontSize: 11,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w600,
+                                                            ),
+                                                            child: Row(
+                                                              mainAxisSize:
+                                                                  MainAxisSize.min,
+                                                              children: [
+                                                                Icon(
+                                                                  Icons
+                                                                      .book_outlined,
+                                                                  size: 12,
                                                                   color: isDark
                                                                       ? AppTheme
                                                                             .darkAccent
                                                                       : courseTagColor,
                                                                 ),
-                                                              ),
-                                                            ],
+                                                                const SizedBox(
+                                                                  width: 4,
+                                                                ),
+                                                                Text(
+                                                                  name,
+                                                                  style: TextStyle(
+                                                                    fontSize: 11,
+                                                                    fontWeight:
+                                                                        FontWeight
+                                                                            .w600,
+                                                                    color: isDark
+                                                                        ? AppTheme
+                                                                              .darkAccent
+                                                                        : courseTagColor,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
                                                           ),
                                                         ),
                                                       )
@@ -682,6 +647,46 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
                                                 ),
                                               ],
                                             ),
+                                          ),
+                                          // Make entire student tile tappable to show details
+                                          GestureDetector(
+                                            behavior: HitTestBehavior.translucent,
+                                            onTap: () {
+                                              // Show student detail dialog
+                                              showDialog(
+                                                context: context,
+                                                builder: (context) {
+                                                  return AlertDialog(
+                                                    backgroundColor: isDark
+                                                        ? AppTheme.darkCard
+                                                        : Colors.white,
+                                                    title: Text(studentName),
+                                                    content: Column(
+                                                      mainAxisSize:
+                                                          MainAxisSize.min,
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text('Email: $studentEmail'),
+                                                        const SizedBox(height: 8),
+                                                        Text('Courses:'),
+                                                        const SizedBox(height: 6),
+                                                        ...enrolledCourseNames.map((c) => Padding(
+                                                              padding: const EdgeInsets.symmetric(vertical: 2),
+                                                              child: Text('• $c'),
+                                                            )),
+                                                      ],
+                                                    ),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.pop(context),
+                                                        child: const Text('Close'),
+                                                      ),
+                                                    ],
+                                                  );
+                                                },
+                                              );
+                                            },
                                           ),
                                         ],
                                       ),
