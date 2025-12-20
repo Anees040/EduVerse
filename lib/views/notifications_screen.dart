@@ -1,9 +1,11 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/notification_service.dart';
+import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/views/student/student_course_detail_screen.dart';
+import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -15,7 +17,24 @@ class NotificationsScreen extends StatefulWidget {
 class _NotificationsScreenState extends State<NotificationsScreen> {
   final NotificationService _notificationService = NotificationService();
   final CourseService _courseService = CourseService();
+  final UserService _userService = UserService();
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
+  bool? _isTeacher;
+
+  @override
+  void initState() {
+    super.initState();
+    _detectUserRole();
+  }
+
+  Future<void> _detectUserRole() async {
+    try {
+      final user = await _userService.getUser(uid: _uid, role: 'teacher');
+      if (mounted) setState(() => _isTeacher = user != null);
+    } catch (_) {
+      if (mounted) setState(() => _isTeacher = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,12 +295,46 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             _notificationService.markAsRead(_uid, notificationId);
           }
 
-          // Navigate to course Q&A for qa_answer notifications
+          // Navigate only for QA answers, course updates, or QA questions with video context.
           final relatedCourseId = notification['relatedCourseId'] as String?;
+          final relatedVideoId = notification['relatedVideoId'] as String?;
+          final relatedVideoTimestamp = notification['relatedVideoTimestamp'] as int?;
           if (relatedCourseId != null &&
-              (type == 'qa_answer' ||
-                  type == 'course_update' ||
-                  type == 'enrollment')) {
+              (type == 'qa_answer' || type == 'course_update' || type == 'qa_question')) {
+            // If this is a QA question notification and the current user is a teacher,
+            // open the teacher course manage screen so they can answer the question.
+            if (type == 'qa_question' && _isTeacher == true) {
+              try {
+                final courseDetails = await _courseService.getCourseDetails(
+                  courseUid: relatedCourseId,
+                );
+                if (courseDetails != null && mounted) {
+                  int enrolledCount = 0;
+                  final enrolled = courseDetails['enrolledStudents'];
+                  if (enrolled is Map) enrolledCount = enrolled.length;
+
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => TeacherCourseManageScreen(
+                        courseUid: relatedCourseId,
+                        courseTitle: courseDetails['title'] ?? 'Course',
+                        imageUrl: courseDetails['imageUrl'] ?? '',
+                        description: courseDetails['description'] ?? '',
+                        enrolledCount: enrolledCount,
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to open manage screen: $e')),
+                  );
+                }
+              }
+              return;
+            }
             try {
               // Fetch course details
               final courseDetails = await _courseService.getCourseDetails(
@@ -297,6 +350,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       imageUrl: courseDetails['imageUrl'] ?? '',
                       description: courseDetails['description'] ?? '',
                       createdAt: courseDetails['createdAt'],
+                      initialVideoId: relatedVideoId,
+                      initialVideoTimestampSeconds: relatedVideoTimestamp,
                     ),
                   ),
                 );

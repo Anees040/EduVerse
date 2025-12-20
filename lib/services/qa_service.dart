@@ -36,6 +36,30 @@ class QAService {
       'videoTimestamp': videoTimestampSeconds,
       'videoTitle': videoTitle,
     });
+
+    // Notify the teacher about the new question (include video context)
+    try {
+      final courseSnap = await _db.child('courses').child(courseUid).get();
+      if (courseSnap.exists && courseSnap.value != null) {
+        final courseData = Map<String, dynamic>.from(courseSnap.value as Map);
+        final String? teacherUid = courseData['teacherUid'] as String?;
+        final String courseName = courseData['title'] ?? '';
+        if (teacherUid != null) {
+          await _notificationService.sendNotification(
+            toUid: teacherUid,
+            title: 'New Question Asked 💬',
+            message: '$studentName asked a question in "$courseName"',
+            type: 'qa_question',
+            relatedCourseId: courseUid,
+            relatedVideoId: videoId,
+            relatedVideoTimestamp: videoTimestampSeconds,
+            fromUid: studentUid,
+          );
+        }
+      }
+    } catch (e) {
+      // ignore notification failures
+    }
   }
 
   /// Teacher answers a question

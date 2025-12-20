@@ -11,6 +11,8 @@ class NotificationService {
     required String type, // 'enrollment', 'course_update', 'general'
     String? relatedCourseId,
     String? fromUid,
+    String? relatedVideoId,
+    int? relatedVideoTimestamp,
   }) async {
     final notificationId = _db.push().key;
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -21,6 +23,8 @@ class NotificationService {
       'message': message,
       'type': type,
       'relatedCourseId': relatedCourseId,
+      'relatedVideoId': relatedVideoId,
+      'relatedVideoTimestamp': relatedVideoTimestamp,
       'fromUid': fromUid,
       'createdAt': timestamp,
       'isRead': false,
