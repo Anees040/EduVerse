@@ -228,8 +228,9 @@ class CourseCard extends StatelessWidget {
                   const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
-                    height: 32,
-                    margin: const EdgeInsets.only(top: 4),
+                    // increase height so icon+label fit comfortably
+                    height: 40,
+                    margin: const EdgeInsets.only(top: 6),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
@@ -258,10 +259,14 @@ class CourseCard extends StatelessWidget {
                       style: ElevatedButton.styleFrom(
                         backgroundColor: buttonColor,
                         foregroundColor: Colors.white,
+                        minimumSize: const Size.fromHeight(40),
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        alignment: Alignment.center,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
                         ),
                         elevation: 0,
+                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
