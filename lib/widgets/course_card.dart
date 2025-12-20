@@ -85,7 +85,7 @@ class CourseCard extends StatelessWidget {
                     top: Radius.circular(16),
                   ),
                   child: AspectRatio(
-                    aspectRatio: 16 / 10,
+                      aspectRatio: 16 / 9,
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
@@ -110,73 +110,25 @@ class CourseCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (createdAt != null)
-                  Positioned(
-                    top: 8,
-                    left: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface.withOpacity(0.9) : Colors.black54,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        _formatDate(createdAt),
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ),
-                if (isEnrolled && !isTeacherView)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: buttonColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.play_arrow_rounded, color: Colors.white, size: 12),
-                          SizedBox(width: 4),
-                          Text('Continue', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
-                if (!isEnrolled && !isTeacherView)
-                  Positioned(
-                    top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: buttonColor,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: const [
-                          Icon(Icons.add_rounded, color: Colors.white, size: 12),
-                          SizedBox(width: 4),
-                          Text('Enroll', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
-                  ),
+                // Date chip moved below image to improve card balance (see bottom of card)
+                // Top-right small enroll/continue badge removed to keep single primary action button
               ],
             ),
             Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+              padding: const EdgeInsets.all(8),
+              child: LayoutBuilder(builder: (context, constraints) {
+                final cardWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width;
+                final isCompact = cardWidth < 160;
+                // responsive font sizes (titleFont not needed directly here)
+                final descFont = isCompact ? 10.0 : 12.0;
+                final smallTextFont = isCompact ? 10.0 : 11.0;
+                final avatarSize = isCompact ? 22.0 : 28.0;
+                final iconSize = isCompact ? 12.0 : 14.0;
+                final progressHeight = 6.0;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                   Text(
                     title,
                     style: TextStyle(
@@ -187,49 +139,188 @@ class CourseCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  // For teacher view show quick stats (students, videos)
-                  if (isTeacherView) ...[
-                    const SizedBox(height: 6),
+                  // Instructor name and rating row (more interactive feel)
+                  if (instructorName != null || instructorRating != null) ...[
+                    SizedBox(height: isCompact ? 4 : 6),
                     Row(
                       children: [
-                        Icon(Icons.people, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
-                        const SizedBox(width: 6),
+                        // Instructor initial avatar
+                        Container(
+                          width: avatarSize,
+                          height: avatarSize,
+                          decoration: BoxDecoration(
+                            color: isDark ? AppTheme.darkSurface : AppTheme.primaryLight,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            instructorName != null && instructorName!.isNotEmpty
+                                ? instructorName!.trim().split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join()
+                                : 'T',
+                            style: TextStyle(
+                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                              fontSize: isCompact ? 10 : 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: isCompact ? 6 : 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (instructorName != null) ...[
+                                Text(
+                                  instructorName!,
+                                  style: TextStyle(
+                                    fontSize: isCompact ? 11 : 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                              Row(
+                                children: [
+                                  if (instructorRating != null) ...[
+                                    Icon(Icons.star, size: iconSize, color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor),
+                                    SizedBox(width: isCompact ? 4 : 6),
+                                    Text(
+                                      '${instructorRating!.toStringAsFixed(1)}',
+                                      style: TextStyle(
+                                        fontSize: smallTextFont,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                    SizedBox(width: isCompact ? 4 : 6),
+                                  ],
+                                  if (reviewCount != null) ...[
+                                    Text(
+                                      '(${reviewCount.toString()})',
+                                      style: TextStyle(
+                                        fontSize: isCompact ? 10 : 11,
+                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  // For teacher view show quick stats (students, videos)
+                  if (isTeacherView) ...[
+                    SizedBox(height: isCompact ? 4 : 6),
+                    Row(
+                      children: [
+                        Icon(Icons.people, size: iconSize, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                        SizedBox(width: isCompact ? 6 : 8),
                         Text(
                           '${enrolledCount ?? 0} students',
                           style: TextStyle(
                             color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-                            fontSize: 12,
+                            fontSize: isCompact ? 11 : 12,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Icon(Icons.video_collection, size: 14, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
-                        const SizedBox(width: 6),
+                        SizedBox(width: isCompact ? 10 : 12),
+                        Icon(Icons.video_collection, size: iconSize, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
+                        SizedBox(width: isCompact ? 6 : 8),
                         Text(
                           '${videoCount ?? 0} videos',
                           style: TextStyle(
                             color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-                            fontSize: 12,
+                            fontSize: isCompact ? 11 : 12,
                           ),
                         ),
                       ],
                     ),
                   ] else if (description != null && description!.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    SizedBox(height: isCompact ? 4 : 6),
                     Text(
                       description!,
                       style: TextStyle(
                         color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                        fontSize: 12,
+                        fontSize: descFont,
                       ),
-                      maxLines: 2,
+                      maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
+                    // show video count for student/explore cards in a compact manner
+                    if (!isTeacherView && videoCount != null) ...[
+                      SizedBox(height: isCompact ? 6 : 8),
+                      Row(
+                        children: [
+                          Icon(Icons.video_collection, size: iconSize, color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor),
+                          SizedBox(width: isCompact ? 6 : 8),
+                          Text(
+                            videoCount! > 1 ? '$videoCount videos' : '$videoCount video',
+                            style: TextStyle(
+                              fontSize: isCompact ? 11 : 12,
+                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                   const SizedBox(height: 8),
+                  // Date placed above the primary action to make the card feel interactive
+                  if (createdAt != null) ...[
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: isCompact ? 2 : 4),
+                        decoration: BoxDecoration(
+                          color: isDark ? AppTheme.darkSurface.withOpacity(0.9) : Colors.black54,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _formatDate(createdAt),
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: isCompact ? 10 : 11,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: isCompact ? 4 : 6),
+                  ],
+                  // Show a progress bar for enrolled courses to make the card more interactive
+                  if (isEnrolled) ...[
+                    SizedBox(height: isCompact ? 4 : 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(6),
+                            child: LinearProgressIndicator(
+                              value: progress.clamp(0.0, 1.0),
+                              minHeight: progressHeight,
+                              backgroundColor: isDark ? Colors.white12 : Colors.grey.shade200,
+                              valueColor: AlwaysStoppedAnimation<Color>(buttonColor),
+                            ),
+                          ),
+                        ),
+                        SizedBox(width: isCompact ? 6 : 8),
+                        Text(
+                          '${(progress * 100).toInt()}%',
+                          style: TextStyle(
+                            fontSize: isCompact ? 11 : 12,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: isCompact ? 6 : 8),
+                  ],
                   Container(
                     width: double.infinity,
-                    // increase height so icon+label fit comfortably
-                    height: 40,
                     margin: const EdgeInsets.only(top: 6),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(10),
@@ -246,7 +337,7 @@ class CourseCard extends StatelessWidget {
                       onPressed: isTeacherView ? (onTap ?? onEnroll) : (isEnrolled ? onTap : onEnroll),
                       icon: Icon(
                         isTeacherView ? Icons.settings : (isEnrolled ? Icons.play_arrow_rounded : Icons.add_rounded),
-                        size: 16,
+                        size: isCompact ? 14 : 16,
                       ),
                       label: Text(
                         isTeacherView ? 'Manage' : (isEnrolled ? 'Continue' : 'Enroll'),
@@ -256,11 +347,11 @@ class CourseCard extends StatelessWidget {
                           letterSpacing: 0.3,
                         ),
                       ),
-                      style: ElevatedButton.styleFrom(
+                        style: ElevatedButton.styleFrom(
                         backgroundColor: buttonColor,
                         foregroundColor: Colors.white,
-                        minimumSize: const Size.fromHeight(40),
-                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        minimumSize: Size(0, isCompact ? 36 : 40),
+                        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 6 : 8),
                         alignment: Alignment.center,
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -271,7 +362,8 @@ class CourseCard extends StatelessWidget {
                     ),
                   ),
                 ],
-              ),
+                );
+              }),
             ),
           ],
         ),
@@ -508,16 +600,7 @@ class CourseCardHorizontal extends StatelessWidget {
               ),
             ),
 
-            // Arrow icon
-            Padding(
-              padding: const EdgeInsets.only(right: 12),
-              child: Icon(
-                Icons.chevron_right,
-                color: isDark
-                    ? accentColor.withOpacity(0.7)
-                    : Colors.grey.shade400,
-              ),
-            ),
+            // trailing chevron removed to save vertical space and avoid overflow
           ],
         ),
       ),

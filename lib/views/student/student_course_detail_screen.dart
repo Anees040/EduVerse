@@ -179,13 +179,27 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     return completed / _videos.length;
   }
 
-  void _onVideoComplete() {
+  Future<void> _onVideoComplete() async {
     // Mark current video as complete
     final videoId = _videos[_currentVideoIndex]['videoId'];
     setState(() {
       _progress[videoId] = {..._progress[videoId] ?? {}, 'isCompleted': true};
       _overallProgress = _calculateLocalProgress();
     });
+
+    // Persist completion to backend
+    try {
+      final pos = _currentVideoPosition.inSeconds;
+      await _courseService.saveVideoProgress(
+        studentUid: _studentUid,
+        courseUid: widget.courseUid,
+        videoId: videoId,
+        positionSeconds: pos,
+        isCompleted: true,
+      );
+    } catch (_) {
+      // ignore save errors here
+    }
 
     // Auto-play next video
     if (_currentVideoIndex < _videos.length - 1) {

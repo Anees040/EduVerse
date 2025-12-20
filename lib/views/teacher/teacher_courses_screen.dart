@@ -287,10 +287,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
         // Courses grid
         SliverPadding(
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          sliver: SliverGrid(
+            sliver: SliverGrid(
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.78,
+              childAspectRatio: 0.60,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),

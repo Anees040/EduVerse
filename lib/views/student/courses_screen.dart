@@ -24,8 +24,7 @@ class _CoursesScreenState extends State<CoursesScreen>
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // Filter for enrolled courses
-  final String _enrolledFilter = 'All';
+  // Filter for enrolled courses (removed unused filter variable)
 
   bool isLoading = true;
   List<Map<String, dynamic>> courses = [];
@@ -106,6 +105,7 @@ class _CoursesScreenState extends State<CoursesScreen>
     }
   }
 
+
   Future<void> _fetchUnenrolledCourses() async {
     try {
       final fetchedCourses = await _courseService.getUnenrolledCourses(
@@ -116,52 +116,13 @@ class _CoursesScreenState extends State<CoursesScreen>
         courses = fetchedCourses;
       });
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed to load courses: $e")));
-      }
-    }
-  }
-
-  Future<void> _fetchEnrolledCourses() async {
-    try {
-      final fetchedCourses = await _courseService.getEnrolledCourses(
-        studentUid: _studentUid,
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load courses: $e")),
       );
-
-      if (!mounted) return;
-
-      // Load progress for each enrolled course
-      final Map<String, double> progress = {};
-      for (final course in fetchedCourses) {
-        if (!mounted) return;
-        final courseUid = course['courseUid'];
-        try {
-          final courseProgress = await _courseService.calculateCourseProgress(
-            studentUid: _studentUid,
-            courseUid: courseUid,
-          );
-          progress[courseUid] = courseProgress;
-        } catch (e) {
-          // If progress calculation fails for one course, default to 0
-          progress[courseUid] = 0.0;
-        }
-      }
-
-      if (!mounted) return;
-      setState(() {
-        enrolledCourses = fetchedCourses;
-        courseProgress = progress;
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to load enrolled courses: $e")),
-        );
-      }
     }
   }
+
 
   Future<void> _enrollInCourse(String courseUid) async {
     try {
@@ -445,13 +406,12 @@ class _CoursesScreenState extends State<CoursesScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: GridView.builder(
                       itemCount: filteredCourses.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.68,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                          ),
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 260,
+                        childAspectRatio: 0.50,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                      ),
                       itemBuilder: (context, index) {
                         final course = filteredCourses[index];
                         final isEnrolled = course['_isEnrolled'] == true;
@@ -472,6 +432,7 @@ class _CoursesScreenState extends State<CoursesScreen>
                               ? (course['teacherRating'] as num).toDouble()
                               : null,
                           reviewCount: course['reviewCount'],
+                          videoCount: course['videoCount'] ?? (course['videos'] is Map ? (course['videos'] as Map).length : (course['videos'] is List ? (course['videos'] as List).length : 0)),
                           onTap: isEnrolled
                               ? () => _openCourse(course)
                               : () => _showEnrollDialog(course),
@@ -629,8 +590,6 @@ class _CoursesScreenState extends State<CoursesScreen>
   }
 
   Widget _buildEnrolledCourses() {
-    final isDark = AppTheme.isDarkMode(context);
-
     if (enrolledCourses.isEmpty) {
       return _buildEmptyState(
         icon: Icons.bookmark_outline,
@@ -645,9 +604,9 @@ class _CoursesScreenState extends State<CoursesScreen>
       child: GridView.builder(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         itemCount: enrolledCourses.length,
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          childAspectRatio: 0.68,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 260,
+          childAspectRatio: 0.50,
           crossAxisSpacing: 12,
           mainAxisSpacing: 12,
         ),
@@ -667,6 +626,7 @@ class _CoursesScreenState extends State<CoursesScreen>
                 ? (course['teacherRating'] as num).toDouble()
                 : null,
             reviewCount: course['reviewCount'],
+            videoCount: course['videoCount'] ?? (course['videos'] is Map ? (course['videos'] as Map).length : (course['videos'] is List ? (course['videos'] as List).length : 0)),
             onTap: () => _openCourse(course),
           );
         },
@@ -767,4 +727,44 @@ class _CoursesScreenState extends State<CoursesScreen>
     _searchController.dispose();
     super.dispose();
   }
+  
+  Future<void> _fetchEnrolledCourses() async {
+    try {
+      final fetched = await _courseService.getEnrolledCourses(
+        studentUid: _studentUid,
+      );
+      if (!mounted) return;
+      // Populate enrolled courses and compute per-course progress
+      final Map<String, double> progressMap = {};
+      for (final c in fetched) {
+        final cid = c['courseUid'] as String?;
+        if (cid == null) continue;
+        try {
+          final p = await _courseService.calculateCourseProgress(
+            studentUid: _studentUid,
+            courseUid: cid,
+          );
+          progressMap[cid] = p;
+        } catch (_) {
+          progressMap[cid] = 0.0;
+        }
+      }
+
+      setState(() {
+        enrolledCourses = fetched;
+        courseProgress = progressMap;
+      });
+
+      // Cache progress map for faster loads
+      try {
+        _cacheService.set('course_progress_$_studentUid', courseProgress);
+      } catch (_) {}
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to load enrolled courses: $e")),
+      );
+    }
+  }
+
 }
