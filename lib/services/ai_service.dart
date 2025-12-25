@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'gemini_api_service.dart';
 
 /// Abstract AI Service interface for EduVerse
 /// 
@@ -276,8 +277,38 @@ class PromptException implements Exception {
 /// Get Hugging Face API key from .env file
 final String _hfApiKey = dotenv.get('HF_API_KEY', fallback: '');
 
-/// Global AI service instance - uses Hugging Face
-final AiService aiService = HuggingFaceAiService(apiKey: _hfApiKey);
+/// Get Gemini API key and project id from .env file
+final String _geminiApiKey = dotenv.get('GEMINI_API_KEY', fallback: '');
+final String _geminiProjectId = dotenv.get('GEMINI_PROJECT_ID', fallback: '1086926094630');
+
+/// Adapter to wrap the Gemini client into the shared `AiService` interface
+class GeminiAdapter implements AiService {
+  final GeminiApiService _client;
+  GeminiAdapter(this._client);
+
+  @override
+  Future<String> sendMessage(String prompt, {String? systemPrompt}) async {
+    // Gemini handles plain prompts; systemPrompt is ignored for now.
+    if (prompt.trim().isEmpty) {
+      return '⚠️ Please enter a question or message.';
+    }
+    try {
+      return await _client.sendMessage(prompt);
+    } catch (e) {
+      return '❌ Gemini error: ${e.toString()}';
+    }
+  }
+
+  @override
+  Future<String> analyzeImage(String base64Image, {String? prompt}) async {
+    return '📷 Image analysis is not available with Gemini in this app.';
+  }
+}
+
+/// Global AI service instance - prefer Gemini if key is provided, else HF
+final AiService aiService = _geminiApiKey.isNotEmpty
+    ? GeminiAdapter(GeminiApiService(apiKey: _geminiApiKey, projectId: _geminiProjectId))
+    : HuggingFaceAiService(apiKey: _hfApiKey);
 
 /// Helper function for use in UI - wraps sendMessage with proper error handling
 Future<String> generateAIResponse(String prompt, {String? systemPrompt}) async {
