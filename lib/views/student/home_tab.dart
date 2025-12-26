@@ -460,7 +460,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AIChatScreen()),
+                  MaterialPageRoute(builder: (context) => const AIChatScreen(openNew: true)),
                 );
               },
             ),
