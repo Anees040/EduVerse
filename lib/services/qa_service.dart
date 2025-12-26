@@ -137,8 +137,12 @@ class QAService {
     String courseUid,
     String videoId,
   ) {
+    // Return questions for the given video AND general (course-level) questions
     return getQuestionsStream(courseUid).map((questions) {
-      return questions.where((q) => q['videoId'] == videoId).toList();
+      return questions.where((q) {
+        final qVid = q['videoId']?.toString() ?? '';
+        return qVid == videoId || qVid.isEmpty || qVid == 'general';
+      }).toList();
     });
   }
 
