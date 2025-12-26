@@ -30,10 +30,17 @@ class CourseService {
       if (courseData['enrolledStudents'] != null) {
         enrolledCount = (courseData['enrolledStudents'] as Map).length;
       }
-      // Count videos
+      // Count videos: support Map, List, and legacy single video fields
       int videoCount = 0;
       if (courseData['videos'] != null) {
-        videoCount = (courseData['videos'] as Map).length;
+        final vids = courseData['videos'];
+        if (vids is Map) {
+          videoCount = vids.length;
+        } else if (vids is List) {
+          videoCount = vids.length;
+        }
+      } else if (courseData['videoUrl'] != null || courseData['video'] != null) {
+        videoCount = 1;
       }
       courses.add({
         "courseUid": key,
@@ -141,6 +148,14 @@ class CourseService {
         .child(courseUid)
         .child('hasReviewed')
         .set(true);
+
+    // Also save review under the course node for per-course stats
+    await _db
+        .child('courses')
+        .child(courseUid)
+        .child('reviews')
+        .child(studentUid)
+        .set(reviewData);
   }
 
   /// Check if student has already reviewed a course
@@ -163,30 +178,73 @@ class CourseService {
   Future<Map<String, dynamic>> getTeacherRatingStats({
     required String teacherUid,
   }) async {
-    final snapshot = await _db
-        .child('teacher')
-        .child(teacherUid)
-        .child('reviews')
-        .get();
+    // Compute teacher rating as the average of per-course averages
+    final coursesSnap = await _db.child('teacher').child(teacherUid).child('courses').get();
+    if (!coursesSnap.exists) return {'averageRating': 0.0, 'reviewCount': 0};
 
-    if (!snapshot.exists) {
-      return {'averageRating': 0.0, 'reviewCount': 0};
+    final coursesMap = coursesSnap.value as Map<dynamic, dynamic>;
+    double sumCourseAverages = 0.0;
+    int coursesWithReviews = 0;
+    int totalReviews = 0;
+
+    for (final entry in coursesMap.entries) {
+      final courseUid = entry.key.toString();
+      final stats = await getCourseRatingStats(courseUid: courseUid);
+      final avg = (stats['averageRating'] as double?) ?? 0.0;
+      final cnt = (stats['reviewCount'] as int?) ?? 0;
+      if (cnt > 0) {
+        sumCourseAverages += avg;
+        coursesWithReviews++;
+        totalReviews += cnt;
+      }
     }
 
-    final reviews = snapshot.value as Map<dynamic, dynamic>;
-    double totalRating = 0.0;
-    int count = 0;
-
-    reviews.forEach((key, value) {
-      final review = Map<String, dynamic>.from(value);
-      totalRating += (review['rating'] as num?)?.toDouble() ?? 0.0;
-      count++;
-    });
-
     return {
-      'averageRating': count > 0 ? totalRating / count : 0.0,
-      'reviewCount': count,
+      'averageRating': coursesWithReviews > 0 ? (sumCourseAverages / coursesWithReviews) : 0.0,
+      'reviewCount': totalReviews,
     };
+  }
+
+  /// Get per-course rating stats (reads from courses/{courseUid}/reviews)
+  Future<Map<String, dynamic>> getCourseRatingStats({
+    required String courseUid,
+  }) async {
+    // Try course node first
+    final courseReviewsSnap = await _db.child('courses').child(courseUid).child('reviews').get();
+    if (courseReviewsSnap.exists) {
+      final reviews = courseReviewsSnap.value as Map<dynamic, dynamic>;
+      double total = 0.0;
+      int count = 0;
+      reviews.forEach((key, value) {
+        final review = Map<String, dynamic>.from(value);
+        total += (review['rating'] as num?)?.toDouble() ?? 0.0;
+        count++;
+      });
+      return {'averageRating': count > 0 ? total / count : 0.0, 'reviewCount': count};
+    }
+
+    // Fallback: check teacher's stored reviews that reference this course
+    final teacherReviewsSnap = await _db.child('teacher').get();
+    if (!teacherReviewsSnap.exists) return {'averageRating': 0.0, 'reviewCount': 0};
+
+    final teachers = teacherReviewsSnap.value as Map<dynamic, dynamic>;
+    double total = 0.0;
+    int count = 0;
+    for (final t in teachers.entries) {
+      final tData = t.value as Map<dynamic, dynamic>?;
+      if (tData != null && tData['reviews'] != null) {
+        final reviews = tData['reviews'] as Map<dynamic, dynamic>;
+        reviews.forEach((k, v) {
+          final review = Map<String, dynamic>.from(v);
+          if (review['courseUid'] == courseUid) {
+            total += (review['rating'] as num?)?.toDouble() ?? 0.0;
+            count++;
+          }
+        });
+      }
+    }
+
+    return {'averageRating': count > 0 ? total / count : 0.0, 'reviewCount': count};
   }
 
   /// Add a new video to an existing course
@@ -478,16 +536,48 @@ class CourseService {
         final Map<dynamic, dynamic> courses =
             teacherData["courses"] as Map<dynamic, dynamic>;
 
-        courses.forEach((courseUid, courseData) {
+        for (final courseEntry in courses.entries) {
+          final courseUid = courseEntry.key.toString();
+          final courseData = Map<String, dynamic>.from(courseEntry.value as Map);
+
+          // Get per-course stats (prefer course node reviews)
+          final stats = await getCourseRatingStats(courseUid: courseUid);
+
+          // Determine video count: support both Map and List representations,
+          // prefer teacher's course node, otherwise check global /courses node
+          int videoCount = 0;
+          if (courseData['videos'] != null) {
+            final vidsVal = courseData['videos'];
+            if (vidsVal is Map) {
+              videoCount = vidsVal.length;
+            } else if (vidsVal is List) {
+              videoCount = vidsVal.length;
+            }
+          } else if (courseData['videoUrl'] != null || courseData['video'] != null) {
+            // Legacy single video fields
+            videoCount = 1;
+          } else {
+            final videosSnap = await _db.child('courses').child(courseUid).child('videos').get();
+            if (videosSnap.exists && videosSnap.value != null) {
+              final vidsVal = videosSnap.value;
+              if (vidsVal is Map) {
+                videoCount = (vidsVal as Map).length;
+              } else if (vidsVal is List) {
+                videoCount = (vidsVal as List).length;
+              }
+            }
+          }
+
           allCourses.add({
             "courseUid": courseUid,
             "teacherUid": teacherUid,
             "teacherName": teacherName,
-            "teacherRating": teacherRating,
-            "reviewCount": reviewCount,
-            ...Map<String, dynamic>.from(courseData),
+            "courseRating": stats['averageRating'] ?? 0.0,
+            "courseReviewCount": stats['reviewCount'] ?? 0,
+            "videoCount": videoCount,
+            ...courseData,
           });
-        });
+        }
       }
     }
 
@@ -656,6 +746,34 @@ class CourseService {
         }
       }
 
+      // Per-course rating stats (prefer course node reviews)
+      final stats = await getCourseRatingStats(courseUid: courseUid);
+      final double courseRating = (stats['averageRating'] as double?) ?? 0.0;
+      final int courseReviewCount = (stats['reviewCount'] as int?) ?? 0;
+
+      // Determine video count for enrolled course (support Map/List and legacy single video)
+      int videoCount = 0;
+      if (courseData['videos'] != null) {
+        final vidsVal = courseData['videos'];
+        if (vidsVal is Map) {
+          videoCount = vidsVal.length;
+        } else if (vidsVal is List) {
+          videoCount = vidsVal.length;
+        }
+      } else if (courseData['videoUrl'] != null || courseData['video'] != null) {
+        videoCount = 1;
+      } else {
+        final videosSnap = await _db.child('courses').child(courseUid).child('videos').get();
+        if (videosSnap.exists && videosSnap.value != null) {
+          final vidsVal = videosSnap.value;
+          if (vidsVal is Map) {
+            videoCount = (vidsVal as Map).length;
+          } else if (vidsVal is List) {
+            videoCount = (vidsVal as List).length;
+          }
+        }
+      }
+
       courses.add({
         "courseUid": courseUid,
         "teacherUid": effectiveTeacherUid,
@@ -664,6 +782,9 @@ class CourseService {
         "teacherName": teacherName,
         "teacherRating": teacherRating,
         "reviewCount": reviewCount,
+        "courseRating": courseRating,
+        "courseReviewCount": courseReviewCount,
+        "videoCount": videoCount,
         ...courseData,
       });
     }

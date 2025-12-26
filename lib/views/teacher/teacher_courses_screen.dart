@@ -303,7 +303,15 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
                 createdAt: course['createdAt'],
                 isTeacherView: true,
                 enrolledCount: course['enrolledCount'] ?? 0,
-                videoCount: course['videoCount'] ?? 0,
+                videoCount: (() {
+                  final v = course['videoCount'];
+                  if (v is int) return v;
+                  final vids = course['videos'];
+                  if (vids is Map) return vids.length;
+                  if (vids is List) return vids.length;
+                  if (course['videoUrl'] != null || course['video'] != null) return 1;
+                  return 0;
+                })(),
                 onTap: () => _openCourseManagement(course),
               );
             }, childCount: courses.length),
