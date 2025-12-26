@@ -561,9 +561,11 @@ class CourseService {
             if (videosSnap.exists && videosSnap.value != null) {
               final vidsVal = videosSnap.value;
               if (vidsVal is Map) {
-                videoCount = (vidsVal as Map).length;
+                final Map<dynamic, dynamic> vidsMap = vidsVal;
+                videoCount = vidsMap.length;
               } else if (vidsVal is List) {
-                videoCount = (vidsVal as List).length;
+                final List<dynamic> vidsList = vidsVal;
+                videoCount = vidsList.length;
               }
             }
           }
@@ -572,6 +574,8 @@ class CourseService {
             "courseUid": courseUid,
             "teacherUid": teacherUid,
             "teacherName": teacherName,
+            "teacherRating": teacherRating,
+            "reviewCount": reviewCount,
             "courseRating": stats['averageRating'] ?? 0.0,
             "courseReviewCount": stats['reviewCount'] ?? 0,
             "videoCount": videoCount,
@@ -767,9 +771,11 @@ class CourseService {
         if (videosSnap.exists && videosSnap.value != null) {
           final vidsVal = videosSnap.value;
           if (vidsVal is Map) {
-            videoCount = (vidsVal as Map).length;
+            final Map<dynamic, dynamic> vidsMap = vidsVal;
+            videoCount = vidsMap.length;
           } else if (vidsVal is List) {
-            videoCount = (vidsVal as List).length;
+            final List<dynamic> vidsList = vidsVal;
+            videoCount = vidsList.length;
           }
         }
       }
