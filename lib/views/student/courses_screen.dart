@@ -428,11 +428,19 @@ class _CoursesScreenState extends State<CoursesScreen>
                           showEnrollButton: !isEnrolled,
                           progress: progress,
                           instructorName: course['teacherName'],
-                          instructorRating: course['teacherRating'] != null
-                              ? (course['teacherRating'] as num).toDouble()
-                              : null,
-                          reviewCount: course['reviewCount'],
-                          videoCount: course['videoCount'] ?? (course['videos'] is Map ? (course['videos'] as Map).length : (course['videos'] is List ? (course['videos'] as List).length : 0)),
+                            instructorRating: course['courseRating'] != null
+                              ? (course['courseRating'] as num).toDouble()
+                              : (course['teacherRating'] != null ? (course['teacherRating'] as num).toDouble() : null),
+                            reviewCount: course['courseReviewCount'] ?? course['reviewCount'],
+                          videoCount: (() {
+                            final v = course['videoCount'];
+                            if (v is int) return v;
+                            final vids = course['videos'];
+                            if (vids is Map) return vids.length;
+                            if (vids is List) return vids.length;
+                            if (course['videoUrl'] != null || course['video'] != null) return 1;
+                            return 0;
+                          })(),
                           onTap: isEnrolled
                               ? () => _openCourse(course)
                               : () => _showEnrollDialog(course),
@@ -622,11 +630,19 @@ class _CoursesScreenState extends State<CoursesScreen>
             isEnrolled: true,
             progress: progress,
             instructorName: course['teacherName'],
-            instructorRating: course['teacherRating'] != null
-                ? (course['teacherRating'] as num).toDouble()
-                : null,
-            reviewCount: course['reviewCount'],
-            videoCount: course['videoCount'] ?? (course['videos'] is Map ? (course['videos'] as Map).length : (course['videos'] is List ? (course['videos'] as List).length : 0)),
+            instructorRating: course['courseRating'] != null
+              ? (course['courseRating'] as num).toDouble()
+              : (course['teacherRating'] != null ? (course['teacherRating'] as num).toDouble() : null),
+            reviewCount: course['courseReviewCount'] ?? course['reviewCount'],
+            videoCount: (() {
+              final v = course['videoCount'];
+              if (v is int) return v;
+              final vids = course['videos'];
+              if (vids is Map) return vids.length;
+              if (vids is List) return vids.length;
+              if (course['videoUrl'] != null || course['video'] != null) return 1;
+              return 0;
+            })(),
             onTap: () => _openCourse(course),
           );
         },

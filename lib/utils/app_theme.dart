@@ -197,19 +197,19 @@ class AppTheme {
     final buttonColor = color ?? (isDark ? darkAccent : primaryColor);
     return BoxDecoration(
       color: buttonColor,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(18),
       boxShadow: [
         BoxShadow(
-          color: buttonColor.withOpacity(isDark ? 0.4 : 0.3),
-          blurRadius: isDark ? 12 : 8,
-          spreadRadius: isDark ? 1 : 0,
-          offset: const Offset(0, 4),
+          color: buttonColor.withOpacity(isDark ? 0.28 : 0.22),
+          blurRadius: isDark ? 10 : 6,
+          spreadRadius: isDark ? 0.6 : 0,
+          offset: const Offset(0, 3),
         ),
         if (isDark)
           BoxShadow(
-            color: buttonColor.withOpacity(0.2),
-            blurRadius: 20,
-            spreadRadius: -2,
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 14,
+            spreadRadius: -6,
             offset: const Offset(0, 2),
           ),
       ],
@@ -225,17 +225,15 @@ class AppTheme {
     final bgColor = backgroundColor ?? (isDark ? darkAccent : primaryColor);
     return ElevatedButton.styleFrom(
       backgroundColor: bgColor,
-      foregroundColor: isDark
-          ? const Color(0xFFF0F8FF)
-          : const Color(0xFFF5F5F5),
-      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 24),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      elevation: isDark ? 8 : 4,
-      shadowColor: bgColor.withOpacity(isDark ? 0.5 : 0.4),
+      foregroundColor: isDark ? const Color(0xFFF5FAFF) : const Color(0xFFF5F5F5),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      elevation: isDark ? 4 : 4,
+      shadowColor: bgColor.withOpacity(isDark ? 0.28 : 0.32),
       textStyle: TextStyle(
         fontSize: 15,
         fontWeight: FontWeight.w600,
-        letterSpacing: isDark ? 0.8 : 0.5,
+        letterSpacing: isDark ? 0.4 : 0.5,
       ),
     );
   }

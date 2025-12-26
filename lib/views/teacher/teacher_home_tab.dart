@@ -450,7 +450,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                               final page = _pageController.page ?? _pageController.initialPage.toDouble();
                               final delta = page - index;
                               value = (delta).abs();
-                              value = (1 - (value * 0.15)).clamp(0.85, 1.0) as double;
+                              value = (1 - (value * 0.15)).clamp(0.85, 1.0).toDouble();
                               dx = (delta) * -30; // horizontal parallax
                             }
                             return Transform.translate(

@@ -498,9 +498,19 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final courseUid = course['courseUid'] as String?;
     final isEnrolled =
         courseUid != null && enrolledCourseIds.contains(courseUid);
-    final teacherRating = course['teacherRating'] as num?;
-    final reviewCount = course['reviewCount'] as int?;
-    final videoCount = course['videoCount'] as int? ?? 0;
+    final courseRating = course['courseRating'] as num?;
+    final courseReviewCount = course['courseReviewCount'] as int?;
+    int computeVideoCount(Map<String, dynamic> c) {
+      final v = c['videoCount'];
+      if (v is int) return v;
+      final vids = c['videos'];
+      if (vids is Map) return vids.length;
+      if (vids is List) return vids.length;
+      if (c['videoUrl'] != null || c['video'] != null) return 1;
+      return 0;
+    }
+
+    final videoCount = computeVideoCount(course);
 
     final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
 
@@ -721,7 +731,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                             : accentColor.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: teacherRating != null && reviewCount != null && reviewCount > 0
+                      child: courseRating != null && courseReviewCount != null && courseReviewCount > 0
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -732,7 +742,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  teacherRating.toStringAsFixed(1),
+                                  courseRating.toStringAsFixed(1),
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.w700,
@@ -740,7 +750,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                                   ),
                                 ),
                                 Text(
-                                  ' ($reviewCount reviews)',
+                                  ' ($courseReviewCount reviews)',
                                   style: TextStyle(
                                     fontSize: 10,
                                     color: AppTheme.getTextSecondary(context),
