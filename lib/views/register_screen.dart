@@ -12,6 +12,8 @@ class RegisterScreen extends StatefulWidget {
 class _RegisterScreenState extends State<RegisterScreen> {
   bool isStudent = true;
   final _auth = AuthService();
+  final _formKey = GlobalKey<FormState>();
+  bool _submitted = false;
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
@@ -189,8 +191,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
               Padding(
                 padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     const SizedBox(height: 20),
 
@@ -295,11 +299,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     const SizedBox(height: 30),
 
                     // Full Name
-                    TextField(
+                    TextFormField(
                       controller: _usernameController,
                       style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      autovalidateMode: _submitted
+                          ? AutovalidateMode.always
+                          : AutovalidateMode.disabled,
                       decoration: InputDecoration(
-                        labelText: "Full Name",
+                        label: Row(
+                          children: [
+                            const Text('Full Name'),
+                            if (_submitted && _usernameController.text.trim().isEmpty)
+                              Text(' *', style: TextStyle(color: AppTheme.getErrorColor(context))),
+                          ],
+                        ),
                         hintText: "Enter your full name",
                         prefixIcon: Icon(
                           Icons.person_outline,
@@ -309,17 +322,32 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      validator: (v) {
+                        final val = v?.trim() ?? '';
+                        if (val.isEmpty) return 'Please enter your full name';
+                        if (val.length < 2) return 'Name must be at least 2 characters';
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 16),
 
                     // Email
-                    TextField(
+                    TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      autovalidateMode: _submitted
+                          ? AutovalidateMode.always
+                          : AutovalidateMode.disabled,
                       decoration: InputDecoration(
-                        labelText: "Email",
+                        label: Row(
+                          children: [
+                            const Text('Email'),
+                            if (_submitted && _emailController.text.trim().isEmpty)
+                              Text(' *', style: TextStyle(color: AppTheme.getErrorColor(context))),
+                          ],
+                        ),
                         hintText: "Enter your email",
                         prefixIcon: Icon(
                           Icons.email_outlined,
@@ -329,17 +357,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      validator: (v) {
+                        final val = v?.trim() ?? '';
+                        if (val.isEmpty) return 'Please enter your email';
+                        final emailReg = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}");
+                        if (!emailReg.hasMatch(val)) return 'Please enter a valid email';
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 16),
 
                     // Password
-                    TextField(
+                    TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      autovalidateMode: _submitted
+                          ? AutovalidateMode.always
+                          : AutovalidateMode.disabled,
                       decoration: InputDecoration(
-                        labelText: "Password",
+                        label: Row(
+                          children: [
+                            const Text('Password'),
+                            if (_submitted && _passwordController.text.isEmpty)
+                              Text(' *', style: TextStyle(color: AppTheme.getErrorColor(context))),
+                          ],
+                        ),
                         hintText: "Create a password",
                         prefixIcon: Icon(
                           Icons.lock_outline,
@@ -360,17 +404,38 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      validator: (v) {
+                        final val = v ?? '';
+                        if (val.isEmpty) return 'Please create a password';
+                        if (val.length < 8) return 'Password must be at least 8 characters';
+                        final upper = RegExp(r'[A-Z]');
+                        final lower = RegExp(r'[a-z]');
+                        final digit = RegExp(r'\d');
+                        if (!upper.hasMatch(val) || !lower.hasMatch(val) || !digit.hasMatch(val)) {
+                          return 'Use upper, lower and numbers for a stronger password';
+                        }
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 16),
 
                     // Confirm Password
-                    TextField(
+                    TextFormField(
                       controller: _confirmPasswordController,
                       obscureText: _obscureConfirmPassword,
                       style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      autovalidateMode: _submitted
+                          ? AutovalidateMode.always
+                          : AutovalidateMode.disabled,
                       decoration: InputDecoration(
-                        labelText: "Confirm Password",
+                        label: Row(
+                          children: [
+                            const Text('Confirm Password'),
+                            if (_submitted && _confirmPasswordController.text.isEmpty)
+                              Text(' *', style: TextStyle(color: AppTheme.getErrorColor(context))),
+                          ],
+                        ),
                         hintText: "Re-enter your password",
                         prefixIcon: Icon(
                           Icons.lock_outline,
@@ -392,6 +457,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      validator: (v) {
+                        final val = v ?? '';
+                        if (val.isEmpty) return 'Please confirm your password';
+                        if (val != _passwordController.text) return 'Passwords do not match';
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 30),
@@ -403,6 +474,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: _loading
                             ? null
                             : () async {
+                                setState(() => _submitted = true);
+                                if (!(_formKey.currentState?.validate() ?? false)) return;
+
                                 bool success = await _register();
                                 if (success && mounted) {
                                   _showSuccessDialog();
