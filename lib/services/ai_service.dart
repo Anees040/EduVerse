@@ -309,12 +309,12 @@ class GeminiAdapter implements AiService {
 }
 
 /// Global AI service instance - prefer Gemini if key is provided, else HF
-/// Global AI service instance - prefer OpenRouter if key is present,
-/// else Gemini if present, else Hugging Face.
-final AiService aiService = _openRouterApiKey.isNotEmpty
-  ? OpenRouterAiService(apiKey: _openRouterApiKey)
-  : (_geminiApiKey.isNotEmpty
-    ? GeminiAdapter(GeminiApiService(apiKey: _geminiApiKey, projectId: _geminiProjectId))
+/// Global AI service instance - prefer Gemini if key is present,
+/// else OpenRouter if configured, else Hugging Face.
+final AiService aiService = _geminiApiKey.isNotEmpty
+  ? GeminiAdapter(GeminiApiService(apiKey: _geminiApiKey, projectId: _geminiProjectId))
+  : (_openRouterApiKey.isNotEmpty
+    ? OpenRouterAiService(apiKey: _openRouterApiKey)
     : HuggingFaceAiService(apiKey: _hfApiKey));
 
 /// Helper function for use in UI - wraps sendMessage with proper error handling
