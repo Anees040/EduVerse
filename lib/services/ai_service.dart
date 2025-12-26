@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:http/http.dart' as http;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'gemini_api_service.dart';
+import 'openrouter_ai_service.dart';
 
 /// Abstract AI Service interface for EduVerse
 /// 
@@ -280,6 +281,8 @@ final String _hfApiKey = dotenv.get('HF_API_KEY', fallback: '');
 /// Get Gemini API key and project id from .env file
 final String _geminiApiKey = dotenv.get('GEMINI_API_KEY', fallback: '');
 final String _geminiProjectId = dotenv.get('GEMINI_PROJECT_ID', fallback: '1086926094630');
+/// Get OpenRouter API key from .env file
+final String _openRouterApiKey = dotenv.get('OPENROUTER_API_KEY', fallback: '');
 
 /// Adapter to wrap the Gemini client into the shared `AiService` interface
 class GeminiAdapter implements AiService {
@@ -306,9 +309,13 @@ class GeminiAdapter implements AiService {
 }
 
 /// Global AI service instance - prefer Gemini if key is provided, else HF
-final AiService aiService = _geminiApiKey.isNotEmpty
+/// Global AI service instance - prefer OpenRouter if key is present,
+/// else Gemini if present, else Hugging Face.
+final AiService aiService = _openRouterApiKey.isNotEmpty
+  ? OpenRouterAiService(apiKey: _openRouterApiKey)
+  : (_geminiApiKey.isNotEmpty
     ? GeminiAdapter(GeminiApiService(apiKey: _geminiApiKey, projectId: _geminiProjectId))
-    : HuggingFaceAiService(apiKey: _hfApiKey);
+    : HuggingFaceAiService(apiKey: _hfApiKey));
 
 /// Helper function for use in UI - wraps sendMessage with proper error handling
 Future<String> generateAIResponse(String prompt, {String? systemPrompt}) async {
