@@ -18,12 +18,13 @@ class _SigninScreenState extends State<SigninScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final _auth = AuthService();
   bool _obscurePassword = true;
-
+  final _formKey = GlobalKey<FormState>();
+  bool _submitted = false;
+  String? _loginError; // show under password on auth failure
   bool _loading = false;
 
   Future<String?> _login() async {
     setState(() => _loading = true);
-
     try {
       final user = await _auth.signIn(
         email: _emailController.text.trim(),
@@ -31,15 +32,8 @@ class _SigninScreenState extends State<SigninScreen> {
         selectedRole: isStudent ? "student" : "teacher",
       );
       return user?.uid;
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
-      return null;
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -213,12 +207,21 @@ class _SigninScreenState extends State<SigninScreen> {
                     const SizedBox(height: 30),
 
                     // Email field
-                    TextField(
+                    TextFormField(
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      autovalidateMode: _submitted
+                          ? AutovalidateMode.always
+                          : AutovalidateMode.disabled,
                       decoration: InputDecoration(
-                        labelText: "Email",
+                        label: Row(
+                          children: [
+                            const Text('Email'),
+                            if (_submitted && _emailController.text.trim().isEmpty)
+                              Text(' *', style: TextStyle(color: AppTheme.getErrorColor(context))),
+                          ],
+                        ),
                         hintText: "Enter your email",
                         prefixIcon: Icon(
                           Icons.email_outlined,
@@ -228,17 +231,33 @@ class _SigninScreenState extends State<SigninScreen> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
+                      validator: (v) {
+                        final val = v?.trim() ?? '';
+                        if (val.isEmpty) return 'Please enter your email';
+                        final emailReg = RegExp(r"^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}");
+                        if (!emailReg.hasMatch(val)) return 'Please enter a valid email';
+                        return null;
+                      },
                     ),
 
                     const SizedBox(height: 16),
 
                     // Password field
-                    TextField(
+                    TextFormField(
                       controller: _passwordController,
                       obscureText: _obscurePassword,
                       style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                      autovalidateMode: _submitted
+                          ? AutovalidateMode.always
+                          : AutovalidateMode.disabled,
                       decoration: InputDecoration(
-                        labelText: "Password",
+                        label: Row(
+                          children: [
+                            const Text('Password'),
+                            if (_submitted && _passwordController.text.isEmpty)
+                              Text(' *', style: TextStyle(color: AppTheme.getErrorColor(context))),
+                          ],
+                        ),
                         hintText: "Enter your password",
                         prefixIcon: Icon(
                           Icons.lock_outline,
@@ -258,7 +277,13 @@ class _SigninScreenState extends State<SigninScreen> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(12),
                         ),
+                        errorText: _loginError,
                       ),
+                      validator: (v) {
+                        final val = v ?? '';
+                        if (val.isEmpty) return 'Please enter your password';
+                        return null;
+                      },
                     ),
 
                     // Forgot password
@@ -294,40 +319,46 @@ class _SigninScreenState extends State<SigninScreen> {
                         onPressed: _loading
                             ? null
                             : () async {
-                                final email = _emailController.text.trim();
+                                setState(() => _submitted = true);
+                                if (!(_formKey.currentState?.validate() ?? false)) return;
 
-                                if (email.isEmpty) {
+                                try {
+                                  // Clear any previous inline error
+                                  setState(() => _loginError = null);
+                                  final uid = await _login();
+                                  if (uid == null || !mounted) return;
+
+                                  if (isStudent) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => HomeScreen(
+                                          role: isStudent ? "student" : "teacher",
+                                          uid: uid,
+                                        ),
+                                      ),
+                                    );
+                                  } else {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => TeacherHomeScreen(
+                                          role: isStudent ? "student" : "teacher",
+                                          uid: uid,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                } catch (e) {
+                                  // Authentication failed - clear password and show inline error
+                                  _passwordController.clear();
+                                  setState(() => _loginError = 'Invalid credentials. Please try again.');
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Please enter your email"),
-                                    ),
-                                  );
-                                  return;
-                                }
-
-                                final uid = await _login();
-                                if (uid == null || !mounted) return;
-
-                                if (!mounted) return;
-
-                                if (isStudent) {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => HomeScreen(
-                                        role: isStudent ? "student" : "teacher",
-                                        uid: uid,
-                                      ),
-                                    ),
-                                  );
-                                } else {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => TeacherHomeScreen(
-                                        role: isStudent ? "student" : "teacher",
-                                        uid: uid,
-                                      ),
+                                    SnackBar(
+                                      backgroundColor: AppTheme.getErrorColor(context),
+                                      behavior: SnackBarBehavior.floating,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                      content: Text(e.toString(), style: const TextStyle(color: Colors.white)),
                                     ),
                                   );
                                 }
