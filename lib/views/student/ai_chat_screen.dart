@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:eduverse/services/ai_service.dart';
-import 'package:eduverse/services/chat_history_service.dart';
+import 'package:eduverse/services/chat_repository.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class AIChatScreen extends StatefulWidget {
-  const AIChatScreen({super.key});
+  final bool openNew;
+  const AIChatScreen({super.key, this.openNew = false});
 
   @override
   State<AIChatScreen> createState() => _AIChatScreenState();
@@ -19,21 +22,67 @@ class _AIChatScreenState extends State<AIChatScreen> {
   List<Map<String, String>> messages = [];
   List<Map<String, dynamic>> chatHistory = [];
   String? currentChatId;
+  String ownerRole = 'student';
+  String? ownerId;
   bool _isLoading = false;
   bool _isLoadingHistory = true;
 
   @override
   void initState() {
     super.initState();
+    // if requested to open a fresh chat, clear active chat (no DB writes)
+    if (widget.openNew) {
+      currentChatId = null;
+      messages = [];
+    }
+    // load history but don't auto-open last chat when openNew==true
     _loadChatHistory();
+  }
+  
+  Future<void> _detectRole() async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    ownerId = uid;
+    if (uid == null) return;
+    final db = FirebaseDatabase.instance.ref();
+    final studentSnap = await db.child('student').child(uid).get();
+    final teacherSnap = await db.child('teacher').child(uid).get();
+    if (teacherSnap.exists) {
+      ownerRole = 'teacher';
+    } else if (studentSnap.exists) {
+      ownerRole = 'student';
+    } else {
+      ownerRole = 'student';
+    }
   }
 
   Future<void> _loadChatHistory() async {
     setState(() => _isLoadingHistory = true);
     try {
-      final history = await chatHistoryService.getAllChats();
+      await _detectRole();
+      if (ownerId == null) {
+        setState(() => _isLoadingHistory = false);
+        return;
+      }
+
+      final sessions = await chatRepository.getSessionsForUser(userId: ownerId!, role: ownerRole);
+      // Convert sessions to legacy map for UI compatibility
+      chatHistory = sessions
+          .map((s) => {
+                'id': s.id,
+                'title': s.title,
+                'createdAt': s.createdAt ?? 0,
+                'updatedAt': s.updatedAt ?? 0,
+              })
+          .toList();
+
+      // set latest chat as active if none (unless opened as a fresh chat)
+      if (!widget.openNew && chatHistory.isNotEmpty && currentChatId == null) {
+        currentChatId = chatHistory.first['id'] as String?;
+        // load messages for that chat
+        await _loadChat(currentChatId!);
+      }
+
       setState(() {
-        chatHistory = history;
         _isLoadingHistory = false;
       });
     } catch (e) {
@@ -42,31 +91,30 @@ class _AIChatScreenState extends State<AIChatScreen> {
   }
 
   Future<void> _startNewChat() async {
-    final chatId = await chatHistoryService.createNewChat();
-    if (chatId != null) {
-      setState(() {
-        currentChatId = chatId;
-        messages = [];
-      });
-      await _loadChatHistory();
-      Navigator.pop(context); // Close drawer
-    }
+    // Start a fresh in-memory chat without creating DB session yet.
+    // Actual DB session will be created when the user sends the first message.
+    setState(() {
+      currentChatId = null;
+      messages = [];
+    });
+    await _loadChatHistory();
+    _closeDrawerIfOpen();
   }
 
   Future<void> _loadChat(String chatId) async {
-    final chatMessages = await chatHistoryService.getChatMessages(chatId);
+    final chatMessages = await chatRepository.getMessagesForChat(chatId);
     setState(() {
       currentChatId = chatId;
       messages = chatMessages
           .map(
             (m) => {
-              'sender': m['sender'] as String,
-              'text': m['text'] as String,
+              'sender': m.role == 'user' ? 'user' : 'ai',
+              'text': m.content,
             },
           )
           .toList();
     });
-    Navigator.pop(context); // Close drawer
+    _closeDrawerIfOpen();
 
     // Scroll to bottom after loading
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -81,7 +129,9 @@ class _AIChatScreenState extends State<AIChatScreen> {
   }
 
   Future<void> _deleteChat(String chatId) async {
-    await chatHistoryService.deleteChat(chatId);
+    if (ownerId == null) await _detectRole();
+    if (ownerId == null) return;
+    await chatRepository.deleteChat(chatId: chatId, ownerId: ownerId!, ownerRole: ownerRole);
     if (currentChatId == chatId) {
       setState(() {
         currentChatId = null;
@@ -89,6 +139,18 @@ class _AIChatScreenState extends State<AIChatScreen> {
       });
     }
     await _loadChatHistory();
+  }
+
+  void _closeDrawerIfOpen() {
+    final scaffoldState = _scaffoldKey.currentState;
+    if (scaffoldState == null) return;
+    if (scaffoldState.isDrawerOpen) {
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        Navigator.of(context).pop();
+      });
+    }
   }
 
   void _showRenameDialog(String chatId, String currentTitle) {
@@ -137,10 +199,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
           ElevatedButton(
             onPressed: () async {
               if (controller.text.trim().isNotEmpty) {
-                await chatHistoryService.renameChat(
-                  chatId,
-                  controller.text.trim(),
-                );
+                await chatRepository.renameChat(chatId, controller.text.trim());
                 await _loadChatHistory();
                 Navigator.pop(ctx);
               }
@@ -165,10 +224,13 @@ class _AIChatScreenState extends State<AIChatScreen> {
   void sendMessage() async {
     final text = _controller.text.trim();
     if (text.isEmpty || _isLoading) return;
-
-    // Create new chat if none exists
+    // Ensure owner info and active chat
+    if (ownerId == null) await _detectRole();
+    if (ownerId == null) return;
     if (currentChatId == null) {
-      final chatId = await chatHistoryService.createNewChat(
+      final chatId = await chatRepository.createSession(
+        ownerId: ownerId!,
+        ownerRole: ownerRole,
         title: text.length > 30 ? '${text.substring(0, 30)}...' : text,
       );
       if (chatId == null) return;
@@ -182,12 +244,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
       _isLoading = true;
     });
 
-    // Save user message to history
-    await chatHistoryService.addMessage(
-      chatId: currentChatId!,
-      sender: 'user',
-      text: text,
-    );
+    // Save user message to new messages store
+    await chatRepository.addMessage(chatId: currentChatId!, role: 'user', content: text);
 
     // Show typing indicator
     setState(() {
@@ -205,12 +263,8 @@ class _AIChatScreenState extends State<AIChatScreen> {
         _isLoading = false;
       });
 
-      // Save AI response to history
-      await chatHistoryService.addMessage(
-        chatId: currentChatId!,
-        sender: 'ai',
-        text: aiText,
-      );
+      // Save AI response to new messages store
+      await chatRepository.addMessage(chatId: currentChatId!, role: 'assistant', content: aiText);
     } catch (e) {
       final errorMessage = "Sorry, something went wrong. Please try again.";
       setState(() {
@@ -219,12 +273,10 @@ class _AIChatScreenState extends State<AIChatScreen> {
         _isLoading = false;
       });
 
-      // Save error response to history so chat is not lost
-      await chatHistoryService.addMessage(
-        chatId: currentChatId!,
-        sender: 'ai',
-        text: errorMessage,
-      );
+      // Save error response to new messages store so chat is not lost
+      if (currentChatId != null) {
+        await chatRepository.addMessage(chatId: currentChatId!, role: 'assistant', content: errorMessage);
+      }
     }
 
     _scrollToBottom();
@@ -605,14 +657,7 @@ StatelessWidgets are lightweight and performant - use them when your widget does
           IconButton(
             icon: const Icon(Icons.add, color: Colors.white),
             tooltip: 'New Chat',
-            onPressed: () async {
-              setState(() {
-                currentChatId = null;
-                messages = [];
-              });
-              // Refresh chat history to show the previous chat in history
-              await _loadChatHistory();
-            },
+            onPressed: _startNewChat,
           ),
         ],
       ),

@@ -91,3 +91,29 @@ intend to publish under an open-source license (MIT, Apache-2.0, etc.).
 ## Contact
 
 Project maintained by the EduVerse team. For questions, open an issue or contact the repository owner.
+
+## Chat migration (chat_history → chat_sessions + chat_messages)
+
+We added a migration tool to move legacy `chat_history` data into the new chat model without deleting the original data.
+
+Files:
+- `scripts/migrate_chat_history.js` — idempotent Node.js script. Supports `--dry-run` and `--apply`.
+
+Usage:
+
+```bash
+# dry-run (no writes)
+node scripts/migrate_chat_history.js --dry-run
+
+# apply (perform writes). Ensure GOOGLE_APPLICATION_CREDENTIALS points to a service account JSON
+node scripts/migrate_chat_history.js --apply
+```
+
+What the script does:
+- For each `uid` under `chat_history/{uid}`, creates a deterministic legacy session `chat_sessions/legacy-{uid}` if it does not already exist.
+- Copies messages from `chat_history/{uid}/{chatId}/messages/{msgId}` into `chat_messages/legacy-{uid}/{msgId}` preserving timestamps and message ids.
+- Adds `student/{uid}/chatIds/{legacyChatId}: true` or `teacher/{uid}/chatIds/{legacyChatId}: true` depending on which node exists.
+- Does NOT delete or modify `chat_history`. Run the script and verify results before deleting legacy data.
+
+Rollback: Keep a record of created legacy chatIds (they follow `legacy-{uid}` naming). To rollback, remove the created `chat_sessions/legacy-{uid}` and `chat_messages/legacy-{uid}` and the `chatIds` references.
+

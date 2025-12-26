@@ -1,10 +1,13 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:math' as math;
 import 'package:intl/intl.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/views/student/ai_chat_screen.dart';
+import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
 class TeacherHomeTab extends StatefulWidget {
@@ -34,6 +37,11 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   String searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
 
+  // Auto-scroll carousel for teacher courses
+  late PageController _pageController;
+  Timer? _autoScrollTimer;
+  int _currentPage = 0;
+
   // Theme helper
   bool get isDark => mounted ? AppTheme.isDarkMode(context) : false;
 
@@ -44,13 +52,36 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   @override
   void initState() {
     super.initState();
+    _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
     _loadAllData();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _pageController.dispose();
+    _autoScrollTimer?.cancel();
     super.dispose();
+  }
+
+  void _startAutoScroll() {
+    _autoScrollTimer?.cancel();
+    if (filteredCourses.length <= 1) return;
+
+    _autoScrollTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
+      if (!mounted || filteredCourses.isEmpty) return;
+
+      _currentPage++;
+      if (_currentPage >= filteredCourses.length) _currentPage = 0;
+
+      if (_pageController.hasClients) {
+        _pageController.animateToPage(
+          _currentPage,
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeInOut,
+        );
+      }
+    });
   }
 
   /// Load all data in parallel with caching
@@ -74,6 +105,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
         uniqueStudentCount = cachedStudents;
         isLoading = false;
       });
+      _startAutoScroll();
       // Refresh in background
       _refreshDataInBackground(
         teacherUid,
@@ -109,6 +141,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           uniqueStudentCount = studentCount;
           isLoading = false;
         });
+        _startAutoScroll();
       }
     } catch (e) {
       if (mounted) {
@@ -147,10 +180,29 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           courses = fetchedCourses;
           uniqueStudentCount = studentCount;
         });
+        _startAutoScroll();
       }
     } catch (_) {
       // Silent fail for background refresh
     }
+  }
+
+  void _openCourseManagement(Map<String, dynamic> course) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TeacherCourseManageScreen(
+          courseUid: course['courseUid'],
+          courseTitle: course['title'] ?? 'Untitled Course',
+          imageUrl: course['imageUrl'] ?? '',
+          description: course['description'] ?? '',
+          enrolledCount: course['enrolledCount'] ?? 0,
+        ),
+      ),
+    ).then((_) {
+      _cacheService.clearPrefix('teacher_');
+      _loadAllData();
+    });
   }
 
   List<Map<String, dynamic>> get filteredCourses {
@@ -380,121 +432,193 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                         ],
                       ),
                     )
-                  : ListView.separated(
-                      scrollDirection: Axis.horizontal,
+                  : PageView.builder(
+                      controller: _pageController,
+                      padEnds: true,
                       itemCount: filteredCourses.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 16),
+                      onPageChanged: (index) {
+                        setState(() => _currentPage = index);
+                      },
                       itemBuilder: (context, index) {
                         final course = filteredCourses[index];
-                        return Container(
-                          width: 170,
-                          decoration: BoxDecoration(
-                            color: AppTheme.getCardColor(context),
-                            borderRadius: BorderRadius.circular(20),
-                            border: isDark
-                                ? Border.all(color: AppTheme.darkBorderColor)
-                                : null,
-                            boxShadow: isDark
-                                ? null
-                                : [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.08),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(20),
+                        return AnimatedBuilder(
+                          animation: _pageController,
+                          builder: (context, child) {
+                            double value = 1.0;
+                            double dx = 0.0;
+                            if (_pageController.hasClients) {
+                              final page = _pageController.page ?? _pageController.initialPage.toDouble();
+                              final delta = page - index;
+                              value = (delta).abs();
+                              value = (1 - (value * 0.15)).clamp(0.85, 1.0) as double;
+                              dx = (delta) * -30; // horizontal parallax
+                            }
+                            return Transform.translate(
+                              offset: Offset(dx, 0),
+                              child: Transform.scale(scale: value, child: child),
+                            );
+                          },
+                          child: InkWell(
+                            onTap: () => _openCourseManagement(course),
+                            borderRadius: BorderRadius.circular(18),
+                            child: Container(
+                              width: 170,
+                              margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.getCardColor(context),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: isDark
+                                      ? (AppTheme.darkAccent).withOpacity(0.3)
+                                      : Colors.grey.shade200,
+                                  width: 1.5,
                                 ),
-                                child: Image.network(
-                                  course['imageUrl'] as String,
-                                  height: 100,
-                                  width: double.infinity,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    height: 100,
-                                    color: AppTheme.primaryColor.withOpacity(
-                                      0.1,
-                                    ),
-                                    child: const Icon(
-                                      Icons.image,
-                                      size: 40,
-                                      color: AppTheme.primaryColor,
-                                    ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: isDark
+                                        ? AppTheme.darkAccent.withOpacity(0.12)
+                                        : Colors.black.withOpacity(0.10),
+                                    blurRadius: 16,
+                                    offset: const Offset(0, 6),
                                   ),
-                                ),
+                                ],
                               ),
-                              Padding(
-                                padding: const EdgeInsets.all(12),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      course['title'] as String,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 14,
-                                        color: AppTheme.getTextPrimary(context),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Image + overlays
+                                  Stack(
+                                    children: [
+                                      ClipRRect(
+                                        borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(18),
+                                        ),
+                                        child: (course['imageUrl'] as String? ?? '').isNotEmpty
+                                            ? Image.network(
+                                                course['imageUrl'] as String,
+                                                height: 95,
+                                                width: double.infinity,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (_, __, ___) => Container(
+                                                  height: 95,
+                                                  color: AppTheme.primaryColor.withOpacity(0.08),
+                                                  child: const Icon(
+                                                    Icons.image,
+                                                    size: 40,
+                                                    color: AppTheme.primaryColor,
+                                                  ),
+                                                ),
+                                              )
+                                            : Container(
+                                                height: 95,
+                                                width: double.infinity,
+                                                decoration: BoxDecoration(
+                                                  gradient: LinearGradient(
+                                                    begin: Alignment.topLeft,
+                                                    end: Alignment.bottomRight,
+                                                    colors: isDark
+                                                        ? [AppTheme.darkAccent.withOpacity(0.3), AppTheme.darkAccent.withOpacity(0.1)]
+                                                        : [AppTheme.primaryColor.withOpacity(0.15), AppTheme.primaryColor.withOpacity(0.05)],
+                                                  ),
+                                                ),
+                                                child: const Icon(Icons.image, size: 40),
+                                              ),
                                       ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.people,
-                                          size: 14,
-                                          color: AppTheme.getTextSecondary(
-                                            context,
+                                      // gradient overlay
+                                      Positioned.fill(
+                                        child: Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topCenter,
+                                              end: Alignment.bottomCenter,
+                                              colors: [
+                                                Colors.transparent,
+                                                Colors.black.withOpacity(0.3),
+                                              ],
+                                            ),
+                                            borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
                                           ),
                                         ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          "${course['enrolledCount'] ?? 0} Students",
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: AppTheme.getTextSecondary(
-                                              context,
+                                      ),
+                                      // (Manage badge removed for cleaner card look)
+                                      // enrolled count moved below title for cleaner layout
+                                    ],
+                                  ),
+                                  // Info
+                                  Expanded(
+                                    child: Padding(
+                                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            course['title'] as String? ?? 'Untitled Course',
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 13,
+                                              color: AppTheme.getTextPrimary(context),
+                                              height: 1.2,
                                             ),
                                           ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      DateFormat('MMM dd, yyyy').format(
-                                        DateTime.fromMillisecondsSinceEpoch(
-                                          course['createdAt'] ?? 0,
-                                        ).toLocal(),
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            "${course['enrolledCount'] ?? 0} Students",
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: AppTheme.getTextSecondary(context),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            DateFormat('MMM dd, yyyy').format(
+                                              DateTime.fromMillisecondsSinceEpoch(course['createdAt'] ?? 0).toLocal(),
+                                            ),
+                                            style: TextStyle(fontSize: 11, color: AppTheme.getTextSecondary(context)),
+                                          ),
+                                        ],
                                       ),
-                                      style: TextStyle(
-                                        fontSize: 11,
-                                        color: AppTheme.getTextSecondary(
-                                          context,
-                                        ),
-                                      ),
                                     ),
-                                  ],
-                                ),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
                         );
                       },
                     ),
             ),
+            if (filteredCourses.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(
+                  math.min(filteredCourses.length, 8),
+                  (index) => AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: _currentPage == index ? 24 : 8,
+                    height: 8,
+                    decoration: BoxDecoration(
+                      color: _currentPage == index
+                          ? (isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor)
+                          : (isDark ? Colors.white24 : Colors.grey[300]),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ),
+              ),
+            ],
 
             const SizedBox(height: 28),
 
-            // AI Assistant Card
+            // AI Learning Tools (match student)
             Text(
-              "AI Assistant",
+              "AI Learning Tools",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
@@ -511,7 +635,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AIChatScreen()),
+                  MaterialPageRoute(builder: (context) => const AIChatScreen(openNew: true)),
                 );
               },
             ),
@@ -534,17 +658,19 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                 color: AppTheme.getCardColor(context),
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
-                  color: AppTheme.warning.withOpacity(isDark ? 0.5 : 0.3),
+                  color: isDark
+                      ? AppTheme.warning.withOpacity(0.35)
+                      : AppTheme.warning.withOpacity(0.18),
                 ),
-                boxShadow: isDark
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: AppTheme.warning.withOpacity(0.1),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
+                boxShadow: [
+                  BoxShadow(
+                    color: isDark
+                        ? AppTheme.warning.withOpacity(0.06)
+                        : AppTheme.warning.withOpacity(0.08),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
@@ -679,9 +805,11 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     required Color color,
     required VoidCallback onTap,
   }) {
-    // Use brighter, more vibrant colors in dark mode
+    final isDark = AppTheme.isDarkMode(context);
+
+    // Use brighter, more vibrant colors in dark mode (match student teal)
     final displayColor = isDark
-        ? const Color(0xFF9B7DFF) // Brighter purple/violet for AI
+        ? const Color(0xFF4ECDC4)
         : color;
 
     return GestureDetector(
