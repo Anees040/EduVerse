@@ -35,14 +35,37 @@ class _SplashscreenState extends State<Splashscreen> with SingleTickerProviderSt
     
     _controller.forward();
     
-    Future.delayed(const Duration(seconds: 3), () {
+    _navigateToSignIn();
+  }
+
+  void _navigateToSignIn() async {
+    await Future.delayed(const Duration(seconds: 3));
+    
+    if (!mounted) return;
+    
+    try {
+      Navigator.of(context).pushReplacement(
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const SigninScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            const begin = Offset(1.0, 0.0);
+            const end = Offset.zero;
+            const curve = Curves.easeInOut;
+            var tween = Tween(begin: begin, end: end).chain(CurveTween(curve: curve));
+            var offsetAnimation = animation.drive(tween);
+            return SlideTransition(position: offsetAnimation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 500),
+        ),
+      );
+    } catch (e) {
+      print('Navigation error: $e');
       if (mounted) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const SigninScreen()),
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(builder: (_) => const SigninScreen()),
         );
       }
-    });
+    }
   }
 
   @override

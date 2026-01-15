@@ -1,0 +1,61 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    // Student collection
+    match /student/{userId} {
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // Teacher collection
+    match /teacher/{userId} {
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // Courses collection
+    match /courses/{courseId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && exists(/databases/$(database)/documents/teacher/$(request.auth.uid));
+      allow update, delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
+    }
+    
+    // Bookmarks collection
+    match /bookmarks/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // Chat history collection
+    match /chat_history/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // Notifications collection
+    match /notifications/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+    
+    // Verification codes (temporary storage)
+    match /verification_codes/{emailKey} {
+      allow read: if false;
+      allow write: if true; // Anyone can write for email verification
+    }
+    
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

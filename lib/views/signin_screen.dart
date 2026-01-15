@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/auth_service.dart';
+import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/views/student/home_screen.dart';
-import 'package:eduverse/views/register_screen.dart';
+import 'package:eduverse/views/register_screen_with_verification.dart';
 import 'package:eduverse/views/teacher/teacher_home_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 class SigninScreen extends StatefulWidget {
   const SigninScreen({super.key});
@@ -14,15 +17,351 @@ class SigninScreen extends StatefulWidget {
 
 class _SigninScreenState extends State<SigninScreen> {
   bool isStudent = true; // role toggle
-  final TextEditingController _emailController = TextEditingController();
-  final TextEditingController _passwordController = TextEditingController();
+  late TextEditingController _emailController;
+  late TextEditingController _passwordController;
   final _auth = AuthService();
+  final _emailVerificationService = EmailVerificationService();
+  GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _obscurePassword = true;
 
   bool _loading = false;
+  String? _errorMessage; // For displaying error at top of form
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeControllers();
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
+    super.dispose();
+  }
+
+  void _initializeControllers() {
+    _emailController = TextEditingController();
+    _passwordController = TextEditingController();
+  }
+
+  void _disposeControllers() {
+    _emailController.dispose();
+    _passwordController.dispose();
+  }
+
+  // Email validation - only check for empty on login
+  String? _validateEmail(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your email';
+    }
+    
+    final email = value.trim();
+    
+    // Check basic format first
+    if (!email.contains('@')) {
+      return 'Email must include @';
+    }
+    
+    final parts = email.split('@');
+    if (parts.length < 2 || parts[1].isEmpty) {
+      return 'Email must include a domain';
+    }
+    
+    if (!parts[1].contains('.')) {
+      return 'Domain must include a dot (e.g. .com)';
+    }
+
+    // Strict email validation - must be from common email providers
+    final emailRegex = RegExp(
+      r'^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com|outlook\.com|hotmail\.com|email\.com|icloud\.com|protonmail\.com|mail\.com|aol\.com|zoho\.com|yandex\.com|gmx\.com|live\.com|msn\.com)$',
+      caseSensitive: false,
+    );
+    
+    if (!emailRegex.hasMatch(email)) {
+      return 'Use a common provider (gmail, outlook, yahoo, etc.)';
+    }
+    
+    return null;
+  }
+
+  // Password validation - only check for empty on login
+  String? _validatePassword(String? value) {
+    if (value == null || value.trim().isEmpty) {
+      return 'Please enter your password';
+    }
+    return null;
+  }
+
+  // Reset form state when toggling roles
+  void _onRoleToggle(bool studentSelected) {
+    if (isStudent == studentSelected) return; // No change needed
+    
+    // Unfocus any active field
+    FocusScope.of(context).unfocus();
+    
+    // Dispose old controllers
+    _disposeControllers();
+    
+    // Reinitialize controllers with fresh instances
+    _initializeControllers();
+    
+    setState(() {
+      isStudent = studentSelected;
+      _errorMessage = null;
+      
+      // Create new form key to force complete form rebuild without validation
+      _formKey = GlobalKey<FormState>();
+    });
+  }
+
+  // Show forgot password dialog with email verification
+  void _showForgotPasswordDialog() {
+    final TextEditingController resetEmailController = TextEditingController();
+    final TextEditingController verificationCodeController =
+        TextEditingController();
+    final TextEditingController newPasswordController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool isLoading = false;
+    bool codeSent = false;
+    bool codeVerified = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.getCardColor(context),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: Text(
+              'Reset Password',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            content: Form(
+              key: formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!codeVerified) ...[
+                      Text(
+                        'Enter your email address to receive a verification code.',
+                        style: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: resetEmailController,
+                        keyboardType: TextInputType.emailAddress,
+                        enabled: !codeSent,
+                        style: TextStyle(
+                          color: AppTheme.getTextPrimary(context),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your email';
+                          }
+                          final emailRegex = RegExp(
+                            r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+                          );
+                          if (!emailRegex.hasMatch(value.trim())) {
+                            return 'Please enter a valid email';
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Email',
+                          hintText: 'Enter your email',
+                          prefixIcon: Icon(
+                            Icons.email_outlined,
+                            color: AppTheme.getIconSecondary(context),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                      if (codeSent) ...[
+                        const SizedBox(height: 16),
+                        TextFormField(
+                          controller: verificationCodeController,
+                          keyboardType: TextInputType.number,
+                          maxLength: 6,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: AppTheme.getTextPrimary(context),
+                            fontSize: 18,
+                            letterSpacing: 3,
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Verification Code',
+                            hintText: '000000',
+                            counterText: "",
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ] else ...[
+                      Text(
+                        'Email verified! Enter your new password.',
+                        style: TextStyle(
+                          color: AppTheme.getSuccessColor(context),
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      TextFormField(
+                        controller: newPasswordController,
+                        obscureText: true,
+                        style: TextStyle(
+                          color: AppTheme.getTextPrimary(context),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter new password';
+                          }
+                          if (value.trim().length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'New Password',
+                          hintText: 'Enter new password',
+                          prefixIcon: Icon(
+                            Icons.lock_outline,
+                            color: AppTheme.getIconSecondary(context),
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+
+                        setDialogState(() => isLoading = true);
+
+                        try {
+                          if (!codeSent) {
+                            // Send verification code
+                            await _emailVerificationService
+                                .sendVerificationCode(
+                                  resetEmailController.text.trim(),
+                                );
+                            setDialogState(() {
+                              codeSent = true;
+                              isLoading = false;
+                            });
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: const Text('Verification code sent!'),
+                                backgroundColor: AppTheme.getSuccessColor(
+                                  context,
+                                ),
+                                behavior: SnackBarBehavior.floating,
+                              ),
+                            );
+                          } else if (!codeVerified) {
+                            // Verify code
+                            final verified = await _emailVerificationService
+                                .verifyCode(
+                                  resetEmailController.text.trim(),
+                                  verificationCodeController.text.trim(),
+                                );
+                            if (verified) {
+                              setDialogState(() {
+                                codeVerified = true;
+                                isLoading = false;
+                              });
+                            }
+                          } else {
+                            // Reset password
+                            await _auth.sendPasswordResetEmail(
+                              resetEmailController.text.trim(),
+                            );
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text(
+                                    'Password reset email sent! Check your inbox.',
+                                  ),
+                                  backgroundColor: AppTheme.getSuccessColor(
+                                    context,
+                                  ),
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          }
+                        } catch (e) {
+                          setDialogState(() => isLoading = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(e.toString()),
+                              backgroundColor: Theme.of(
+                                context,
+                              ).colorScheme.error,
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                        }
+                      },
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        !codeSent
+                            ? 'Send Code'
+                            : !codeVerified
+                            ? 'Verify Code'
+                            : 'Reset Password',
+                      ),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
 
   Future<String?> _login() async {
-    setState(() => _loading = true);
+    setState(() {
+      _loading = true;
+      _errorMessage = null;
+    });
 
     try {
       final user = await _auth.signIn(
@@ -32,15 +371,76 @@ class _SigninScreenState extends State<SigninScreen> {
       );
       return user?.uid;
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      setState(() {
+        _errorMessage = _formatErrorMessage(e.toString());
+        _passwordController.clear(); // Clear password on error
+      });
       return null;
     } finally {
       if (mounted) {
         setState(() => _loading = false);
       }
     }
+  }
+
+  // Format error messages to be more user-friendly
+  String _formatErrorMessage(String error) {
+    if (error.contains('user-not-found') || error.contains('No user exists')) {
+      return 'No account found with this email';
+    } else if (error.contains('wrong-password') ||
+        error.contains('invalid-credential')) {
+      return 'Incorrect email or password';
+    } else if (error.contains('invalid-email')) {
+      return 'Please enter a valid email address';
+    } else if (error.contains('too-many-requests')) {
+      return 'Too many failed attempts. Please try again later';
+    } else if (error.contains('network')) {
+      return 'Network error. Please check your connection';
+    } else if (error.contains('Invalid role')) {
+      return 'This account is not registered as a ${isStudent ? "student" : "teacher"}';
+    }
+    return 'Login failed. Please check your credentials';
+  }
+
+  // Helper to show snackbar professionally (clears previous ones)
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars() // Clear any existing snackbars
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Text(message),
+            ],
+          ),
+          backgroundColor: AppTheme.primaryColor,
+          behavior: SnackBarBehavior.floating,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  // Google Sign In Handler - Coming Soon
+  void _handleGoogleSignIn() {
+    _showInfoSnackBar('Login through Google is coming soon!');
+  }
+
+  // GitHub Sign In Handler - Coming Soon
+  void _handleGitHubSignIn() {
+    _showInfoSnackBar('Login through GitHub is coming soon!');
+  }
+
+  // Build Google icon using official SVG
+  Widget _buildGoogleIcon() {
+    return SvgPicture.asset(
+      'assets/images/google_logo.svg',
+      width: 24,
+      height: 24,
+    );
   }
 
   @override
@@ -128,7 +528,7 @@ class _SigninScreenState extends State<SigninScreen> {
                         children: [
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => setState(() => isStudent = true),
+                              onTap: () => _onRoleToggle(true),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
@@ -168,7 +568,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                           Expanded(
                             child: GestureDetector(
-                              onTap: () => setState(() => isStudent = false),
+                              onTap: () => _onRoleToggle(false),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   vertical: 14,
@@ -212,52 +612,149 @@ class _SigninScreenState extends State<SigninScreen> {
 
                     const SizedBox(height: 30),
 
-                    // Email field
-                    TextField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                      decoration: InputDecoration(
-                        labelText: "Email",
-                        hintText: "Enter your email",
-                        prefixIcon: Icon(
-                          Icons.email_outlined,
-                          color: AppTheme.getIconSecondary(context),
-                        ),
-                        border: OutlineInputBorder(
+                    // Error message display (shown at top of form)
+                    if (_errorMessage != null) ...[
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Theme.of(
+                            context,
+                          ).colorScheme.error.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.error.withOpacity(0.5),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline,
+                              color: Theme.of(context).colorScheme.error,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                _errorMessage!,
+                                style: TextStyle(
+                                  color: Theme.of(context).colorScheme.error,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () => setState(() => _errorMessage = null),
+                              child: Icon(
+                                Icons.close,
+                                color: Theme.of(context).colorScheme.error,
+                                size: 18,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
+                      const SizedBox(height: 16),
+                    ],
 
-                    const SizedBox(height: 16),
+                    // Wrap fields in Form widget
+                    Form(
+                      key: _formKey,
+                      child: Column(
+                        children: [
+                          // Email field
+                          TextFormField(
+                            controller: _emailController,
+                            keyboardType: TextInputType.emailAddress,
+                            style: TextStyle(
+                              color: AppTheme.getTextPrimary(context),
+                            ),
+                            validator: _validateEmail,
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            decoration: InputDecoration(
+                              labelText: "Email",
+                              hintText: "Enter your email",
+                              prefixIcon: Icon(
+                                Icons.email_outlined,
+                                color: AppTheme.getIconSecondary(context),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              errorStyle: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.error,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
+                          ),
 
-                    // Password field
-                    TextField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                      decoration: InputDecoration(
-                        labelText: "Password",
-                        hintText: "Enter your password",
-                        prefixIcon: Icon(
-                          Icons.lock_outline,
-                          color: AppTheme.getIconSecondary(context),
-                        ),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                            color: AppTheme.getIconSecondary(context),
+                          const SizedBox(height: 16),
+
+                          // Password field
+                          TextFormField(
+                            controller: _passwordController,
+                            obscureText: _obscurePassword,
+                            style: TextStyle(
+                              color: AppTheme.getTextPrimary(context),
+                            ),
+                            validator: _validatePassword,
+                            autovalidateMode:
+                                AutovalidateMode.onUserInteraction,
+                            decoration: InputDecoration(
+                              labelText: "Password",
+                              hintText: "Enter your password",
+                              prefixIcon: Icon(
+                                Icons.lock_outline,
+                                color: AppTheme.getIconSecondary(context),
+                              ),
+                              suffixIcon: IconButton(
+                                icon: Icon(
+                                  _obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility,
+                                  color: AppTheme.getIconSecondary(context),
+                                ),
+                                onPressed: () => setState(
+                                  () => _obscurePassword = !_obscurePassword,
+                                ),
+                              ),
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              errorStyle: TextStyle(
+                                color: Theme.of(context).colorScheme.error,
+                              ),
+                              errorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.error,
+                                ),
+                              ),
+                              focusedErrorBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide(
+                                  color: Theme.of(context).colorScheme.error,
+                                  width: 2,
+                                ),
+                              ),
+                            ),
                           ),
-                          onPressed: () => setState(
-                            () => _obscurePassword = !_obscurePassword,
-                          ),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
+                        ],
                       ),
                     ),
 
@@ -265,16 +762,7 @@ class _SigninScreenState extends State<SigninScreen> {
                     Align(
                       alignment: Alignment.centerRight,
                       child: TextButton(
-                        onPressed: () {
-                          // TODO: Implement forgot password
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text(
-                                "Forgot password feature coming soon",
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _showForgotPasswordDialog,
                         child: Text(
                           "Forgot Password?",
                           style: TextStyle(
@@ -294,14 +782,8 @@ class _SigninScreenState extends State<SigninScreen> {
                         onPressed: _loading
                             ? null
                             : () async {
-                                final email = _emailController.text.trim();
-
-                                if (email.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text("Please enter your email"),
-                                    ),
-                                  );
+                                // Validate form first
+                                if (!_formKey.currentState!.validate()) {
                                   return;
                                 }
 
@@ -350,6 +832,121 @@ class _SigninScreenState extends State<SigninScreen> {
 
                     const SizedBox(height: 30),
 
+                    // Divider with "OR"
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: AppTheme.getTextSecondary(
+                              context,
+                            ).withOpacity(0.3),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: AppTheme.getTextSecondary(
+                              context,
+                            ).withOpacity(0.3),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // Google Sign-in button
+                    SizedBox(
+                      height: 56,
+                      child: OutlinedButton(
+                        onPressed: _loading ? null : _handleGoogleSignIn,
+                        style: OutlinedButton.styleFrom(
+                          side: BorderSide(
+                            color: AppTheme.getTextSecondary(
+                              context,
+                            ).withOpacity(0.3),
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildGoogleIcon(),
+                            const SizedBox(width: 12),
+                            Flexible(
+                              child: Text(
+                                'Continue with Google',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: AppTheme.getTextPrimary(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
+                    // GitHub Sign-in button (only for students)
+                    if (isStudent) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: _loading ? null : _handleGitHubSignIn,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: AppTheme.getTextSecondary(
+                                context,
+                              ).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FaIcon(
+                                FontAwesomeIcons.github,
+                                color: AppTheme.getTextPrimary(context),
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  'Continue with GitHub',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: AppTheme.getTextPrimary(context),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+
+                    const SizedBox(height: 30),
+
                     // Register link
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -366,7 +963,8 @@ class _SigninScreenState extends State<SigninScreen> {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => const RegisterScreen(),
+                                builder: (context) =>
+                                    const RegisterScreenWithVerification(),
                               ),
                             );
                           },
