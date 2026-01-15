@@ -5,15 +5,23 @@
  * 1. Keep API keys on the server (never exposed to client)
  * 2. Handle CORS properly for web browsers
  * 3. Call xAI Grok API from the server side
+ * 4. Send emails via Mailjet for verification and notifications
  * 
  * Endpoints:
  * - askAI: Text-based AI chat
  * - analyzeImage: Image analysis for homework help
+ * - sendTestEmail: Test email delivery
+ * - sendVerificationEmail: Send verification code emails
  */
+
+// Load environment variables first
+require("dotenv").config();
 
 const functions = require("firebase-functions");
 const fetch = require("node-fetch");
 const cors = require("cors");
+const { sendEmail, sendVerificationEmail, sendWelcomeEmail } = require("./utils/sendEmail");
+
 
 // Initialize CORS middleware - allow requests from any origin for development
 // In production, you should restrict this to your domain
@@ -284,5 +292,119 @@ exports.health = functions.https.onRequest((req, res) => {
       timestamp: new Date().toISOString(),
       service: "EduVerse AI Backend"
     });
+  });
+});
+
+/**
+ * sendTestEmail - Test endpoint to verify Mailjet email delivery
+ * 
+ * Request body:
+ * {
+ *   "to": "recipient@example.com",
+ *   "name": "Recipient Name" (optional)
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Test email sent successfully",
+ *   "messageId": "..."
+ * }
+ */
+exports.sendTestEmail = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    if (req.method !== "POST") {
+      return res.status(405).json({ 
+        success: false, 
+        error: "Method not allowed. Use POST." 
+      });
+    }
+
+    try {
+      const { to, name } = req.body;
+
+      if (!to || typeof to !== "string" || !to.includes("@")) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Missing or invalid 'to' email address" 
+        });
+      }
+
+      // Send a welcome email as a test
+      const result = await sendWelcomeEmail(to, name || "EduVerse User");
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Test email sent successfully! Check your inbox.",
+        messageId: result.messageId
+      });
+
+    } catch (error) {
+      console.error("Email sending error:", error);
+      return res.status(500).json({ 
+        success: false, 
+        error: `Failed to send email: ${error.message}` 
+      });
+    }
+  });
+});
+
+/**
+ * sendVerificationCode - Send a verification code email to a user
+ * 
+ * Request body:
+ * {
+ *   "to": "user@example.com",
+ *   "code": "123456",
+ *   "name": "User Name" (optional)
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Verification email sent"
+ * }
+ */
+exports.sendVerificationCode = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    if (req.method !== "POST") {
+      return res.status(405).json({ 
+        success: false, 
+        error: "Method not allowed. Use POST." 
+      });
+    }
+
+    try {
+      const { to, code, name } = req.body;
+
+      if (!to || typeof to !== "string" || !to.includes("@")) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Missing or invalid 'to' email address" 
+        });
+      }
+
+      if (!code || typeof code !== "string") {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Missing or invalid 'code' field" 
+        });
+      }
+
+      const result = await sendVerificationEmail(to, code, name || "User");
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Verification email sent successfully",
+        messageId: result.messageId
+      });
+
+    } catch (error) {
+      console.error("Verification email error:", error);
+      return res.status(500).json({ 
+        success: false, 
+        error: `Failed to send verification email: ${error.message}` 
+      });
+    }
   });
 });

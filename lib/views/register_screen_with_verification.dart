@@ -36,9 +36,14 @@ class _RegisterScreenWithVerificationState
   bool _verificationCodeSent = false;
   bool _isVerifyingCode = false;
   String? _emailError; // Inline error for email verification
+  String? _verificationCodeError; // Inline error for verification code
 
   Timer? _resendTimer;
   int _resendCountdown = 0;
+  
+  // Resend limit tracking (3 times in 2 hours)
+  int _resendAttempts = 0;
+  DateTime? _firstResendTime;
 
   // Password strength tracking
   double _passwordStrength = 0;
@@ -157,10 +162,13 @@ class _RegisterScreenWithVerificationState
       _isEmailVerified = false;
       _verificationCodeSent = false;
       _emailError = null;
+      _verificationCodeError = null;
       _passwordStrength = 0;
       _passwordStrengthText = '';
       _passwordStrengthColor = Colors.grey;
       _resendCountdown = 0;
+      _resendAttempts = 0;
+      _firstResendTime = null;
       if (_resendTimer != null) {
         _resendTimer!.cancel();
         _resendTimer = null;
@@ -278,9 +286,29 @@ class _RegisterScreenWithVerificationState
       return;
     }
     
-    // Clear any previous error
+    // Check resend limit (3 times in 2 hours)
+    if (_resendAttempts >= 3) {
+      if (_firstResendTime != null) {
+        final timeSinceFirst = DateTime.now().difference(_firstResendTime!);
+        if (timeSinceFirst.inHours < 2) {
+          final remainingMinutes = 120 - timeSinceFirst.inMinutes;
+          setState(() {
+            _emailError = 'Too many attempts. Please try again in $remainingMinutes minutes.';
+          });
+          return;
+        } else {
+          // Reset after 2 hours
+          _resendAttempts = 0;
+          _firstResendTime = null;
+        }
+      }
+    }
+    
+    // Clear any previous errors and verification code field
     setState(() {
       _emailError = null;
+      _verificationCodeError = null;
+      _verificationCodeController.clear();
       _loading = true;
     });
     
@@ -288,6 +316,13 @@ class _RegisterScreenWithVerificationState
       await _emailVerificationService.sendVerificationCode(
         _emailController.text.trim(),
       );
+      
+      // Track resend attempts
+      if (_firstResendTime == null) {
+        _firstResendTime = DateTime.now();
+      }
+      _resendAttempts++;
+      
       setState(() {
         _verificationCodeSent = true;
         _resendCountdown = 60;
@@ -330,13 +365,17 @@ class _RegisterScreenWithVerificationState
   // Verify code
   Future<void> _verifyCode() async {
     if (_verificationCodeController.text.trim().length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a valid 6-digit code')),
-      );
+      setState(() {
+        _verificationCodeError = 'Please enter a valid 6-digit code';
+      });
       return;
     }
 
-    setState(() => _isVerifyingCode = true);
+    setState(() {
+      _isVerifyingCode = true;
+      _verificationCodeError = null;
+    });
+    
     try {
       final verified = await _emailVerificationService.verifyCode(
         _emailController.text.trim(),
@@ -360,13 +399,9 @@ class _RegisterScreenWithVerificationState
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(e.toString()),
-            backgroundColor: Theme.of(context).colorScheme.error,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
+        setState(() {
+          _verificationCodeError = e.toString().replaceAll('Exception: ', '');
+        });
       }
     } finally {
       if (mounted) setState(() => _isVerifyingCode = false);
@@ -919,15 +954,39 @@ class _RegisterScreenWithVerificationState
                                 letterSpacing: 3,
                               ),
                               textAlign: TextAlign.center,
+                              onChanged: (_) {
+                                // Clear error when user starts typing
+                                if (_verificationCodeError != null) {
+                                  setState(() => _verificationCodeError = null);
+                                }
+                              },
                               decoration: InputDecoration(
                                 labelText: "Verification Code",
                                 hintText: "000000",
                                 counterText: "",
+                                errorText: _verificationCodeError,
+                                errorMaxLines: 2,
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                               ),
                             ),
+                            
+                            // Remaining resend attempts info
+                            if (_resendAttempts > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Text(
+                                  'Resend attempts: ${3 - _resendAttempts} remaining',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: _resendAttempts >= 2 
+                                        ? Colors.orange[700] 
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            
                             const SizedBox(height: 12),
                             Row(
                               children: [
@@ -950,13 +1009,15 @@ class _RegisterScreenWithVerificationState
                                 ),
                                 const SizedBox(width: 12),
                                 TextButton(
-                                  onPressed: _resendCountdown > 0
+                                  onPressed: (_resendCountdown > 0 || _resendAttempts >= 3)
                                       ? null
                                       : _sendVerificationCode,
                                   child: Text(
-                                    _resendCountdown > 0
-                                        ? 'Resend ($_resendCountdown)s'
-                                        : 'Resend Code',
+                                    _resendAttempts >= 3
+                                        ? 'Limit reached'
+                                        : _resendCountdown > 0
+                                            ? 'Resend ($_resendCountdown)s'
+                                            : 'Resend Code',
                                   ),
                                 ),
                               ],
