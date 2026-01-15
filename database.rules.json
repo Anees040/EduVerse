@@ -1,14 +1,14 @@
 {
   "rules": {
     "student": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "$uid === auth.uid",
         ".write": "$uid === auth.uid"
       }
     },
     "teacher": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "$uid === auth.uid",
         ".write": "$uid === auth.uid"
       }
     },
@@ -38,7 +38,7 @@
     },
     "verification_codes": {
       "$emailKey": {
-        ".read": false,
+        ".read": true,
         ".write": true
       }
     },
