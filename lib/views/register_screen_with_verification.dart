@@ -1,29 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/auth_service.dart';
+import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'dart:async';
 
-class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+class RegisterScreenWithVerification extends StatefulWidget {
+  const RegisterScreenWithVerification({super.key});
 
   @override
-  State<RegisterScreen> createState() => _RegisterScreenState();
+  State<RegisterScreenWithVerification> createState() =>
+      _RegisterScreenWithVerificationState();
 }
 
-class _RegisterScreenState extends State<RegisterScreen> {
+class _RegisterScreenWithVerificationState
+    extends State<RegisterScreenWithVerification> {
   bool isStudent = true;
   final _auth = AuthService();
+  final _emailVerificationService = EmailVerificationService();
   GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _usernameController;
   late TextEditingController _emailController;
   late TextEditingController _passwordController;
   late TextEditingController _confirmPasswordController;
+  late TextEditingController _verificationCodeController;
   // Teacher-specific controllers
   late TextEditingController _experienceController;
   late TextEditingController _expertiseController;
+
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
-
   bool _loading = false;
+  bool _isEmailVerified = false;
+  bool _verificationCodeSent = false;
+  bool _isVerifyingCode = false;
+  String? _emailError; // Inline error for email verification
+
+  Timer? _resendTimer;
+  int _resendCountdown = 0;
 
   // Password strength tracking
   double _passwordStrength = 0;
@@ -42,6 +57,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController = TextEditingController();
     _passwordController = TextEditingController();
     _confirmPasswordController = TextEditingController();
+    _verificationCodeController = TextEditingController();
     _experienceController = TextEditingController();
     _expertiseController = TextEditingController();
   }
@@ -51,12 +67,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _verificationCodeController.dispose();
     _experienceController.dispose();
     _expertiseController.dispose();
   }
 
   @override
   void dispose() {
+    _resendTimer?.cancel();
     _passwordController.removeListener(_updatePasswordStrength);
     _disposeControllers();
     super.dispose();
@@ -71,30 +89,27 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (password.isEmpty) {
       strength = 0;
       text = '';
-    } else if (password.length < 6) {
+    } else if (password.length < 8) {
       strength = 0.2;
-      text = 'Too short';
+      text = 'Too short (min 8 chars)';
       color = Colors.red;
     } else {
-      // Base strength for meeting minimum length
       strength = 0.3;
-
-      // Check for uppercase
       if (password.contains(RegExp(r'[A-Z]'))) strength += 0.15;
-      // Check for lowercase
       if (password.contains(RegExp(r'[a-z]'))) strength += 0.15;
-      // Check for numbers
       if (password.contains(RegExp(r'[0-9]'))) strength += 0.15;
-      // Check for special characters
       if (password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
         strength += 0.15;
       }
-      // Bonus for length > 10
       if (password.length >= 10) strength += 0.1;
 
-      if (strength < 0.4) {
-        text = 'Weak';
-        color = Colors.red;
+      // Check if meets minimum requirements
+      bool hasLetter = password.contains(RegExp(r'[a-zA-Z]'));
+      bool hasSpecial = password.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'));
+      
+      if (!hasLetter || !hasSpecial) {
+        text = hasLetter ? 'Add special char' : 'Add a letter';
+        color = Colors.orange;
       } else if (strength < 0.6) {
         text = 'Fair';
         color = Colors.orange;
@@ -114,38 +129,45 @@ class _RegisterScreenState extends State<RegisterScreen> {
     });
   }
 
-  // Reset form state when toggling roles
   void _onRoleToggle(bool studentSelected) {
     if (isStudent == studentSelected) return; // No change needed
-
-    // Unfocus any active field
+    
+    // Unfocus any active field to prevent keyboard staying up or focus issues
     FocusScope.of(context).unfocus();
-
+    
     // Remove listener before disposing
     _passwordController.removeListener(_updatePasswordStrength);
-
+    
     // Dispose old controllers
     _disposeControllers();
-
+    
     // Reinitialize controllers with fresh instances
     _initializeControllers();
-
+    
     // Re-add listener to new password controller
     _passwordController.addListener(_updatePasswordStrength);
-
+    
     setState(() {
       isStudent = studentSelected;
-
+      
       // Create new form key to force complete form rebuild without validation
       _formKey = GlobalKey<FormState>();
-
+      
+      // Reset all other states
+      _isEmailVerified = false;
+      _verificationCodeSent = false;
+      _emailError = null;
       _passwordStrength = 0;
       _passwordStrengthText = '';
       _passwordStrengthColor = Colors.grey;
+      _resendCountdown = 0;
+      if (_resendTimer != null) {
+        _resendTimer!.cancel();
+        _resendTimer = null;
+      }
     });
   }
 
-  // Validation methods
   String? _validateName(String? value) {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter your full name';
@@ -160,29 +182,33 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter your email';
     }
-    // Stricter email validation
+    
+    final email = value.trim();
+    
+    // Check basic format first
+    if (!email.contains('@')) {
+      return 'Email must include @';
+    }
+    
+    final parts = email.split('@');
+    if (parts.length < 2 || parts[1].isEmpty) {
+      return 'Email must include a domain';
+    }
+    
+    if (!parts[1].contains('.')) {
+      return 'Domain must include a dot (e.g. .com)';
+    }
+
+    // Strict email validation - must be from common email providers
     final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+      r'^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com|outlook\.com|hotmail\.com|email\.com|icloud\.com|protonmail\.com|mail\.com|aol\.com|zoho\.com|yandex\.com|gmx\.com|live\.com|msn\.com)$',
+      caseSensitive: false,
     );
-    if (!emailRegex.hasMatch(value.trim())) {
-      return 'Please enter a valid email address';
+    
+    if (!emailRegex.hasMatch(email)) {
+      return 'Use a common provider (gmail, outlook, yahoo, etc.)';
     }
-    // Check for common typos
-    final domain = value.trim().split('@').last.toLowerCase();
-    final commonTypos = {
-      'gmial.com': 'gmail.com',
-      'gmal.com': 'gmail.com',
-      'gmai.com': 'gmail.com',
-      'gamil.com': 'gmail.com',
-      'gmaill.com': 'gmail.com',
-      'yaho.com': 'yahoo.com',
-      'yahooo.com': 'yahoo.com',
-      'hotmal.com': 'hotmail.com',
-      'outloo.com': 'outlook.com',
-    };
-    if (commonTypos.containsKey(domain)) {
-      return 'Did you mean ${commonTypos[domain]}?';
-    }
+    
     return null;
   }
 
@@ -190,8 +216,21 @@ class _RegisterScreenState extends State<RegisterScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter a password';
     }
-    if (value.trim().length < 6) {
-      return 'Password must be at least 6 characters';
+    
+    List<String> missing = [];
+    
+    if (value.trim().length < 8) {
+      missing.add('8+ characters');
+    }
+    if (!value.contains(RegExp(r'[a-zA-Z]'))) {
+      missing.add('1 letter');
+    }
+    if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+      missing.add('1 special character (!@#\$%^&*)');
+    }
+    
+    if (missing.isNotEmpty) {
+      return 'Password needs: ${missing.join(', ')}';
     }
     return null;
   }
@@ -206,9 +245,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  // Optional validation - only validate if value is provided
   String? _validateExperience(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter years of experience';
+      return null; // Optional field
     }
     final years = int.tryParse(value.trim());
     if (years == null || years < 0) {
@@ -217,77 +257,224 @@ class _RegisterScreenState extends State<RegisterScreen> {
     return null;
   }
 
+  // Optional validation - only validate if value is provided
   String? _validateExpertise(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter your subject expertise';
+      return null; // Optional field
     }
     if (value.trim().length < 2) {
-      return 'Subject expertise must be at least 2 characters';
+      return 'Must be at least 2 characters';
     }
     return null;
   }
 
-  Future<bool> _register() async {
-    setState(() => _loading = true);
+  // Send verification code
+  Future<void> _sendVerificationCode() async {
+    final emailValidation = _validateEmail(_emailController.text);
+    if (emailValidation != null) {
+      setState(() {
+        _emailError = emailValidation;
+      });
+      return;
+    }
+    
+    // Clear any previous error
+    setState(() {
+      _emailError = null;
+      _loading = true;
+    });
+    
+    try {
+      await _emailVerificationService.sendVerificationCode(
+        _emailController.text.trim(),
+      );
+      setState(() {
+        _verificationCodeSent = true;
+        _resendCountdown = 60;
+      });
+      _startResendTimer();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Verification code sent to your email!'),
+            backgroundColor: AppTheme.getSuccessColor(context),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _emailError = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
+  // Start resend timer
+  void _startResendTimer() {
+    _resendTimer?.cancel();
+    _resendTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_resendCountdown > 0) {
+          _resendCountdown--;
+        } else {
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  // Verify code
+  Future<void> _verifyCode() async {
+    if (_verificationCodeController.text.trim().length != 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please enter a valid 6-digit code')),
+      );
+      return;
+    }
+
+    setState(() => _isVerifyingCode = true);
+    try {
+      final verified = await _emailVerificationService.verifyCode(
+        _emailController.text.trim(),
+        _verificationCodeController.text.trim(),
+      );
+      if (verified && mounted) {
+        setState(() => _isEmailVerified = true);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 10),
+                Text('Email verified successfully!'),
+              ],
+            ),
+            backgroundColor: AppTheme.getSuccessColor(context),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(e.toString()),
+            backgroundColor: Theme.of(context).colorScheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isVerifyingCode = false);
+    }
+  }
+
+  Future<bool> _register() async {
+    if (!_isEmailVerified) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please verify your email before registering'),
+        ),
+      );
+      return false;
+    }
+
+    setState(() => _loading = true);
     try {
       await _auth.signUp(
         name: _usernameController.text.trim(),
         role: isStudent ? "student" : "teacher",
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
-        // Pass teacher-specific fields only if teacher role
         yearsOfExperience: !isStudent
             ? _experienceController.text.trim()
             : null,
         subjectExpertise: !isStudent ? _expertiseController.text.trim() : null,
       );
-
-      return true; // registration successful
+      return true;
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(e.toString())));
+      }
       return false;
     } finally {
-      if (mounted) {
-        setState(() => _loading = false);
-      }
+      if (mounted) setState(() => _loading = false);
     }
   }
 
-  // Build Google icon with proper colors
+  // Helper to show snackbar professionally (clears previous ones)
+  void _showInfoSnackBar(String message) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars() // Clear any existing snackbars
+      ..showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.info_outline, color: Colors.white),
+              const SizedBox(width: 12),
+              Text(message),
+            ],
+          ),
+          backgroundColor: AppTheme.primaryColor,
+          behavior: SnackBarBehavior.floating,
+          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+          margin: const EdgeInsets.all(16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  // Google Sign Up Handler - Coming Soon
+  void _handleGoogleSignUp() {
+    _showInfoSnackBar('Sign up through Google is coming soon!');
+  }
+
+  // GitHub Sign Up Handler - Coming Soon
+  void _handleGitHubSignUp() {
+    _showInfoSnackBar('Sign up through GitHub is coming soon!');
+  }
+
+  // Build Google icon using official SVG
   Widget _buildGoogleIcon() {
-    return Container(
+    return SvgPicture.asset(
+      'assets/images/google_logo.svg',
       width: 24,
       height: 24,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: Center(
-        child: Text(
-          'G',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            foreground: Paint()
-              ..shader = const LinearGradient(
-                colors: [
-                  Color(0xFF4285F4), // Blue
-                  Color(0xFF34A853), // Green
-                  Color(0xFFFBBC05), // Yellow
-                  Color(0xFFEA4335), // Red
-                ],
-              ).createShader(const Rect.fromLTWH(0, 0, 24, 24)),
+    );
+  }
+
+  // Build password requirement item with check/cross icon
+  Widget _buildPasswordRequirement(String text, bool isMet) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 4),
+      child: Row(
+        children: [
+          Icon(
+            isMet ? Icons.check_circle : Icons.radio_button_unchecked,
+            size: 16,
+            color: isMet ? Colors.green : Colors.grey,
           ),
-        ),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              color: isMet ? Colors.green[700] : Colors.grey[600],
+              fontWeight: isMet ? FontWeight.w500 : FontWeight.normal,
+            ),
+          ),
+        ],
       ),
     );
   }
 
   void _showSuccessDialog() {
-    final isDark = AppTheme.isDarkMode(context);
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -300,9 +487,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.getSuccessColor(
-                  context,
-                ).withOpacity(isDark ? 0.2 : 0.1),
+                color: AppTheme.getSuccessColor(context).withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(
@@ -335,8 +520,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.pop(ctx); // Close dialog
-                  Navigator.pop(context); // Go back to sign in
+                  Navigator.pop(ctx);
+                  Navigator.pop(context);
                 },
                 child: const Text('Continue to Sign In'),
               ),
@@ -537,7 +722,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
                     const SizedBox(height: 30),
 
-                    // Wrap all fields in Form widget
                     Form(
                       key: _formKey,
                       child: Column(
@@ -561,65 +745,223 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              errorStyle: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                  width: 2,
-                                ),
-                              ),
                             ),
                           ),
 
                           const SizedBox(height: 16),
 
-                          // Email
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            style: TextStyle(
-                              color: AppTheme.getTextPrimary(context),
-                            ),
-                            validator: _validateEmail,
-                            autovalidateMode:
-                                AutovalidateMode.onUserInteraction,
-                            decoration: InputDecoration(
-                              labelText: "Email",
-                              hintText: "Enter your email",
-                              prefixIcon: Icon(
-                                Icons.email_outlined,
-                                color: AppTheme.getIconSecondary(context),
-                              ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              errorStyle: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
+                          // Email with verification
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              TextFormField(
+                                controller: _emailController,
+                                keyboardType: TextInputType.emailAddress,
+                                style: TextStyle(
+                                  color: AppTheme.getTextPrimary(context),
+                                ),
+                                // Only use form validator if no inline error exists
+                                validator: (value) {
+                                  // Skip form validation if we already have inline error
+                                  if (_emailError != null) return null;
+                                  return _validateEmail(value);
+                                },
+                                autovalidateMode: AutovalidateMode.onUserInteraction,
+                                enabled: !_isEmailVerified,
+                                onChanged: (value) {
+                                  // Clear inline error when user types to allow validator to take over
+                                  if (_emailError != null) {
+                                    setState(() => _emailError = null);
+                                  }
+                                },
+                                decoration: InputDecoration(
+                                  labelText: "Email",
+                                  hintText: "e.g. yourname@gmail.com",
+                                  prefixIcon: Icon(
+                                    Icons.email_outlined,
+                                    color: _emailError != null 
+                                        ? Theme.of(context).colorScheme.error
+                                        : AppTheme.getIconSecondary(context),
+                                  ),
+                                  suffixIcon: _isEmailVerified
+                                      ? Icon(
+                                          Icons.check_circle,
+                                          color: AppTheme.getSuccessColor(context),
+                                        )
+                                      : null,
+                                  // Show inline error in the field itself
+                                  errorText: _emailError,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  errorBorder: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                    borderSide: BorderSide(
+                                      color: Theme.of(context).colorScheme.error,
+                                    ),
+                                  ),
                                 ),
                               ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                  width: 2,
-                                ),
-                              ),
-                            ),
+                            ],
                           ),
+
+                          const SizedBox(height: 12),
+
+                          // Verification status indicator
+                          if (!_isEmailVerified)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                  ? AppTheme.darkAccent.withOpacity(0.12)
+                                  : Colors.blue.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDark
+                                    ? AppTheme.darkAccent.withOpacity(0.3)
+                                    : Colors.blue.withOpacity(0.3),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    _verificationCodeSent
+                                      ? Icons.pending_outlined
+                                      : Icons.info_outline,
+                                    size: 16,
+                                    color: isDark
+                                      ? AppTheme.darkAccent
+                                      : (_verificationCodeSent ? Colors.orange : Colors.blue),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _verificationCodeSent
+                                        ? 'Enter the 6-digit code sent to your email'
+                                        : 'Email verification is required to create an account',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark
+                                          ? AppTheme.darkAccent
+                                          : (_verificationCodeSent ? Colors.orange[700] : Colors.blue[700]),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          
+                          if (_isEmailVerified)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.green.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    'Email verified successfully!',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.green[700],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                          const SizedBox(height: 12),
+
+                          // Send verification code button
+                          if (!_isEmailVerified && !_verificationCodeSent)
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: _loading
+                                    ? null
+                                    : _sendVerificationCode,
+                                icon: _loading 
+                                    ? const SizedBox(
+                                        width: 18,
+                                        height: 18,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          color: Colors.white,
+                                        ),
+                                      )
+                                    : const Icon(Icons.mail_outline, size: 18),
+                                label: Text(_loading ? 'Sending...' : 'Verify Email Address'),
+                                style: ElevatedButton.styleFrom(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 14,
+                                  ),
+                                  backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                                  foregroundColor: Colors.white,
+                                ),
+                              ),
+                            ),
+
+                          // Verification code input
+                          if (_verificationCodeSent && !_isEmailVerified) ...[
+                            const SizedBox(height: 16),
+                            TextFormField(
+                              controller: _verificationCodeController,
+                              keyboardType: TextInputType.number,
+                              maxLength: 6,
+                              style: TextStyle(
+                                color: AppTheme.getTextPrimary(context),
+                                fontSize: 18,
+                                letterSpacing: 3,
+                              ),
+                              textAlign: TextAlign.center,
+                              decoration: InputDecoration(
+                                labelText: "Verification Code",
+                                hintText: "000000",
+                                counterText: "",
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: ElevatedButton(
+                                    onPressed: _isVerifyingCode
+                                        ? null
+                                        : _verifyCode,
+                                    child: _isVerifyingCode
+                                        ? const SizedBox(
+                                            width: 20,
+                                            height: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text('Verify Code'),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                TextButton(
+                                  onPressed: _resendCountdown > 0
+                                      ? null
+                                      : _sendVerificationCode,
+                                  child: Text(
+                                    _resendCountdown > 0
+                                        ? 'Resend ($_resendCountdown)s'
+                                        : 'Resend Code',
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
 
                           const SizedBox(height: 16),
 
@@ -653,22 +995,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               ),
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
-                              ),
-                              errorStyle: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                  width: 2,
-                                ),
                               ),
                             ),
                           ),
@@ -706,13 +1032,19 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  'Use 6+ characters with uppercase, lowercase, numbers & symbols',
-                                  style: TextStyle(
-                                    color: AppTheme.getTextSecondary(context),
-                                    fontSize: 11,
-                                  ),
+                                const SizedBox(height: 10),
+                                // Password requirements checklist
+                                _buildPasswordRequirement(
+                                  'At least 8 characters',
+                                  _passwordController.text.length >= 8,
+                                ),
+                                _buildPasswordRequirement(
+                                  'Contains a letter (a-z, A-Z)',
+                                  _passwordController.text.contains(RegExp(r'[a-zA-Z]')),
+                                ),
+                                _buildPasswordRequirement(
+                                  'Contains a special character (!@#\$%^&*)',
+                                  _passwordController.text.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]')),
                                 ),
                               ],
                             ),
@@ -752,30 +1084,43 @@ class _RegisterScreenState extends State<RegisterScreen> {
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(12),
                               ),
-                              errorStyle: TextStyle(
-                                color: Theme.of(context).colorScheme.error,
-                              ),
-                              errorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                              ),
-                              focusedErrorBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(
-                                  color: Theme.of(context).colorScheme.error,
-                                  width: 2,
-                                ),
-                              ),
                             ),
                           ),
 
-                          // Teacher-specific fields (shown only when Teacher is selected)
+                          // Teacher-specific fields
                           if (!isStudent) ...[
                             const SizedBox(height: 16),
-
-                            // Years of Experience
+                            // Recommended fields info
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                  ? AppTheme.darkAccent.withOpacity(0.12)
+                                  : Colors.blue.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: isDark
+                                    ? AppTheme.darkAccent.withOpacity(0.2)
+                                    : Colors.blue.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.lightbulb_outline, size: 16, color: isDark ? AppTheme.darkAccent : Colors.blue[600]),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'The following fields are optional but recommended to enhance your profile',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? AppTheme.darkAccent : Colors.blue[700],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             TextFormField(
                               controller: _experienceController,
                               keyboardType: TextInputType.number,
@@ -783,11 +1128,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 color: AppTheme.getTextPrimary(context),
                               ),
                               validator: _validateExperience,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
                               decoration: InputDecoration(
                                 labelText: "Years of Experience",
                                 hintText: "Enter years of teaching experience",
+                                helperText: "Optional",
+                                helperStyle: TextStyle(
+                                  color: AppTheme.getTextSecondary(context),
+                                  fontSize: 11,
+                                ),
                                 prefixIcon: Icon(
                                   Icons.work_outline,
                                   color: AppTheme.getIconSecondary(context),
@@ -795,62 +1144,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                errorStyle: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.error,
-                                    width: 2,
-                                  ),
-                                ),
                               ),
                             ),
-
                             const SizedBox(height: 16),
-
-                            // Subject Expertise
                             TextFormField(
                               controller: _expertiseController,
                               style: TextStyle(
                                 color: AppTheme.getTextPrimary(context),
                               ),
                               validator: _validateExpertise,
-                              autovalidateMode:
-                                  AutovalidateMode.onUserInteraction,
+                              autovalidateMode: AutovalidateMode.onUserInteraction,
                               decoration: InputDecoration(
                                 labelText: "Subject Expertise",
                                 hintText:
                                     "e.g., Mathematics, Physics, Chemistry",
+                                helperText: "Optional",
+                                helperStyle: TextStyle(
+                                  color: AppTheme.getTextSecondary(context),
+                                  fontSize: 11,
+                                ),
                                 prefixIcon: Icon(
                                   Icons.school_outlined,
                                   color: AppTheme.getIconSecondary(context),
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(12),
-                                ),
-                                errorStyle: TextStyle(
-                                  color: Theme.of(context).colorScheme.error,
-                                ),
-                                errorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.error,
-                                  ),
-                                ),
-                                focusedErrorBorder: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                  borderSide: BorderSide(
-                                    color: Theme.of(context).colorScheme.error,
-                                    width: 2,
-                                  ),
                                 ),
                               ),
                             ),
@@ -868,10 +1186,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         onPressed: _loading
                             ? null
                             : () async {
-                                // Validate form first
-                                if (!_formKey.currentState!.validate()) {
-                                  return;
-                                }
+                                if (!_formKey.currentState!.validate()) return;
                                 bool success = await _register();
                                 if (success && mounted) {
                                   _showSuccessDialog();
@@ -931,31 +1246,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
                     SizedBox(
                       height: 56,
                       child: OutlinedButton(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: const Row(
-                                children: [
-                                  Icon(Icons.info_outline, color: Colors.white),
-                                  SizedBox(width: 10),
-                                  Text('Google Sign-up coming soon!'),
-                                ],
-                              ),
-                              backgroundColor: AppTheme.getPrimaryColor(
-                                context,
-                              ),
-                              behavior: SnackBarBehavior.floating,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                            ),
-                          );
-                        },
+                        onPressed: _loading ? null : _handleGoogleSignUp,
                         style: OutlinedButton.styleFrom(
                           side: BorderSide(
                             color: AppTheme.getTextSecondary(
                               context,
                             ).withOpacity(0.3),
+                            width: 1.5,
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
@@ -966,18 +1263,65 @@ class _RegisterScreenState extends State<RegisterScreen> {
                           children: [
                             _buildGoogleIcon(),
                             const SizedBox(width: 12),
-                            Text(
-                              'Sign up with Google',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: AppTheme.getTextPrimary(context),
-                                fontWeight: FontWeight.w500,
+                            Flexible(
+                              child: Text(
+                                'Sign up with Google',
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  color: AppTheme.getTextPrimary(context),
+                                  fontWeight: FontWeight.w500,
+                                ),
+                                overflow: TextOverflow.ellipsis,
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
+
+                    // GitHub Sign-up button (only for students)
+                    if (isStudent) ...[
+                      const SizedBox(height: 16),
+                      SizedBox(
+                        height: 56,
+                        child: OutlinedButton(
+                          onPressed: _loading ? null : _handleGitHubSignUp,
+                          style: OutlinedButton.styleFrom(
+                            side: BorderSide(
+                              color: AppTheme.getTextSecondary(
+                                context,
+                              ).withOpacity(0.3),
+                              width: 1.5,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              FaIcon(
+                                FontAwesomeIcons.github,
+                                color: AppTheme.getTextPrimary(context),
+                                size: 24,
+                              ),
+                              const SizedBox(width: 12),
+                              Flexible(
+                                child: Text(
+                                  'Sign up with GitHub',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: AppTheme.getTextPrimary(context),
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
 
                     const SizedBox(height: 20),
 

@@ -1,0 +1,48 @@
+{
+  "rules": {
+    "student": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "teacher": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "courses": {
+      ".read": "auth != null",
+      "$courseId": {
+        ".write": "auth != null && (root.child('teacher').child(auth.uid).exists() || root.child('courses').child($courseId).child('teacherId').val() === auth.uid)"
+      }
+    },
+    "bookmarks": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "chat_history": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
+    "verification_codes": {
+      "$emailKey": {
+        ".read": false,
+        ".write": true
+      }
+    },
+    ".read": false,
+    ".write": false
+  }
+}
