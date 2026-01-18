@@ -9,8 +9,7 @@ class CacheService {
   final Map<String, dynamic> _cache = {};
   final Map<String, DateTime> _cacheTimestamps = {};
 
- 
-  static const Duration defaultCacheDuration = Duration(minutes: 2);
+  static const Duration defaultCacheDuration = Duration(minutes: 10);
 
   /// Get cached data
   T? get<T>(String key) {
