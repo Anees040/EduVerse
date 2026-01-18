@@ -54,33 +54,6 @@ class _SigninScreenState extends State<SigninScreen> {
     if (value == null || value.trim().isEmpty) {
       return 'Please enter your email';
     }
-    
-    final email = value.trim();
-    
-    // Check basic format first
-    if (!email.contains('@')) {
-      return 'Email must include @';
-    }
-    
-    final parts = email.split('@');
-    if (parts.length < 2 || parts[1].isEmpty) {
-      return 'Email must include a domain';
-    }
-    
-    if (!parts[1].contains('.')) {
-      return 'Domain must include a dot (e.g. .com)';
-    }
-
-    // Strict email validation - must be from common email providers
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com|outlook\.com|hotmail\.com|email\.com|icloud\.com|protonmail\.com|mail\.com|aol\.com|zoho\.com|yandex\.com|gmx\.com|live\.com|msn\.com)$',
-      caseSensitive: false,
-    );
-    
-    if (!emailRegex.hasMatch(email)) {
-      return 'Use a common provider (gmail, outlook, yahoo, etc.)';
-    }
-    
     return null;
   }
 
@@ -120,15 +93,31 @@ class _SigninScreenState extends State<SigninScreen> {
     final TextEditingController verificationCodeController =
         TextEditingController();
     final TextEditingController newPasswordController = TextEditingController();
+    final TextEditingController confirmPasswordController = TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isLoading = false;
     bool codeSent = false;
     bool codeVerified = false;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
+    String? emailError;
+    String? codeSuccessMessage;
+    bool passwordsMatch = true;
 
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setDialogState) {
+          // Monitor password matching
+          void checkPasswordMatch() {
+            final match = newPasswordController.text == confirmPasswordController.text ||
+                          confirmPasswordController.text.isEmpty;
+            if (passwordsMatch != match) {
+              setDialogState(() => passwordsMatch = match);
+            }
+          }
+          
           return AlertDialog(
             backgroundColor: AppTheme.getCardColor(context),
             shape: RoundedRectangleBorder(
@@ -149,7 +138,7 @@ class _SigninScreenState extends State<SigninScreen> {
                   children: [
                     if (!codeVerified) ...[
                       Text(
-                        'Enter your email address to receive a verification code.',
+                        'Enter your registered email address to receive a verification code.',
                         style: TextStyle(
                           color: AppTheme.getTextSecondary(context),
                           fontSize: 14,
@@ -163,7 +152,13 @@ class _SigninScreenState extends State<SigninScreen> {
                         style: TextStyle(
                           color: AppTheme.getTextPrimary(context),
                         ),
+                        onChanged: (_) {
+                          if (emailError != null) {
+                            setDialogState(() => emailError = null);
+                          }
+                        },
                         validator: (value) {
+                          if (emailError != null) return null;
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter your email';
                           }
@@ -177,16 +172,49 @@ class _SigninScreenState extends State<SigninScreen> {
                         },
                         decoration: InputDecoration(
                           labelText: 'Email',
-                          hintText: 'Enter your email',
+                          hintText: 'Enter your registered email',
+                          errorText: emailError,
                           prefixIcon: Icon(
                             Icons.email_outlined,
-                            color: AppTheme.getIconSecondary(context),
+                            color: emailError != null 
+                                ? Theme.of(context).colorScheme.error
+                                : AppTheme.getIconSecondary(context),
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                       ),
+                      
+                      // Success message for code sent (inline instead of snackbar)
+                      if (codeSuccessMessage != null && codeSent) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  codeSuccessMessage!,
+                                  style: TextStyle(
+                                    color: Colors.green[700],
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      
                       if (codeSent) ...[
                         const SizedBox(height: 16),
                         TextFormField(
@@ -197,8 +225,17 @@ class _SigninScreenState extends State<SigninScreen> {
                           style: TextStyle(
                             color: AppTheme.getTextPrimary(context),
                             fontSize: 18,
-                            letterSpacing: 3,
+                            letterSpacing: 8,
                           ),
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return 'Please enter the code';
+                            }
+                            if (value.trim().length != 6) {
+                              return 'Code must be 6 digits';
+                            }
+                            return null;
+                          },
                           decoration: InputDecoration(
                             labelText: 'Verification Code',
                             hintText: '000000',
@@ -210,27 +247,52 @@ class _SigninScreenState extends State<SigninScreen> {
                         ),
                       ],
                     ] else ...[
-                      Text(
-                        'Email verified! Enter your new password.',
-                        style: TextStyle(
-                          color: AppTheme.getSuccessColor(context),
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
+                      // Password reset section
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.verified, color: Colors.green, size: 20),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Email verified! Create your new password.',
+                                style: TextStyle(
+                                  color: Colors.green[700],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(height: 20),
+                      // New Password field with visibility toggle
                       TextFormField(
                         controller: newPasswordController,
-                        obscureText: true,
+                        obscureText: obscureNewPassword,
                         style: TextStyle(
                           color: AppTheme.getTextPrimary(context),
                         ),
+                        onChanged: (_) => checkPasswordMatch(),
                         validator: (value) {
                           if (value == null || value.trim().isEmpty) {
                             return 'Please enter new password';
                           }
-                          if (value.trim().length < 6) {
-                            return 'Password must be at least 6 characters';
+                          if (value.trim().length < 8) {
+                            return 'Password must be at least 8 characters';
+                          }
+                          if (!value.contains(RegExp(r'[a-zA-Z]'))) {
+                            return 'Password must contain at least 1 letter';
+                          }
+                          if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+                            return 'Password must contain at least 1 special character';
                           }
                           return null;
                         },
@@ -241,9 +303,76 @@ class _SigninScreenState extends State<SigninScreen> {
                             Icons.lock_outline,
                             color: AppTheme.getIconSecondary(context),
                           ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNewPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: AppTheme.getIconSecondary(context),
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureNewPassword = !obscureNewPassword;
+                              });
+                            },
+                          ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      // Confirm Password field with visibility toggle and real-time matching
+                      TextFormField(
+                        controller: confirmPasswordController,
+                        obscureText: obscureConfirmPassword,
+                        style: TextStyle(
+                          color: AppTheme.getTextPrimary(context),
+                        ),
+                        onChanged: (_) => checkPasswordMatch(),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (value != newPasswordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                        decoration: InputDecoration(
+                          labelText: 'Confirm Password',
+                          hintText: 'Confirm your password',
+                          prefixIcon: Icon(
+                            Icons.lock_outline,
+                            color: AppTheme.getIconSecondary(context),
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirmPassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                              color: AppTheme.getIconSecondary(context),
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureConfirmPassword = !obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          // Real-time password match indicator
+                          helperText: confirmPasswordController.text.isNotEmpty && passwordsMatch
+                              ? '✓ Passwords match'
+                              : null,
+                          helperStyle: const TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.w500,
+                          ),
+                          errorText: confirmPasswordController.text.isNotEmpty && !passwordsMatch
+                              ? 'Passwords do not match'
+                              : null,
                         ),
                       ),
                     ],
@@ -263,76 +392,109 @@ class _SigninScreenState extends State<SigninScreen> {
                 onPressed: isLoading
                     ? null
                     : () async {
-                        if (!formKey.currentState!.validate()) return;
+                        if (!codeSent) {
+                          // Validate email format first
+                          if (!formKey.currentState!.validate()) return;
+                          
+                          setDialogState(() {
+                            isLoading = true;
+                            emailError = null;
+                          });
 
-                        setDialogState(() => isLoading = true);
-
-                        try {
-                          if (!codeSent) {
+                          try {
+                            // Check if email exists in database
+                            final emailExists = await _auth.checkEmailExists(
+                              resetEmailController.text.trim(),
+                            );
+                            
+                            if (!emailExists) {
+                              setDialogState(() {
+                                emailError = 'This email is not registered with EduVerse';
+                                isLoading = false;
+                              });
+                              return;
+                            }
+                            
                             // Send verification code
-                            await _emailVerificationService
-                                .sendVerificationCode(
-                                  resetEmailController.text.trim(),
-                                );
+                            await _emailVerificationService.sendVerificationCode(
+                              resetEmailController.text.trim(),
+                            );
                             setDialogState(() {
                               codeSent = true;
+                              codeSuccessMessage = 'Verification code sent to your email!';
                               isLoading = false;
                             });
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Verification code sent!'),
-                                backgroundColor: AppTheme.getSuccessColor(
-                                  context,
-                                ),
-                                behavior: SnackBarBehavior.floating,
-                              ),
+                          } catch (e) {
+                            setDialogState(() {
+                              emailError = e.toString().replaceAll('Exception: ', '');
+                              isLoading = false;
+                            });
+                          }
+                        } else if (!codeVerified) {
+                          // Verify code
+                          if (!formKey.currentState!.validate()) return;
+                          
+                          setDialogState(() => isLoading = true);
+                          
+                          try {
+                            final verified = await _emailVerificationService.verifyCode(
+                              resetEmailController.text.trim(),
+                              verificationCodeController.text.trim(),
                             );
-                          } else if (!codeVerified) {
-                            // Verify code
-                            final verified = await _emailVerificationService
-                                .verifyCode(
-                                  resetEmailController.text.trim(),
-                                  verificationCodeController.text.trim(),
-                                );
                             if (verified) {
                               setDialogState(() {
                                 codeVerified = true;
                                 isLoading = false;
                               });
                             }
-                          } else {
-                            // Reset password
-                            await _auth.sendPasswordResetEmail(
-                              resetEmailController.text.trim(),
-                            );
+                          } catch (e) {
+                            setDialogState(() => isLoading = false);
                             if (ctx.mounted) {
-                              Navigator.pop(ctx);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: const Text(
-                                    'Password reset email sent! Check your inbox.',
-                                  ),
-                                  backgroundColor: AppTheme.getSuccessColor(
-                                    context,
-                                  ),
+                                  content: Text(e.toString().replaceAll('Exception: ', '')),
+                                  backgroundColor: Theme.of(context).colorScheme.error,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             }
                           }
-                        } catch (e) {
-                          setDialogState(() => isLoading = false);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(e.toString()),
-                              backgroundColor: Theme.of(
-                                context,
-                              ).colorScheme.error,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
+                        } else {
+                          // Reset password
+                          if (!formKey.currentState!.validate()) return;
+                          if (!passwordsMatch) return;
+                          
+                          setDialogState(() => isLoading = true);
+                          
+                          try {
+                            // Send password reset email from Firebase
+                            await _auth.sendPasswordResetEmail(
+                              resetEmailController.text.trim(),
+                            );
+                            
+                            if (ctx.mounted) {
+                              Navigator.pop(ctx);
+                              // Show success dialog instead of snackbar
+                              _showPasswordResetSuccessDialog(resetEmailController.text.trim());
+                            }
+                          } catch (e) {
+                            setDialogState(() => isLoading = false);
+                            if (ctx.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(e.toString()),
+                                  backgroundColor: Theme.of(context).colorScheme.error,
+                                  behavior: SnackBarBehavior.floating,
+                                ),
+                              );
+                            }
+                          }
                         }
                       },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.isDarkMode(context) ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  foregroundColor: AppTheme.isDarkMode(context) ? Colors.black : Colors.white,
+                ),
                 child: isLoading
                     ? const SizedBox(
                         width: 20,
@@ -357,6 +519,98 @@ class _SigninScreenState extends State<SigninScreen> {
     );
   }
 
+  // Show password reset success dialog
+  void _showPasswordResetSuccessDialog(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.getCardColor(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.mark_email_read,
+                color: Colors.green,
+                size: 60,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              'Password Reset Link Sent!',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'We\'ve sent a password reset link to:',
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 14,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              email,
+              style: TextStyle(
+                color: AppTheme.primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please check your inbox and follow the link to set your new password.',
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 13,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(ctx),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.isDarkMode(context) ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  foregroundColor: AppTheme.isDarkMode(context) ? Colors.black : Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Got It',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<String?> _login() async {
     setState(() {
       _loading = true;
@@ -371,6 +625,9 @@ class _SigninScreenState extends State<SigninScreen> {
       );
       return user?.uid;
     } catch (e) {
+      // Unfocus all fields after failed login
+      FocusScope.of(context).unfocus();
+      
       setState(() {
         _errorMessage = _formatErrorMessage(e.toString());
         _passwordController.clear(); // Clear password on error
