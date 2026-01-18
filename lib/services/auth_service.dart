@@ -113,6 +113,90 @@ class AuthService {
     }
   }
 
+  // CHECK IF EMAIL EXISTS IN DATABASE (both student and teacher)
+  // This works even when user is not authenticated by using Firebase Auth
+  Future<bool> checkEmailExists(String email) async {
+    try {
+      final normalizedEmail = email.toLowerCase().trim();
+      
+      // Try to sign in with a wrong password - if email exists, we'll get
+      // 'wrong-password' error. If email doesn't exist, we'll get 'user-not-found'
+      try {
+        await _auth.signInWithEmailAndPassword(
+          email: normalizedEmail,
+          password: 'check_if_exists_dummy_password_12345',
+        );
+        // If we get here, somehow the password was correct (very unlikely)
+        await _auth.signOut();
+        return true;
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+          // Email exists but password is wrong
+          return true;
+        } else if (e.code == 'user-not-found') {
+          // Email doesn't exist
+          return false;
+        } else if (e.code == 'too-many-requests') {
+          // Too many attempts, but email likely exists
+          // Fall back to database check if user is authenticated
+          final currentUser = _auth.currentUser;
+          if (currentUser != null) {
+            return await _checkEmailInDatabase(normalizedEmail);
+          }
+          throw 'Too many attempts. Please try again later.';
+        } else {
+          // For other errors, try database approach if authenticated
+          final currentUser = _auth.currentUser;
+          if (currentUser != null) {
+            return await _checkEmailInDatabase(normalizedEmail);
+          }
+          throw 'Unable to verify email. Please try again.';
+        }
+      }
+    } catch (e) {
+      if (e is String) rethrow;
+      print('Error checking email exists: $e');
+      throw 'Unable to verify email. Please try again.';
+    }
+  }
+
+  // Helper method to check email in database (requires authentication)
+  Future<bool> _checkEmailInDatabase(String normalizedEmail) async {
+    // Check in students
+    final studentSnapshot = await _db.child('student').get();
+    if (studentSnapshot.exists && studentSnapshot.value != null) {
+      final studentsData = studentSnapshot.value;
+      if (studentsData is Map) {
+        for (var entry in studentsData.entries) {
+          if (entry.value is Map) {
+            final studentEmail = entry.value['email']?.toString().toLowerCase();
+            if (studentEmail == normalizedEmail) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    
+    // Check in teachers
+    final teacherSnapshot = await _db.child('teacher').get();
+    if (teacherSnapshot.exists && teacherSnapshot.value != null) {
+      final teachersData = teacherSnapshot.value;
+      if (teachersData is Map) {
+        for (var entry in teachersData.entries) {
+          if (entry.value is Map) {
+            final teacherEmail = entry.value['email']?.toString().toLowerCase();
+            if (teacherEmail == normalizedEmail) {
+              return true;
+            }
+          }
+        }
+      }
+    }
+    
+    return false;
+  }
+
   // CURRENT USER
   User? get currentUser => _auth.currentUser;
 

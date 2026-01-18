@@ -9,13 +9,27 @@
     "teacher": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "$uid === auth.uid"
+        ".write": "$uid === auth.uid",
+        "courses": {
+          "$courseId": {
+            "enrolledStudents": {
+              "$studentUid": {
+                ".write": "auth != null && $studentUid === auth.uid"
+              }
+            }
+          }
+        }
       }
     },
     "courses": {
       ".read": "auth != null",
       "$courseId": {
-        ".write": "auth != null && (root.child('teacher').child(auth.uid).exists() || root.child('courses').child($courseId).child('teacherId').val() === auth.uid)"
+        ".write": "auth != null && (root.child('teacher').child(auth.uid).exists() || root.child('courses').child($courseId).child('teacherId').val() === auth.uid)",
+        "enrolledStudents": {
+          "$studentUid": {
+            ".write": "auth != null && ($studentUid === auth.uid || root.child('teacher').child(auth.uid).exists())"
+          }
+        }
       }
     },
     "bookmarks": {

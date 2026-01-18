@@ -21,13 +21,31 @@ class _RegisterScreenWithVerificationState
   final _emailVerificationService = EmailVerificationService();
   GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late TextEditingController _usernameController;
-  late TextEditingController _emailController;
+  late TextEditingController _emailUsernameController; // For email username part only
   late TextEditingController _passwordController;
   late TextEditingController _confirmPasswordController;
   late TextEditingController _verificationCodeController;
   // Teacher-specific controllers
   late TextEditingController _experienceController;
   late TextEditingController _expertiseController;
+
+  // Email domain dropdown
+  final List<String> _emailDomains = [
+    '@gmail.com',
+    '@yahoo.com',
+    '@outlook.com',
+    '@hotmail.com',
+    '@icloud.com',
+    '@protonmail.com',
+    '@mail.com',
+    '@aol.com',
+    '@zoho.com',
+    '@yandex.com',
+    '@gmx.com',
+    '@live.com',
+    '@msn.com',
+  ];
+  String _selectedEmailDomain = '@gmail.com';
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -37,6 +55,7 @@ class _RegisterScreenWithVerificationState
   bool _isVerifyingCode = false;
   String? _emailError; // Inline error for email verification
   String? _verificationCodeError; // Inline error for verification code
+  String? _emailSuccessMessage; // Inline success message for code sent
 
   Timer? _resendTimer;
   int _resendCountdown = 0;
@@ -59,7 +78,7 @@ class _RegisterScreenWithVerificationState
 
   void _initializeControllers() {
     _usernameController = TextEditingController();
-    _emailController = TextEditingController();
+    _emailUsernameController = TextEditingController();
     _passwordController = TextEditingController();
     _confirmPasswordController = TextEditingController();
     _verificationCodeController = TextEditingController();
@@ -67,9 +86,12 @@ class _RegisterScreenWithVerificationState
     _expertiseController = TextEditingController();
   }
 
+  // Get full email address
+  String get _fullEmail => '${_emailUsernameController.text.trim()}$_selectedEmailDomain';
+
   void _disposeControllers() {
     _usernameController.dispose();
-    _emailController.dispose();
+    _emailUsernameController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _verificationCodeController.dispose();
@@ -186,38 +208,34 @@ class _RegisterScreenWithVerificationState
     return null;
   }
 
-  String? _validateEmail(String? value) {
+  // Validate email username (the part before @)
+  String? _validateEmailUsername(String? value) {
     if (value == null || value.trim().isEmpty) {
-      return 'Please enter your email';
+      return 'Please enter your email username';
     }
     
-    final email = value.trim();
+    final username = value.trim();
     
-    // Check basic format first
-    if (!email.contains('@')) {
-      return 'Email must include @';
+    // Check for valid characters in username
+    final usernameRegex = RegExp(r'^[a-zA-Z0-9._%+-]+$');
+    if (!usernameRegex.hasMatch(username)) {
+      return 'Only letters, numbers, and . _ % + - allowed';
     }
     
-    final parts = email.split('@');
-    if (parts.length < 2 || parts[1].isEmpty) {
-      return 'Email must include a domain';
-    }
-    
-    if (!parts[1].contains('.')) {
-      return 'Domain must include a dot (e.g. .com)';
-    }
-
-    // Strict email validation - must be from common email providers
-    final emailRegex = RegExp(
-      r'^[a-zA-Z0-9._%+-]+@(gmail\.com|yahoo\.com|outlook\.com|hotmail\.com|email\.com|icloud\.com|protonmail\.com|mail\.com|aol\.com|zoho\.com|yandex\.com|gmx\.com|live\.com|msn\.com)$',
-      caseSensitive: false,
-    );
-    
-    if (!emailRegex.hasMatch(email)) {
-      return 'Use a common provider (gmail, outlook, yahoo, etc.)';
+    if (username.length < 3) {
+      return 'Username must be at least 3 characters';
     }
     
     return null;
+  }
+
+  // Full email validation (used internally for verification)
+  String? _validateFullEmail() {
+    final usernameValidation = _validateEmailUsername(_emailUsernameController.text);
+    if (usernameValidation != null) {
+      return usernameValidation;
+    }
+    return null; // Domain is always valid since it's from dropdown
   }
 
   String? _validatePassword(String? value) {
@@ -278,7 +296,10 @@ class _RegisterScreenWithVerificationState
 
   // Send verification code
   Future<void> _sendVerificationCode() async {
-    final emailValidation = _validateEmail(_emailController.text);
+    // Clear any existing error first
+    setState(() => _emailError = null);
+    
+    final emailValidation = _validateFullEmail();
     if (emailValidation != null) {
       setState(() {
         _emailError = emailValidation;
@@ -314,7 +335,7 @@ class _RegisterScreenWithVerificationState
     
     try {
       await _emailVerificationService.sendVerificationCode(
-        _emailController.text.trim(),
+        _fullEmail,
       );
       
       // Track resend attempts
@@ -325,18 +346,10 @@ class _RegisterScreenWithVerificationState
       
       setState(() {
         _verificationCodeSent = true;
+        _emailSuccessMessage = 'Verification code sent to your email!';
         _resendCountdown = 60;
       });
       _startResendTimer();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Verification code sent to your email!'),
-            backgroundColor: AppTheme.getSuccessColor(context),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
     } catch (e) {
       if (mounted) {
         setState(() {
@@ -378,7 +391,7 @@ class _RegisterScreenWithVerificationState
     
     try {
       final verified = await _emailVerificationService.verifyCode(
-        _emailController.text.trim(),
+        _fullEmail,
         _verificationCodeController.text.trim(),
       );
       if (verified && mounted) {
@@ -409,12 +422,23 @@ class _RegisterScreenWithVerificationState
   }
 
   Future<bool> _register() async {
+    // Clear any existing email error first to avoid double errors
+    setState(() => _emailError = null);
+    
+    // Validate email username first (for inline error)
+    final emailValidation = _validateFullEmail();
+    if (emailValidation != null) {
+      setState(() {
+        _emailError = emailValidation;
+      });
+      return false;
+    }
+    
     if (!_isEmailVerified) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please verify your email before registering'),
-        ),
-      );
+      // Show inline error instead of snackbar for consistency
+      setState(() {
+        _emailError = 'Please verify your email first';
+      });
       return false;
     }
 
@@ -423,7 +447,7 @@ class _RegisterScreenWithVerificationState
       await _auth.signUp(
         name: _usernameController.text.trim(),
         role: isStudent ? "student" : "teacher",
-        email: _emailController.text.trim(),
+        email: _fullEmail,
         password: _passwordController.text.trim(),
         yearsOfExperience: !isStudent
             ? _experienceController.text.trim()
@@ -785,62 +809,167 @@ class _RegisterScreenWithVerificationState
 
                           const SizedBox(height: 16),
 
-                          // Email with verification
+                          // Email with verification - Username + Domain dropdown
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              TextFormField(
-                                controller: _emailController,
-                                keyboardType: TextInputType.emailAddress,
-                                style: TextStyle(
-                                  color: AppTheme.getTextPrimary(context),
-                                ),
-                                // Only use form validator if no inline error exists
-                                validator: (value) {
-                                  // Skip form validation if we already have inline error
-                                  if (_emailError != null) return null;
-                                  return _validateEmail(value);
-                                },
-                                autovalidateMode: AutovalidateMode.onUserInteraction,
-                                enabled: !_isEmailVerified,
-                                onChanged: (value) {
-                                  // Clear inline error when user types to allow validator to take over
-                                  if (_emailError != null) {
-                                    setState(() => _emailError = null);
-                                  }
-                                },
-                                decoration: InputDecoration(
-                                  labelText: "Email",
-                                  hintText: "e.g. yourname@gmail.com",
-                                  prefixIcon: Icon(
-                                    Icons.email_outlined,
-                                    color: _emailError != null 
-                                        ? Theme.of(context).colorScheme.error
-                                        : AppTheme.getIconSecondary(context),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  // Email username input
+                                  Expanded(
+                                    flex: 3,
+                                    child: TextFormField(
+                                      controller: _emailUsernameController,
+                                      keyboardType: TextInputType.text,
+                                      style: TextStyle(
+                                        color: AppTheme.getTextPrimary(context),
+                                      ),
+                                      validator: (value) {
+                                        // Skip form validation if we already have inline error
+                                        if (_emailError != null) return null;
+                                        return _validateEmailUsername(value);
+                                      },
+                                      autovalidateMode: AutovalidateMode.onUserInteraction,
+                                      enabled: !_isEmailVerified,
+                                      onChanged: (value) {
+                                        // Clear inline error when user types
+                                        if (_emailError != null) {
+                                          setState(() => _emailError = null);
+                                        }
+                                      },
+                                      decoration: InputDecoration(
+                                        labelText: "Email",
+                                        hintText: "username",
+                                        prefixIcon: Icon(
+                                          Icons.email_outlined,
+                                          color: _emailError != null 
+                                              ? Theme.of(context).colorScheme.error
+                                              : AppTheme.getIconSecondary(context),
+                                        ),
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                                      ),
+                                    ),
                                   ),
-                                  suffixIcon: _isEmailVerified
-                                      ? Icon(
-                                          Icons.check_circle,
-                                          color: AppTheme.getSuccessColor(context),
-                                        )
-                                      : null,
-                                  // Show inline error in the field itself
-                                  errorText: _emailError,
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
+                                  const SizedBox(width: 8),
+                                  // Domain dropdown
+                                  Expanded(
+                                    flex: 2,
+                                    child: Container(
+                                      decoration: BoxDecoration(
+                                        border: Border.all(
+                                          color: _isEmailVerified
+                                              ? Colors.grey.withOpacity(0.3)
+                                              : (isDark ? Colors.grey[700]! : Colors.grey[400]!),
+                                        ),
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: DropdownButtonHideUnderline(
+                                        child: DropdownButton<String>(
+                                          value: _selectedEmailDomain,
+                                          isExpanded: true,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                                          borderRadius: BorderRadius.circular(12),
+                                          dropdownColor: AppTheme.getCardColor(context),
+                                          style: TextStyle(
+                                            color: _isEmailVerified
+                                                ? Colors.grey
+                                                : AppTheme.getTextPrimary(context),
+                                            fontSize: 14,
+                                          ),
+                                          icon: Icon(
+                                            Icons.arrow_drop_down,
+                                            color: _isEmailVerified
+                                                ? Colors.grey
+                                                : AppTheme.getIconSecondary(context),
+                                          ),
+                                          items: _emailDomains.map((domain) {
+                                            return DropdownMenuItem<String>(
+                                              value: domain,
+                                              child: Text(
+                                                domain,
+                                                style: TextStyle(
+                                                  color: AppTheme.getTextPrimary(context),
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            );
+                                          }).toList(),
+                                          onChanged: _isEmailVerified
+                                              ? null
+                                              : (value) {
+                                                  if (value != null) {
+                                                    setState(() {
+                                                      _selectedEmailDomain = value;
+                                                      if (_emailError != null) {
+                                                        _emailError = null;
+                                                      }
+                                                    });
+                                                  }
+                                                },
+                                        ),
+                                      ),
+                                    ),
                                   ),
-                                  errorBorder: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                    borderSide: BorderSide(
+                                  // Verified icon
+                                  if (_isEmailVerified)
+                                    Padding(
+                                      padding: const EdgeInsets.only(left: 8),
+                                      child: Icon(
+                                        Icons.check_circle,
+                                        color: AppTheme.getSuccessColor(context),
+                                        size: 28,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              // Show error message below
+                              if (_emailError != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6, left: 12),
+                                  child: Text(
+                                    _emailError!,
+                                    style: TextStyle(
                                       color: Theme.of(context).colorScheme.error,
+                                      fontSize: 12,
                                     ),
                                   ),
                                 ),
-                              ),
                             ],
                           ),
 
                           const SizedBox(height: 12),
+
+                          // Success message when code is sent (inline instead of snackbar)
+                          if (_emailSuccessMessage != null && _verificationCodeSent && !_isEmailVerified)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.green.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.check_circle, size: 16, color: Colors.green),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _emailSuccessMessage!,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.green[700],
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
 
                           // Verification status indicator
                           if (!_isEmailVerified)

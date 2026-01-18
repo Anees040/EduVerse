@@ -3,6 +3,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/user_service.dart';
+import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/uploadToCloudinary.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
@@ -32,6 +33,7 @@ class TeacherCourseManageScreen extends StatefulWidget {
 
 class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
   final CourseService _courseService = CourseService();
+  final CacheService _cacheService = CacheService();
   final ImagePicker _picker = ImagePicker();
 
   List<Map<String, dynamic>> _videos = [];
@@ -45,26 +47,99 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
   @override
   void initState() {
     super.initState();
-    _loadVideos();
-    _loadTeacherName();
+    _loadAllData();
   }
 
-  Future<void> _loadTeacherName() async {
+  Future<void> _loadAllData() async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
-    final userData = await UserService().getUser(uid: uid, role: 'teacher');
-    if (mounted && userData != null) {
+    final cacheKeyVideos = 'course_videos_${widget.courseUid}';
+    final cacheKeyTeacher = 'teacher_name_$uid';
+
+    // Check cache first for instant display
+    final cachedVideos = _cacheService.get<List<Map<String, dynamic>>>(cacheKeyVideos);
+    final cachedTeacherName = _cacheService.get<String>(cacheKeyTeacher);
+
+    if (cachedVideos != null) {
       setState(() {
-        _teacherName = userData['name'] ?? 'Instructor';
+        _videos = cachedVideos;
+        _teacherName = cachedTeacherName ?? 'Instructor';
+        _isLoading = false;
       });
+      // Refresh in background
+      _refreshDataInBackground(uid, cacheKeyVideos, cacheKeyTeacher);
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    try {
+      // Load videos and teacher name in parallel
+      final results = await Future.wait([
+        _courseService.getCourseVideos(courseUid: widget.courseUid),
+        UserService().getUser(uid: uid, role: 'teacher'),
+      ]);
+
+      final videos = results[0] as List<Map<String, dynamic>>;
+      final userData = results[1] as Map<String, dynamic>?;
+      final teacherName = userData?['name'] ?? 'Instructor';
+
+      // Cache results
+      _cacheService.set(cacheKeyVideos, videos);
+      _cacheService.set(cacheKeyTeacher, teacherName);
+
+      setState(() {
+        _videos = videos;
+        _teacherName = teacherName;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error loading data: $e")));
+      }
     }
   }
 
+  Future<void> _refreshDataInBackground(
+    String uid,
+    String cacheKeyVideos,
+    String cacheKeyTeacher,
+  ) async {
+    try {
+      final results = await Future.wait([
+        _courseService.getCourseVideos(courseUid: widget.courseUid),
+        UserService().getUser(uid: uid, role: 'teacher'),
+      ]);
+
+      final videos = results[0] as List<Map<String, dynamic>>;
+      final userData = results[1] as Map<String, dynamic>?;
+      final teacherName = userData?['name'] ?? 'Instructor';
+
+      // Update cache
+      _cacheService.set(cacheKeyVideos, videos);
+      _cacheService.set(cacheKeyTeacher, teacherName);
+
+      if (mounted) {
+        setState(() {
+          _videos = videos;
+          _teacherName = teacherName;
+        });
+      }
+    } catch (_) {
+      // Silent fail for background refresh
+    }
+  }
+
+  // Legacy method for compatibility with refresh after adding video
   Future<void> _loadVideos() async {
     setState(() => _isLoading = true);
     try {
       final videos = await _courseService.getCourseVideos(
         courseUid: widget.courseUid,
       );
+      // Update cache
+      _cacheService.set('course_videos_${widget.courseUid}', videos);
       setState(() {
         _videos = videos;
         _isLoading = false;

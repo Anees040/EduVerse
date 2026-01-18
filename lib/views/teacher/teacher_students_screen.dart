@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
+import 'package:eduverse/services/cache_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
@@ -12,10 +13,16 @@ class TeacherStudentsScreen extends StatefulWidget {
   State<TeacherStudentsScreen> createState() => _TeacherStudentsScreenState();
 }
 
-class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
+class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
+    with AutomaticKeepAliveClientMixin {
+  final CacheService _cacheService = CacheService();
   bool isLoading = true;
   List<Map<String, dynamic>> students = [];
   Map<String, String> courseNames = {}; // courseId -> courseName
+
+  // Keep tab alive
+  @override
+  bool get wantKeepAlive => true;
 
   // For now no filtering; show all students the teacher has
 
@@ -26,10 +33,27 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
   }
 
   Future<void> _loadData() async {
+    final teacherId = FirebaseAuth.instance.currentUser!.uid;
+    final cacheKeyStudents = 'teacher_enrolled_students_$teacherId';
+    final cacheKeyCourseNames = 'teacher_course_names_$teacherId';
+
+    // Check cache first for instant display
+    final cachedStudents = _cacheService.get<List<Map<String, dynamic>>>(cacheKeyStudents);
+    final cachedCourseNames = _cacheService.get<Map<String, String>>(cacheKeyCourseNames);
+
+    if (cachedStudents != null && cachedCourseNames != null) {
+      setState(() {
+        students = cachedStudents;
+        courseNames = cachedCourseNames;
+        isLoading = false;
+      });
+      // Refresh in background
+      _refreshDataInBackground(teacherId, cacheKeyStudents, cacheKeyCourseNames);
+      return;
+    }
+
     try {
       setState(() => isLoading = true);
-
-      final teacherId = FirebaseAuth.instance.currentUser!.uid;
 
       // First fetch teacher's courses to populate dropdown
       final teacherCourses = await CourseService().getTeacherCourses(
@@ -89,6 +113,11 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
           }).toList();
 
           final results = (await Future.wait(futures)).whereType<Map<String, dynamic>>().toList();
+          
+          // Cache results
+          _cacheService.set(cacheKeyStudents, results);
+          _cacheService.set(cacheKeyCourseNames, courseNames);
+          
           setState(() {
             students = results;
             isLoading = false;
@@ -109,12 +138,20 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
             isLoading = false;
           });
         } else {
+          // Cache results
+          _cacheService.set(cacheKeyStudents, fetchedStudents);
+          _cacheService.set(cacheKeyCourseNames, courseNames);
+          
           setState(() {
             students = fetchedStudents;
             isLoading = false;
           });
         }
       } else {
+        // Cache results
+        _cacheService.set(cacheKeyStudents, fetchedStudents);
+        _cacheService.set(cacheKeyCourseNames, courseNames);
+        
         setState(() {
           students = fetchedStudents;
           isLoading = false;
@@ -130,11 +167,47 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen> {
     }
   }
 
+  Future<void> _refreshDataInBackground(
+    String teacherId,
+    String cacheKeyStudents,
+    String cacheKeyCourseNames,
+  ) async {
+    try {
+      final teacherCourses = await CourseService().getTeacherCourses(
+        teacherUid: teacherId,
+      );
+
+      final Map<String, String> newCourseNames = {};
+      for (final course in teacherCourses) {
+        final courseId = course['courseUid'] as String;
+        final title = course['title'] as String? ?? 'Untitled';
+        newCourseNames[courseId] = title;
+      }
+
+      final fetchedStudents = await CourseService()
+          .getAllEnrolledStudentsForTeacher(teacherUid: teacherId);
+
+      // Cache results
+      _cacheService.set(cacheKeyStudents, fetchedStudents);
+      _cacheService.set(cacheKeyCourseNames, newCourseNames);
+
+      if (mounted) {
+        setState(() {
+          students = fetchedStudents;
+          courseNames = newCourseNames;
+        });
+      }
+    } catch (_) {
+      // Silent fail for background refresh
+    }
+  }
+
   // For now return all students (no filtering)
   List<Map<String, dynamic>> get filteredStudents => students;
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final displayStudents = filteredStudents;
     final isDark = AppTheme.isDarkMode(context);
 

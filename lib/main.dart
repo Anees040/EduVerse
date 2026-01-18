@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
 import 'package:eduverse/views/eduverse_app.dart';
 import 'package:eduverse/firebase_options.dart';
@@ -21,6 +22,11 @@ Future<void> main() async {
         return;
       }),
     ]);
+    
+    // Enable Firebase Database persistence for offline support and faster reads
+    FirebaseDatabase.instance.setPersistenceEnabled(true);
+    // Keep synced data for faster access
+    FirebaseDatabase.instance.ref().keepSynced(true);
   } catch (e) {
     print('Initialization error: $e');
   }

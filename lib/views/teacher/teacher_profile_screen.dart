@@ -270,186 +270,385 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     _newPasswordController.clear();
     _confirmPasswordController.clear();
     final isDark = AppTheme.isDarkMode(context);
+    
+    // State variables for the dialog
+    bool obscureCurrentPassword = true;
+    bool obscureNewPassword = true;
+    bool obscureConfirmPassword = true;
+    String? currentPasswordError;
+    String? newPasswordError;
+    String? confirmPasswordError;
+    bool isLoading = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.getCardColor(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(
-              Icons.lock,
-              color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          // Check password match
+          void validatePasswords() {
+            setDialogState(() {
+              if (_newPasswordController.text.isNotEmpty && 
+                  _newPasswordController.text.length < 6) {
+                newPasswordError = 'Password must be at least 6 characters';
+              } else {
+                newPasswordError = null;
+              }
+              
+              if (_confirmPasswordController.text.isNotEmpty &&
+                  _newPasswordController.text != _confirmPasswordController.text) {
+                confirmPasswordError = 'Passwords do not match';
+              } else {
+                confirmPasswordError = null;
+              }
+            });
+          }
+          
+          return AlertDialog(
+            backgroundColor: AppTheme.getCardColor(context),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                Icon(
+                  Icons.lock,
+                  color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                ),
+                const SizedBox(width: 10),
+                Text(
+                  'Change Password',
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                ),
+              ],
             ),
-            const SizedBox(width: 10),
-            Text(
-              'Change Password',
-              style: TextStyle(color: AppTheme.getTextPrimary(context)),
-            ),
-          ],
-        ),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _currentPasswordController,
-                obscureText: true,
-                style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                decoration: InputDecoration(
-                  labelText: 'Current Password',
-                  labelStyle: TextStyle(
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.lock_outline,
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppTheme.getBorderColor(context),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Current Password
+                  TextField(
+                    controller: _currentPasswordController,
+                    obscureText: obscureCurrentPassword,
+                    style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                    onChanged: (_) {
+                      if (currentPasswordError != null) {
+                        setDialogState(() => currentPasswordError = null);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      labelText: 'Current Password',
+                      labelStyle: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      errorText: currentPasswordError,
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                        color: currentPasswordError != null 
+                            ? Theme.of(context).colorScheme.error
+                            : AppTheme.getTextSecondary(context),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscureCurrentPassword 
+                              ? Icons.visibility_off 
+                              : Icons.visibility,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            obscureCurrentPassword = !obscureCurrentPassword;
+                          });
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppTheme.darkPrimaryLight
+                              : AppTheme.primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.error,
+                          width: 2,
+                        ),
+                      ),
                     ),
                   ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
-                      width: 2,
+                  const SizedBox(height: 16),
+                  
+                  // New Password
+                  TextField(
+                    controller: _newPasswordController,
+                    obscureText: obscureNewPassword,
+                    style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                    onChanged: (_) => validatePasswords(),
+                    decoration: InputDecoration(
+                      labelText: 'New Password',
+                      labelStyle: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      errorText: newPasswordError,
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                        color: newPasswordError != null 
+                            ? Theme.of(context).colorScheme.error
+                            : AppTheme.getTextSecondary(context),
+                      ),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          obscureNewPassword 
+                              ? Icons.visibility_off 
+                              : Icons.visibility,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        onPressed: () {
+                          setDialogState(() {
+                            obscureNewPassword = !obscureNewPassword;
+                          });
+                        },
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: isDark
+                              ? AppTheme.darkPrimaryLight
+                              : AppTheme.primaryColor,
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.error,
+                          width: 2,
+                        ),
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+                  
+                  // Confirm New Password
+                  TextField(
+                    controller: _confirmPasswordController,
+                    obscureText: obscureConfirmPassword,
+                    style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                    onChanged: (_) => validatePasswords(),
+                    decoration: InputDecoration(
+                      labelText: 'Confirm New Password',
+                      labelStyle: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      errorText: confirmPasswordError,
+                      prefixIcon: Icon(
+                        Icons.lock_outline,
+                        color: confirmPasswordError != null 
+                            ? Theme.of(context).colorScheme.error
+                            : (_confirmPasswordController.text.isNotEmpty && 
+                               _newPasswordController.text == _confirmPasswordController.text)
+                                ? Colors.green
+                                : AppTheme.getTextSecondary(context),
+                      ),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          // Match indicator
+                          if (_confirmPasswordController.text.isNotEmpty)
+                            Icon(
+                              _newPasswordController.text == _confirmPasswordController.text
+                                  ? Icons.check_circle
+                                  : Icons.cancel,
+                              color: _newPasswordController.text == _confirmPasswordController.text
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.error,
+                              size: 20,
+                            ),
+                          IconButton(
+                            icon: Icon(
+                              obscureConfirmPassword 
+                                  ? Icons.visibility_off 
+                                  : Icons.visibility,
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                            onPressed: () {
+                              setDialogState(() {
+                                obscureConfirmPassword = !obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                        ],
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: _confirmPasswordController.text.isNotEmpty
+                              ? (_newPasswordController.text == _confirmPasswordController.text
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.error)
+                              : AppTheme.getBorderColor(context),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: _confirmPasswordController.text.isNotEmpty
+                              ? (_newPasswordController.text == _confirmPasswordController.text
+                                  ? Colors.green
+                                  : Theme.of(context).colorScheme.error)
+                              : (isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor),
+                          width: 2,
+                        ),
+                      ),
+                      errorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      focusedErrorBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide(
+                          color: Theme.of(context).colorScheme.error,
+                          width: 2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isLoading ? null : () => Navigator.pop(ctx),
+                child: Text(
+                  'Cancel',
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)),
                 ),
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _newPasswordController,
-                obscureText: true,
-                style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                decoration: InputDecoration(
-                  labelText: 'New Password',
-                  labelStyle: TextStyle(
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.lock_outline,
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppTheme.getBorderColor(context),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
-                      width: 2,
-                    ),
-                  ),
+              ElevatedButton(
+                onPressed: isLoading ? null : () async {
+                  // Validate all fields
+                  bool hasError = false;
+                  
+                  if (_currentPasswordController.text.isEmpty) {
+                    setDialogState(() => currentPasswordError = 'Please enter current password');
+                    hasError = true;
+                  }
+                  
+                  if (_newPasswordController.text.isEmpty) {
+                    setDialogState(() => newPasswordError = 'Please enter new password');
+                    hasError = true;
+                  } else if (_newPasswordController.text.length < 6) {
+                    setDialogState(() => newPasswordError = 'Password must be at least 6 characters');
+                    hasError = true;
+                  }
+                  
+                  if (_confirmPasswordController.text.isEmpty) {
+                    setDialogState(() => confirmPasswordError = 'Please confirm new password');
+                    hasError = true;
+                  } else if (_newPasswordController.text != _confirmPasswordController.text) {
+                    setDialogState(() => confirmPasswordError = 'Passwords do not match');
+                    hasError = true;
+                  }
+                  
+                  if (hasError) return;
+
+                  setDialogState(() => isLoading = true);
+
+                  try {
+                    final user = FirebaseAuth.instance.currentUser!;
+                    final credential = EmailAuthProvider.credential(
+                      email: user.email!,
+                      password: _currentPasswordController.text,
+                    );
+                    await user.reauthenticateWithCredential(credential);
+                    await user.updatePassword(_newPasswordController.text);
+
+                    Navigator.pop(ctx);
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Password changed successfully!'),
+                          backgroundColor: AppTheme.success,
+                        ),
+                      );
+                    }
+                  } on FirebaseAuthException catch (e) {
+                    setDialogState(() {
+                      isLoading = false;
+                      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+                        currentPasswordError = 'Incorrect current password';
+                      } else {
+                        currentPasswordError = e.message ?? 'Authentication failed';
+                      }
+                    });
+                  } catch (e) {
+                    setDialogState(() {
+                      isLoading = false;
+                      currentPasswordError = 'Failed to change password. Please check your current password.';
+                    });
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
+                  foregroundColor: const Color(0xFFF0F8FF),
+                  elevation: 6,
+                  shadowColor:
+                      (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                          .withOpacity(0.5),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: _confirmPasswordController,
-                obscureText: true,
-                style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                decoration: InputDecoration(
-                  labelText: 'Confirm New Password',
-                  labelStyle: TextStyle(
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.lock_outline,
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: AppTheme.getBorderColor(context),
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(
-                      color: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
-                      width: 2,
-                    ),
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text('Change'),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppTheme.getTextSecondary(context)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              if (_newPasswordController.text !=
-                  _confirmPasswordController.text) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('New passwords do not match')),
-                );
-                return;
-              }
-
-              try {
-                final user = FirebaseAuth.instance.currentUser!;
-                final credential = EmailAuthProvider.credential(
-                  email: user.email!,
-                  password: _currentPasswordController.text,
-                );
-                await user.reauthenticateWithCredential(credential);
-                await user.updatePassword(_newPasswordController.text);
-
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Password changed successfully!'),
-                    backgroundColor: AppTheme.success,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to change password: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark
-                  ? AppTheme.darkAccent
-                  : AppTheme.primaryColor,
-              foregroundColor: const Color(0xFFF0F8FF),
-              elevation: 6,
-              shadowColor:
-                  (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                      .withOpacity(0.5),
-            ),
-            child: const Text('Change'),
-          ),
-        ],
+          );
+        },
       ),
     );
   }

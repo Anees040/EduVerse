@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/bookmark_service.dart';
+import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
@@ -37,6 +38,7 @@ class StudentCourseDetailScreen extends StatefulWidget {
 class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   final CourseService _courseService = CourseService();
   final BookmarkService _bookmarkService = BookmarkService();
+  final CacheService _cacheService = CacheService();
   final String _studentUid = FirebaseAuth.instance.currentUser!.uid;
 
   List<Map<String, dynamic>> _videos = [];
@@ -86,46 +88,53 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   Future<void> _loadCourseData() async {
+    final cacheKey = 'course_detail_${widget.courseUid}_$_studentUid';
+    
+    // Check cache first for instant display
+    final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
+    if (cachedData != null) {
+      setState(() {
+        _videos = List<Map<String, dynamic>>.from(cachedData['videos'] ?? []);
+        _progress = Map<String, dynamic>.from(cachedData['progress'] ?? {});
+        _overallProgress = cachedData['overallProgress'] ?? 0.0;
+        _hasReviewed = cachedData['hasReviewed'] ?? false;
+        _teacherUid = cachedData['teacherUid'];
+        _currentVideoIndex = _determineStartIndex(_videos, _progress);
+        _isLoading = false;
+      });
+      // Refresh in background
+      _refreshCourseDataInBackground(cacheKey);
+      return;
+    }
+
     setState(() => _isLoading = true);
     try {
-      final videos = await _courseService.getCourseVideos(
-        courseUid: widget.courseUid,
-      );
-      final progress = await _courseService.getCourseProgress(
-        studentUid: _studentUid,
-        courseUid: widget.courseUid,
-      );
-      final overallProgress = await _courseService.calculateCourseProgress(
-        studentUid: _studentUid,
-        courseUid: widget.courseUid,
-      );
+      // Load all data in PARALLEL for faster loading
+      final results = await Future.wait([
+        _courseService.getCourseVideos(courseUid: widget.courseUid),
+        _courseService.getCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.calculateCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.getCourseDetails(courseUid: widget.courseUid),
+        _courseService.hasStudentReviewedCourse(studentUid: _studentUid, courseUid: widget.courseUid),
+      ]);
 
-      // Get course details for teacher UID
-      final courseDetails = await _courseService.getCourseDetails(
-        courseUid: widget.courseUid,
-      );
+      final videos = results[0] as List<Map<String, dynamic>>;
+      final progress = results[1] as Map<String, dynamic>;
+      final overallProgress = results[2] as double;
+      final courseDetails = results[3] as Map<String, dynamic>?;
+      final hasReviewed = results[4] as bool;
 
-      // Check if user has reviewed
-      final hasReviewed = await _courseService.hasStudentReviewedCourse(
-        studentUid: _studentUid,
-        courseUid: widget.courseUid,
-      );
+      // Cache the results
+      _cacheService.set(cacheKey, {
+        'videos': videos,
+        'progress': progress,
+        'overallProgress': overallProgress,
+        'hasReviewed': hasReviewed,
+        'teacherUid': courseDetails?['teacherUid'],
+      });
 
       // Determine start index: if notification requested a specific video, use it
-      int startIndex = 0;
-      if (widget.initialVideoId != null) {
-        final idx = videos.indexWhere((v) => v['videoId'] == widget.initialVideoId);
-        if (idx != -1) startIndex = idx;
-      } else {
-        for (int i = 0; i < videos.length; i++) {
-          final videoId = videos[i]['videoId'];
-          if (progress[videoId] == null ||
-              progress[videoId]['isCompleted'] != true) {
-            startIndex = i;
-            break;
-          }
-        }
-      }
+      int startIndex = _determineStartIndex(videos, progress);
 
       setState(() {
         _videos = videos;
@@ -150,6 +159,60 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           context,
         ).showSnackBar(SnackBar(content: Text("Error loading course: $e")));
       }
+    }
+  }
+
+  int _determineStartIndex(List<Map<String, dynamic>> videos, Map<String, dynamic> progress) {
+    if (widget.initialVideoId != null) {
+      final idx = videos.indexWhere((v) => v['videoId'] == widget.initialVideoId);
+      if (idx != -1) return idx;
+    }
+    // Find first incomplete video
+    for (int i = 0; i < videos.length; i++) {
+      final videoId = videos[i]['videoId'];
+      if (progress[videoId] == null || progress[videoId]['isCompleted'] != true) {
+        return i;
+      }
+    }
+    return 0;
+  }
+
+  Future<void> _refreshCourseDataInBackground(String cacheKey) async {
+    try {
+      final results = await Future.wait([
+        _courseService.getCourseVideos(courseUid: widget.courseUid),
+        _courseService.getCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.calculateCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.getCourseDetails(courseUid: widget.courseUid),
+        _courseService.hasStudentReviewedCourse(studentUid: _studentUid, courseUid: widget.courseUid),
+      ]);
+
+      final videos = results[0] as List<Map<String, dynamic>>;
+      final progress = results[1] as Map<String, dynamic>;
+      final overallProgress = results[2] as double;
+      final courseDetails = results[3] as Map<String, dynamic>?;
+      final hasReviewed = results[4] as bool;
+
+      // Update cache
+      _cacheService.set(cacheKey, {
+        'videos': videos,
+        'progress': progress,
+        'overallProgress': overallProgress,
+        'hasReviewed': hasReviewed,
+        'teacherUid': courseDetails?['teacherUid'],
+      });
+
+      if (mounted) {
+        setState(() {
+          _videos = videos;
+          _progress = progress;
+          _overallProgress = overallProgress;
+          _hasReviewed = hasReviewed;
+          _teacherUid = courseDetails?['teacherUid'];
+        });
+      }
+    } catch (_) {
+      // Silent fail for background refresh
     }
   }
 
