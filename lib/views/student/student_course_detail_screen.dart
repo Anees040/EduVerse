@@ -50,6 +50,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   String? _teacherUid;
   bool _isBookmarked = false;
   Duration _currentVideoPosition = Duration.zero;
+  bool _isVideosExpanded = true; // For collapsible video list
 
   @override
   void initState() {
@@ -89,7 +90,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
 
   Future<void> _loadCourseData() async {
     final cacheKey = 'course_detail_${widget.courseUid}_$_studentUid';
-    
+
     // Check cache first for instant display
     final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
     if (cachedData != null) {
@@ -111,11 +112,20 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     try {
       // Load all data in PARALLEL for faster loading
       final results = await Future.wait([
-        _courseService.getCourseVideos(courseUid: widget.courseUid),
-        _courseService.getCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
-        _courseService.calculateCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.getPublicCourseVideos(courseUid: widget.courseUid),
+        _courseService.getCourseProgress(
+          studentUid: _studentUid,
+          courseUid: widget.courseUid,
+        ),
+        _courseService.calculateCourseProgress(
+          studentUid: _studentUid,
+          courseUid: widget.courseUid,
+        ),
         _courseService.getCourseDetails(courseUid: widget.courseUid),
-        _courseService.hasStudentReviewedCourse(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.hasStudentReviewedCourse(
+          studentUid: _studentUid,
+          courseUid: widget.courseUid,
+        ),
       ]);
 
       final videos = results[0] as List<Map<String, dynamic>>;
@@ -144,10 +154,13 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         _hasReviewed = hasReviewed;
         _teacherUid = courseDetails?['teacherUid'];
         // If notification provided a timestamp for the initial video, seed local progress
-        if (widget.initialVideoId != null && widget.initialVideoTimestampSeconds != null) {
+        if (widget.initialVideoId != null &&
+            widget.initialVideoTimestampSeconds != null) {
           final vid = widget.initialVideoId!;
           if (_progress[vid] == null) {
-            _progress[vid] = {'positionSeconds': widget.initialVideoTimestampSeconds};
+            _progress[vid] = {
+              'positionSeconds': widget.initialVideoTimestampSeconds,
+            };
           }
         }
         _isLoading = false;
@@ -162,15 +175,21 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     }
   }
 
-  int _determineStartIndex(List<Map<String, dynamic>> videos, Map<String, dynamic> progress) {
+  int _determineStartIndex(
+    List<Map<String, dynamic>> videos,
+    Map<String, dynamic> progress,
+  ) {
     if (widget.initialVideoId != null) {
-      final idx = videos.indexWhere((v) => v['videoId'] == widget.initialVideoId);
+      final idx = videos.indexWhere(
+        (v) => v['videoId'] == widget.initialVideoId,
+      );
       if (idx != -1) return idx;
     }
     // Find first incomplete video
     for (int i = 0; i < videos.length; i++) {
       final videoId = videos[i]['videoId'];
-      if (progress[videoId] == null || progress[videoId]['isCompleted'] != true) {
+      if (progress[videoId] == null ||
+          progress[videoId]['isCompleted'] != true) {
         return i;
       }
     }
@@ -180,11 +199,20 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   Future<void> _refreshCourseDataInBackground(String cacheKey) async {
     try {
       final results = await Future.wait([
-        _courseService.getCourseVideos(courseUid: widget.courseUid),
-        _courseService.getCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
-        _courseService.calculateCourseProgress(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.getPublicCourseVideos(courseUid: widget.courseUid),
+        _courseService.getCourseProgress(
+          studentUid: _studentUid,
+          courseUid: widget.courseUid,
+        ),
+        _courseService.calculateCourseProgress(
+          studentUid: _studentUid,
+          courseUid: widget.courseUid,
+        ),
         _courseService.getCourseDetails(courseUid: widget.courseUid),
-        _courseService.hasStudentReviewedCourse(studentUid: _studentUid, courseUid: widget.courseUid),
+        _courseService.hasStudentReviewedCourse(
+          studentUid: _studentUid,
+          courseUid: widget.courseUid,
+        ),
       ]);
 
       final videos = results[0] as List<Map<String, dynamic>>;
@@ -665,62 +693,78 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.playlist_play,
-                  color: isDark
-                      ? AppTheme.darkPrimaryLight
-                      : AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Course Videos',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: AppTheme.getTextPrimary(context),
+          InkWell(
+            onTap: () {
+              setState(() {
+                _isVideosExpanded = !_isVideosExpanded;
+              });
+            },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.playlist_play,
+                    color: isDark
+                        ? AppTheme.darkPrimaryLight
+                        : AppTheme.primaryColor,
                   ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color:
-                        (isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor)
-                            .withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '${_videos.length} videos',
+                  const SizedBox(width: 8),
+                  Text(
+                    'Course Videos',
                     style: TextStyle(
-                      color: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: AppTheme.getTextPrimary(context),
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 8),
+                  Icon(
+                    _isVideosExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: isDark ? AppTheme.darkTextSecondary : Colors.grey,
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          (isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor)
+                              .withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${_videos.length} videos',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkPrimaryLight
+                            : AppTheme.primaryColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-          Divider(height: 1, color: AppTheme.getDividerColor(context)),
-          ListView.separated(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _videos.length,
-            separatorBuilder: (_, __) =>
-                Divider(height: 1, color: AppTheme.getDividerColor(context)),
-            itemBuilder: (context, index) => _buildVideoItem(index),
-          ),
+          if (_isVideosExpanded) ...[
+            Divider(height: 1, color: AppTheme.getDividerColor(context)),
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _videos.length,
+              separatorBuilder: (_, __) =>
+                  Divider(height: 1, color: AppTheme.getDividerColor(context)),
+              itemBuilder: (context, index) => _buildVideoItem(index),
+            ),
+          ],
         ],
       ),
     );

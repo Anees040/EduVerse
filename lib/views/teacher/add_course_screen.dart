@@ -394,24 +394,21 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                                 try {
                                   await uploadAndSaveCourse();
 
-                                  // Show success SnackBar
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        "Course uploaded successfully!",
+                                  if (mounted) {
+                                    // Show success SnackBar
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text(
+                                          "Course uploaded successfully!",
+                                        ),
+                                        backgroundColor: Colors.green,
+                                        duration: Duration(seconds: 2),
                                       ),
-                                      backgroundColor: Colors.green,
-                                      duration: Duration(seconds: 2),
-                                    ),
-                                  );
+                                    );
 
-                                  // Optional: reset form & clear selected files
-                                  _formKey.currentState!.reset();
-                                  setState(() {
-                                    selectedVideo = null;
-                                    coverImageFile = null;
-                                    coverImageBytes = null;
-                                  });
+                                    // Navigate back to courses screen
+                                    Navigator.pop(context, true);
+                                  }
                                 } catch (e) {
                                   // Show error SnackBar
                                   ScaffoldMessenger.of(context).showSnackBar(
