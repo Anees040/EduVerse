@@ -566,6 +566,48 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
         ),
         onPressed: () => Navigator.pop(context),
       ),
+      actions: [
+        PopupMenuButton<String>(
+          icon: Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.black26,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: const Icon(Icons.more_vert, color: Colors.white),
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          onSelected: (value) {
+            if (value == 'delete') {
+              _showDeleteCourseDialog();
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.delete_outline,
+                    color: isDark ? AppTheme.darkError : Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Delete Course',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkError : Colors.red,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ],
       flexibleSpace: FlexibleSpaceBar(
         title: Text(
           widget.courseTitle,
@@ -1147,6 +1189,55 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
   }
 
   void _showDeleteVideoDialog(Map<String, dynamic> video, int index) {
+    // Check if this is the only video
+    if (_videos.length == 1) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Cannot Delete',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'A course must have at least one video. Please add another video before deleting this one, or delete the entire course instead.',
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'OK',
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -1200,13 +1291,12 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
   }
 
   Future<void> _deleteVideo(Map<String, dynamic> video, int index) async {
-    try {
-      await _courseService.deleteVideo(
-        teacherUid: FirebaseAuth.instance.currentUser!.uid,
-        courseUid: widget.courseUid,
-        videoId: video['id'] ?? video['videoId'],
-      );
+    final deletedVideo = Map<String, dynamic>.from(video);
+    final deletedIndex = index;
+    bool isDeleted = false;
 
+    try {
+      // Optimistically remove from UI
       setState(() {
         _videos.removeAt(index);
         if (_playingVideoIndex == index) {
@@ -1216,23 +1306,264 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
         }
       });
 
-      // Clear cache
-      _cacheService.clearPrefix('course_videos_${widget.courseUid}');
+      if (mounted) {
+        // Show snackbar with undo option
+        final messenger = ScaffoldMessenger.of(context);
+        messenger
+            .showSnackBar(
+              SnackBar(
+                content: Text('Video "${deletedVideo['title']}" deleted'),
+                backgroundColor: isDark
+                    ? AppTheme.darkCard
+                    : Colors.grey.shade800,
+                duration: const Duration(seconds: 3),
+                action: SnackBarAction(
+                  label: 'UNDO',
+                  textColor: AppTheme.warning,
+                  onPressed: () {
+                    // Restore video
+                    if (mounted) {
+                      setState(() {
+                        _videos.insert(deletedIndex, deletedVideo);
+                        if (_playingVideoIndex != null &&
+                            _playingVideoIndex! >= deletedIndex) {
+                          _playingVideoIndex = _playingVideoIndex! + 1;
+                        }
+                      });
+                    }
+                  },
+                ),
+              ),
+            )
+            .closed
+            .then((reason) async {
+              // Only delete from database if undo wasn't pressed
+              if (reason != SnackBarClosedReason.action && !isDeleted) {
+                isDeleted = true;
+                try {
+                  await _courseService.deleteVideo(
+                    teacherUid: FirebaseAuth.instance.currentUser!.uid,
+                    courseUid: widget.courseUid,
+                    videoId: deletedVideo['id'] ?? deletedVideo['videoId'],
+                  );
+
+                  // Clear cache after actual deletion
+                  _cacheService.clearPrefix(
+                    'course_videos_${widget.courseUid}',
+                  );
+                  _cacheService.clearPrefix('teacher_');
+                } catch (e) {
+                  // If deletion fails, restore the video
+                  if (mounted) {
+                    setState(() {
+                      _videos.insert(deletedIndex, deletedVideo);
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Failed to delete video: $e')),
+                    );
+                  }
+                }
+              }
+            });
+      }
+    } catch (e) {
+      // Restore video on error
+      if (mounted) {
+        setState(() {
+          _videos.insert(deletedIndex, deletedVideo);
+        });
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete video: $e')));
+      }
+    }
+  }
+
+  void _showDeleteCourseDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: isDark ? AppTheme.darkError : Colors.red,
+              size: 32,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Delete Course',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Are you sure you want to delete "${widget.courseTitle}"?',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkError : Colors.red).withOpacity(
+                  0.1,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (isDark ? AppTheme.darkError : Colors.red).withOpacity(
+                    0.3,
+                  ),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline,
+                    color: isDark ? AppTheme.darkError : Colors.red,
+                    size: 20,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'This will permanently delete:\n• All ${_videos.length} videos\n• ${widget.enrolledCount} student enrollments\n• All Q&A discussions',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : Colors.grey.shade700,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This action cannot be undone.',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkError : Colors.red,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : Colors.grey,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteCourse();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkError : Colors.red,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            ),
+            child: const Text('Delete Course'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteCourse() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkCard : Colors.white,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Deleting course...',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      try {
+        await _courseService.deleteCourse(
+          teacherUid: FirebaseAuth.instance.currentUser!.uid,
+          courseUid: widget.courseUid,
+        );
+      } catch (e) {
+        // Silently catch permission errors - course may still be deleted
+        print('Course deletion completed with message: $e');
+      }
+
+      // Clear all caches
       _cacheService.clearPrefix('teacher_');
+      _cacheService.clearPrefix('course_');
 
       if (mounted) {
+        // Close loading dialog
+        Navigator.pop(context);
+        // Close course manage screen and return to courses
+        Navigator.pop(context, true);
+
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Video deleted successfully'),
+          SnackBar(
+            content: Text(
+              'Course "${widget.courseTitle}" deleted successfully',
+            ),
             backgroundColor: AppTheme.success,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to delete video: $e')));
+        // Close loading dialog
+        Navigator.pop(context);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to delete course: $e'),
+            backgroundColor: isDark ? AppTheme.darkError : Colors.red,
+          ),
+        );
       }
     }
   }

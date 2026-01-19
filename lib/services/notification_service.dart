@@ -45,31 +45,29 @@ class NotificationService {
         .orderByChild('createdAt')
         .onValue
         .map((event) {
-      if (!event.snapshot.exists || event.snapshot.value == null) {
-        return [];
-      }
+          if (!event.snapshot.exists || event.snapshot.value == null) {
+            return [];
+          }
 
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-      final notifications = <Map<String, dynamic>>[];
+          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+          final notifications = <Map<String, dynamic>>[];
 
-      data.forEach((key, value) {
-        notifications.add(Map<String, dynamic>.from(value));
-      });
+          data.forEach((key, value) {
+            notifications.add(Map<String, dynamic>.from(value));
+          });
 
-      // Sort by createdAt descending (newest first)
-      notifications.sort((a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0));
+          // Sort by createdAt descending (newest first)
+          notifications.sort(
+            (a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0),
+          );
 
-      return notifications;
-    });
+          return notifications;
+        });
   }
 
   /// Get unread notification count - without index query to avoid Firebase warning
   Stream<int> getUnreadCountStream(String uid) {
-    return _db
-        .child('notifications')
-        .child(uid)
-        .onValue
-        .map((event) {
+    return _db.child('notifications').child(uid).onValue.map((event) {
       if (!event.snapshot.exists || event.snapshot.value == null) {
         return 0;
       }
@@ -98,11 +96,11 @@ class NotificationService {
   /// Mark all notifications as read
   Future<void> markAllAsRead(String uid) async {
     final snapshot = await _db.child('notifications').child(uid).get();
-    
+
     if (!snapshot.exists || snapshot.value == null) return;
 
     final data = Map<String, dynamic>.from(snapshot.value as Map);
-    
+
     final updates = <String, dynamic>{};
     data.forEach((key, value) {
       updates['$key/isRead'] = true;
@@ -115,11 +113,7 @@ class NotificationService {
 
   /// Delete a notification
   Future<void> deleteNotification(String uid, String notificationId) async {
-    await _db
-        .child('notifications')
-        .child(uid)
-        .child(notificationId)
-        .remove();
+    await _db.child('notifications').child(uid).child(notificationId).remove();
   }
 
   /// Clear all notifications
@@ -171,20 +165,24 @@ class NotificationService {
     required String teacherUid,
   }) async {
     final DatabaseReference db = FirebaseDatabase.instance.ref();
-    
+
     // Get all students
     final studentsSnapshot = await db.child('student').get();
-    
+
     if (!studentsSnapshot.exists || studentsSnapshot.value == null) {
       print('No students found to notify');
       return;
     }
-    
+
     final students = Map<String, dynamic>.from(studentsSnapshot.value as Map);
-    print('Notifying ${students.length} students about new course: $courseName');
-    
-    // Send notification to each student
+    print(
+      'Notifying ${students.length} students about new course: $courseName',
+    );
+
+    // Send notification to each student (excluding the teacher)
     for (final studentUid in students.keys) {
+      // Skip if this is the teacher's own UID (teacher might also be a student)
+      if (studentUid == teacherUid) continue;
       try {
         await sendNotification(
           toUid: studentUid,

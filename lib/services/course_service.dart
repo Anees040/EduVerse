@@ -445,29 +445,55 @@ class CourseService {
     return videos;
   }
 
+  /// Get only public videos for students (filters out private videos)
+  Future<List<Map<String, dynamic>>> getPublicCourseVideos({
+    required String courseUid,
+  }) async {
+    final allVideos = await getCourseVideos(courseUid: courseUid);
+    // Filter to only include public videos (isPublic is true or not set)
+    return allVideos.where((video) {
+      final isPublic = video['isPublic'];
+      return isPublic == null || isPublic == true;
+    }).toList();
+  }
+
   /// Delete a video from a course
   Future<void> deleteVideo({
     required String teacherUid,
     required String courseUid,
     required String videoId,
   }) async {
-    // Delete from teacher's course
-    await _db
-        .child("teacher")
-        .child(teacherUid)
-        .child("courses")
-        .child(courseUid)
-        .child("videos")
-        .child(videoId)
-        .remove();
+    // Check if this is a legacy single video (videoId == "main")
+    if (videoId == "main") {
+      // Remove legacy videoUrl field from both locations
+      await _db
+          .child("teacher")
+          .child(teacherUid)
+          .child("courses")
+          .child(courseUid)
+          .child("videoUrl")
+          .remove();
 
-    // Delete from courses node
-    await _db
-        .child("courses")
-        .child(courseUid)
-        .child("videos")
-        .child(videoId)
-        .remove();
+      await _db.child("courses").child(courseUid).child("videoUrl").remove();
+    } else {
+      // Delete from teacher's course
+      await _db
+          .child("teacher")
+          .child(teacherUid)
+          .child("courses")
+          .child(courseUid)
+          .child("videos")
+          .child(videoId)
+          .remove();
+
+      // Delete from courses node
+      await _db
+          .child("courses")
+          .child(courseUid)
+          .child("videos")
+          .child(videoId)
+          .remove();
+    }
   }
 
   /// Update video visibility (public/private)
@@ -494,6 +520,37 @@ class CourseService {
         .child("videos")
         .child(videoId)
         .update({"isPublic": isPublic});
+  }
+
+  /// Delete entire course
+  Future<void> deleteCourse({
+    required String teacherUid,
+    required String courseUid,
+  }) async {
+    // Delete from teacher's courses
+    await _db
+        .child("teacher")
+        .child(teacherUid)
+        .child("courses")
+        .child(courseUid)
+        .remove();
+
+    // Delete from courses node
+    await _db.child("courses").child(courseUid).remove();
+
+    // Remove from all enrolled students
+    final studentsSnapshot = await _db.child("student").get();
+    if (studentsSnapshot.exists) {
+      final students = Map<String, dynamic>.from(studentsSnapshot.value as Map);
+      for (final studentUid in students.keys) {
+        await _db
+            .child("student")
+            .child(studentUid)
+            .child("enrolledCourses")
+            .child(courseUid)
+            .remove();
+      }
+    }
   }
 
   /// Save student's video progress

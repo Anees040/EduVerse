@@ -1139,15 +1139,15 @@ class _QASectionWidgetState extends State<QASectionWidget> {
     final answerWasEdited = q['answerEditedAt'] != null;
 
     return Container(
-      margin: const EdgeInsets.symmetric(vertical: 4),
+      margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
         color: isDark
             ? Colors.white.withOpacity(0.02)
             : Colors.grey.shade50.withOpacity(0.5),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(10),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -1157,7 +1157,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
               children: [
                 // Avatar
                 CircleAvatar(
-                  radius: 18,
+                  radius: 14,
                   backgroundColor:
                       (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
                           .withOpacity(0.15),
@@ -1168,11 +1168,11 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                           ? AppTheme.darkAccent
                           : AppTheme.primaryColor,
                       fontWeight: FontWeight.bold,
-                      fontSize: 14,
+                      fontSize: 12,
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
 
                 // Name and time
                 Expanded(
@@ -1221,7 +1221,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                           ],
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
 
                       // Video title indicator (when showing all questions)
                       if (_showAllQuestions &&
@@ -1232,11 +1232,11 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                             horizontal: 6,
                             vertical: 2,
                           ),
-                          margin: const EdgeInsets.only(bottom: 6),
+                          margin: const EdgeInsets.only(bottom: 4),
                           decoration: BoxDecoration(
                             color: isDark
-                                ? Colors.purple.withOpacity(0.15)
-                                : Colors.purple.withOpacity(0.1),
+                                ? AppTheme.darkPrimaryLight.withOpacity(0.2)
+                                : AppTheme.primaryColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Row(
@@ -1245,7 +1245,9 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                               Icon(
                                 Icons.video_library,
                                 size: 12,
-                                color: Colors.purple.shade600,
+                                color: isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor,
                               ),
                               const SizedBox(width: 4),
                               Flexible(
@@ -1253,8 +1255,10 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                                   q['videoTitle'],
                                   style: TextStyle(
                                     fontSize: 11,
-                                    color: Colors.purple.shade600,
-                                    fontWeight: FontWeight.w500,
+                                    color: isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                   overflow: TextOverflow.ellipsis,
                                 ),
@@ -1268,8 +1272,8 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                       Text(
                         q['question'] ?? '',
                         style: TextStyle(
-                          fontSize: 14,
-                          height: 1.4,
+                          fontSize: 13,
+                          height: 1.3,
                           color: isDark
                               ? AppTheme.darkTextPrimary
                               : AppTheme.textPrimary,
@@ -1279,7 +1283,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                       // Video timestamp (if available)
                       if (q['videoTimestamp'] != null &&
                           q['videoTimestamp'] > 0) ...[
-                        const SizedBox(height: 8),
+                        const SizedBox(height: 6),
                         GestureDetector(
                           onTap: () {
                             if (widget.onTimestampTap != null) {
@@ -1336,15 +1340,15 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                       ],
 
                       // Question actions row
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Row(
                         children: [
                           // Status badge
                           if (!isAnswered)
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
+                                horizontal: 6,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: AppTheme.warning.withOpacity(0.15),
@@ -1373,8 +1377,8 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                           else
                             Container(
                               padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
+                                horizontal: 6,
+                                vertical: 2,
                               ),
                               decoration: BoxDecoration(
                                 color: AppTheme.success.withOpacity(0.15),
@@ -1430,10 +1434,10 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
             // Answer Section
             if (isAnswered) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Container(
-                margin: const EdgeInsets.only(left: 48),
-                padding: const EdgeInsets.all(12),
+                margin: const EdgeInsets.only(left: 28),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: isDark
@@ -1457,18 +1461,18 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(4),
+                          padding: const EdgeInsets.all(3),
                           decoration: BoxDecoration(
                             color: AppTheme.success.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(6),
+                            borderRadius: BorderRadius.circular(5),
                           ),
                           child: const Icon(
                             Icons.verified,
                             color: AppTheme.success,
-                            size: 14,
+                            size: 12,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Expanded(
                           child: Row(
                             children: [
@@ -1529,12 +1533,12 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 6),
                     Text(
                       q['answer'] ?? '',
                       style: TextStyle(
-                        fontSize: 13,
-                        height: 1.4,
+                        fontSize: 12,
+                        height: 1.3,
                         color: isDark
                             ? AppTheme.darkTextPrimary
                             : AppTheme.textPrimary,
@@ -1547,7 +1551,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
             // Answer Button (Teacher only)
             if (widget.isTeacher && !isAnswered) ...[
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Align(
                 alignment: Alignment.centerRight,
                 child: Container(
