@@ -39,7 +39,8 @@ class CourseService {
         } else if (vids is List) {
           videoCount = vids.length;
         }
-      } else if (courseData['videoUrl'] != null || courseData['video'] != null) {
+      } else if (courseData['videoUrl'] != null ||
+          courseData['video'] != null) {
         videoCount = 1;
       }
       courses.add({
@@ -179,7 +180,11 @@ class CourseService {
     required String teacherUid,
   }) async {
     // Compute teacher rating as the average of per-course averages
-    final coursesSnap = await _db.child('teacher').child(teacherUid).child('courses').get();
+    final coursesSnap = await _db
+        .child('teacher')
+        .child(teacherUid)
+        .child('courses')
+        .get();
     if (!coursesSnap.exists) return {'averageRating': 0.0, 'reviewCount': 0};
 
     final coursesMap = coursesSnap.value as Map<dynamic, dynamic>;
@@ -200,7 +205,9 @@ class CourseService {
     }
 
     return {
-      'averageRating': coursesWithReviews > 0 ? (sumCourseAverages / coursesWithReviews) : 0.0,
+      'averageRating': coursesWithReviews > 0
+          ? (sumCourseAverages / coursesWithReviews)
+          : 0.0,
       'reviewCount': totalReviews,
     };
   }
@@ -210,7 +217,11 @@ class CourseService {
     required String courseUid,
   }) async {
     // Try course node first
-    final courseReviewsSnap = await _db.child('courses').child(courseUid).child('reviews').get();
+    final courseReviewsSnap = await _db
+        .child('courses')
+        .child(courseUid)
+        .child('reviews')
+        .get();
     if (courseReviewsSnap.exists) {
       final reviews = courseReviewsSnap.value as Map<dynamic, dynamic>;
       double total = 0.0;
@@ -220,12 +231,16 @@ class CourseService {
         total += (review['rating'] as num?)?.toDouble() ?? 0.0;
         count++;
       });
-      return {'averageRating': count > 0 ? total / count : 0.0, 'reviewCount': count};
+      return {
+        'averageRating': count > 0 ? total / count : 0.0,
+        'reviewCount': count,
+      };
     }
 
     // Fallback: check teacher's stored reviews that reference this course
     final teacherReviewsSnap = await _db.child('teacher').get();
-    if (!teacherReviewsSnap.exists) return {'averageRating': 0.0, 'reviewCount': 0};
+    if (!teacherReviewsSnap.exists)
+      return {'averageRating': 0.0, 'reviewCount': 0};
 
     final teachers = teacherReviewsSnap.value as Map<dynamic, dynamic>;
     double total = 0.0;
@@ -244,7 +259,10 @@ class CourseService {
       }
     }
 
-    return {'averageRating': count > 0 ? total / count : 0.0, 'reviewCount': count};
+    return {
+      'averageRating': count > 0 ? total / count : 0.0,
+      'reviewCount': count,
+    };
   }
 
   /// Add a new video to an existing course
@@ -427,6 +445,57 @@ class CourseService {
     return videos;
   }
 
+  /// Delete a video from a course
+  Future<void> deleteVideo({
+    required String teacherUid,
+    required String courseUid,
+    required String videoId,
+  }) async {
+    // Delete from teacher's course
+    await _db
+        .child("teacher")
+        .child(teacherUid)
+        .child("courses")
+        .child(courseUid)
+        .child("videos")
+        .child(videoId)
+        .remove();
+
+    // Delete from courses node
+    await _db
+        .child("courses")
+        .child(courseUid)
+        .child("videos")
+        .child(videoId)
+        .remove();
+  }
+
+  /// Update video visibility (public/private)
+  Future<void> updateVideoVisibility({
+    required String teacherUid,
+    required String courseUid,
+    required String videoId,
+    required bool isPublic,
+  }) async {
+    // Update in teacher's course
+    await _db
+        .child("teacher")
+        .child(teacherUid)
+        .child("courses")
+        .child(courseUid)
+        .child("videos")
+        .child(videoId)
+        .update({"isPublic": isPublic});
+
+    // Update in courses node
+    await _db
+        .child("courses")
+        .child(courseUid)
+        .child("videos")
+        .child(videoId)
+        .update({"isPublic": isPublic});
+  }
+
   /// Save student's video progress
   Future<void> saveVideoProgress({
     required String studentUid,
@@ -538,7 +607,9 @@ class CourseService {
 
         for (final courseEntry in courses.entries) {
           final courseUid = courseEntry.key.toString();
-          final courseData = Map<String, dynamic>.from(courseEntry.value as Map);
+          final courseData = Map<String, dynamic>.from(
+            courseEntry.value as Map,
+          );
 
           // Get per-course stats (prefer course node reviews)
           final stats = await getCourseRatingStats(courseUid: courseUid);
@@ -553,11 +624,16 @@ class CourseService {
             } else if (vidsVal is List) {
               videoCount = vidsVal.length;
             }
-          } else if (courseData['videoUrl'] != null || courseData['video'] != null) {
+          } else if (courseData['videoUrl'] != null ||
+              courseData['video'] != null) {
             // Legacy single video fields
             videoCount = 1;
           } else {
-            final videosSnap = await _db.child('courses').child(courseUid).child('videos').get();
+            final videosSnap = await _db
+                .child('courses')
+                .child(courseUid)
+                .child('videos')
+                .get();
             if (videosSnap.exists && videosSnap.value != null) {
               final vidsVal = videosSnap.value;
               if (vidsVal is Map) {
@@ -764,10 +840,15 @@ class CourseService {
         } else if (vidsVal is List) {
           videoCount = vidsVal.length;
         }
-      } else if (courseData['videoUrl'] != null || courseData['video'] != null) {
+      } else if (courseData['videoUrl'] != null ||
+          courseData['video'] != null) {
         videoCount = 1;
       } else {
-        final videosSnap = await _db.child('courses').child(courseUid).child('videos').get();
+        final videosSnap = await _db
+            .child('courses')
+            .child(courseUid)
+            .child('videos')
+            .get();
         if (videosSnap.exists && videosSnap.value != null) {
           final vidsVal = videosSnap.value;
           if (vidsVal is Map) {
@@ -887,5 +968,253 @@ class CourseService {
     final Map<String, dynamic> data = Map<String, dynamic>.from(rawData);
 
     return data;
+  }
+
+  /// Get all reviews for a specific course
+  Future<List<Map<String, dynamic>>> getCourseReviews({
+    required String courseUid,
+  }) async {
+    final List<Map<String, dynamic>> reviews = [];
+
+    // First try from course node
+    final courseReviewsSnap = await _db
+        .child('courses')
+        .child(courseUid)
+        .child('reviews')
+        .get();
+    if (courseReviewsSnap.exists) {
+      final reviewsData = courseReviewsSnap.value as Map<dynamic, dynamic>;
+      reviewsData.forEach((key, value) {
+        reviews.add({
+          'reviewId': key.toString(),
+          ...Map<String, dynamic>.from(value as Map),
+        });
+      });
+    } else {
+      // Fallback: check teacher's reviews for this course
+      final teacherSnap = await _db.child('teacher').get();
+      if (teacherSnap.exists) {
+        final teachers = teacherSnap.value as Map<dynamic, dynamic>;
+        for (final t in teachers.entries) {
+          final tData = t.value as Map<dynamic, dynamic>?;
+          if (tData != null && tData['reviews'] != null) {
+            final teacherReviews = tData['reviews'] as Map<dynamic, dynamic>;
+            teacherReviews.forEach((key, value) {
+              final review = Map<String, dynamic>.from(value as Map);
+              if (review['courseUid'] == courseUid) {
+                reviews.add({'reviewId': key.toString(), ...review});
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // Sort by date (newest first)
+    reviews.sort((a, b) {
+      final aTime = a['createdAt'] ?? 0;
+      final bTime = b['createdAt'] ?? 0;
+      return bTime.compareTo(aTime);
+    });
+
+    return reviews;
+  }
+
+  /// Get all reviews for all courses of a teacher
+  Future<List<Map<String, dynamic>>> getTeacherAllCourseReviews({
+    required String teacherUid,
+  }) async {
+    final List<Map<String, dynamic>> allReviews = [];
+
+    // Get teacher's courses
+    final coursesSnap = await _db
+        .child('teacher')
+        .child(teacherUid)
+        .child('courses')
+        .get();
+    if (!coursesSnap.exists) return [];
+
+    final courses = coursesSnap.value as Map<dynamic, dynamic>;
+
+    for (final courseEntry in courses.entries) {
+      final courseUid = courseEntry.key.toString();
+      final courseData = courseEntry.value as Map<dynamic, dynamic>;
+      final courseTitle = courseData['title'] ?? 'Untitled Course';
+
+      final reviews = await getCourseReviews(courseUid: courseUid);
+      for (final review in reviews) {
+        allReviews.add({...review, 'courseTitle': courseTitle});
+      }
+    }
+
+    // Sort by date (newest first)
+    allReviews.sort((a, b) {
+      final aTime = a['createdAt'] ?? 0;
+      final bTime = b['createdAt'] ?? 0;
+      return bTime.compareTo(aTime);
+    });
+
+    return allReviews;
+  }
+
+  // ===== ANNOUNCEMENT METHODS =====
+
+  /// Create a new announcement
+  Future<void> createAnnouncement({
+    required String teacherUid,
+    required String title,
+    required String message,
+    String? courseUid, // null means all courses
+    required String priority, // 'normal', 'important', 'urgent'
+  }) async {
+    final announcementId = _db.push().key;
+    final timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    final announcementData = {
+      'title': title,
+      'message': message,
+      'courseUid': courseUid,
+      'priority': priority,
+      'createdAt': timestamp,
+      'teacherUid': teacherUid,
+      'isActive': true,
+    };
+
+    await _db
+        .child('teacher')
+        .child(teacherUid)
+        .child('announcements')
+        .child(announcementId!)
+        .set(announcementData);
+
+    // Also notify enrolled students via notification service
+    if (courseUid != null) {
+      // Get course name
+      final courseSnap = await _db
+          .child('teacher')
+          .child(teacherUid)
+          .child('courses')
+          .child(courseUid)
+          .get();
+      String courseName = 'Course';
+      if (courseSnap.exists) {
+        final courseData = courseSnap.value as Map<dynamic, dynamic>;
+        courseName = courseData['title'] ?? 'Course';
+      }
+
+      // Get enrolled students
+      final enrolledSnap = await _db
+          .child('teacher')
+          .child(teacherUid)
+          .child('courses')
+          .child(courseUid)
+          .child('enrolledStudents')
+          .get();
+      if (enrolledSnap.exists) {
+        final students = enrolledSnap.value as Map<dynamic, dynamic>;
+        for (final studentUid in students.keys) {
+          await _notificationService.sendNotification(
+            toUid: studentUid.toString(),
+            title: '📢 $title',
+            message: '$message\n\nCourse: $courseName',
+            type: 'announcement',
+            relatedCourseId: courseUid,
+            fromUid: teacherUid,
+          );
+        }
+      }
+    } else {
+      // Notify all students across all courses
+      final coursesSnap = await _db
+          .child('teacher')
+          .child(teacherUid)
+          .child('courses')
+          .get();
+      if (coursesSnap.exists) {
+        final courses = coursesSnap.value as Map<dynamic, dynamic>;
+        final Set<String> notifiedStudents = {};
+
+        for (final courseEntry in courses.entries) {
+          final courseData = courseEntry.value as Map<dynamic, dynamic>;
+          if (courseData['enrolledStudents'] != null) {
+            final students =
+                courseData['enrolledStudents'] as Map<dynamic, dynamic>;
+            for (final studentUid in students.keys) {
+              final uid = studentUid.toString();
+              if (!notifiedStudents.contains(uid)) {
+                notifiedStudents.add(uid);
+                await _notificationService.sendNotification(
+                  toUid: uid,
+                  title: '📢 $title',
+                  message: message,
+                  type: 'announcement',
+                  fromUid: teacherUid,
+                );
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Get all announcements for a teacher
+  Future<List<Map<String, dynamic>>> getTeacherAnnouncements({
+    required String teacherUid,
+  }) async {
+    final snapshot = await _db
+        .child('teacher')
+        .child(teacherUid)
+        .child('announcements')
+        .get();
+
+    if (!snapshot.exists) return [];
+
+    final data = snapshot.value as Map<dynamic, dynamic>;
+    final List<Map<String, dynamic>> announcements = [];
+
+    data.forEach((key, value) {
+      announcements.add({
+        'announcementId': key.toString(),
+        ...Map<String, dynamic>.from(value as Map),
+      });
+    });
+
+    // Sort by date (newest first)
+    announcements.sort((a, b) {
+      final aTime = a['createdAt'] ?? 0;
+      final bTime = b['createdAt'] ?? 0;
+      return bTime.compareTo(aTime);
+    });
+
+    return announcements;
+  }
+
+  /// Delete an announcement
+  Future<void> deleteAnnouncement({
+    required String teacherUid,
+    required String announcementId,
+  }) async {
+    await _db
+        .child('teacher')
+        .child(teacherUid)
+        .child('announcements')
+        .child(announcementId)
+        .remove();
+  }
+
+  /// Toggle announcement active status
+  Future<void> toggleAnnouncementActive({
+    required String teacherUid,
+    required String announcementId,
+    required bool isActive,
+  }) async {
+    await _db
+        .child('teacher')
+        .child(teacherUid)
+        .child('announcements')
+        .child(announcementId)
+        .child('isActive')
+        .set(isActive);
   }
 }

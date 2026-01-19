@@ -20,11 +20,16 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
   List<Map<String, dynamic>> students = [];
   Map<String, String> courseNames = {}; // courseId -> courseName
 
+  // Filter state
+  String? _selectedCourseFilter;
+  String _selectedDateFilter = 'all'; // all, week, month, year
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  bool _showFilters = false;
+
   // Keep tab alive
   @override
   bool get wantKeepAlive => true;
-
-  // For now no filtering; show all students the teacher has
 
   @override
   void initState() {
@@ -38,8 +43,12 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
     final cacheKeyCourseNames = 'teacher_course_names_$teacherId';
 
     // Check cache first for instant display
-    final cachedStudents = _cacheService.get<List<Map<String, dynamic>>>(cacheKeyStudents);
-    final cachedCourseNames = _cacheService.get<Map<String, String>>(cacheKeyCourseNames);
+    final cachedStudents = _cacheService.get<List<Map<String, dynamic>>>(
+      cacheKeyStudents,
+    );
+    final cachedCourseNames = _cacheService.get<Map<String, String>>(
+      cacheKeyCourseNames,
+    );
 
     if (cachedStudents != null && cachedCourseNames != null) {
       setState(() {
@@ -48,7 +57,11 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
         isLoading = false;
       });
       // Refresh in background
-      _refreshDataInBackground(teacherId, cacheKeyStudents, cacheKeyCourseNames);
+      _refreshDataInBackground(
+        teacherId,
+        cacheKeyStudents,
+        cacheKeyCourseNames,
+      );
       return;
     }
 
@@ -82,7 +95,8 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
         // Note: we have `teacherCourses` variable above in this scope
         for (final course in teacherCourses) {
           if (course['enrolledStudents'] != null) {
-            final Map<dynamic, dynamic> enrolled = course['enrolledStudents'] as Map<dynamic, dynamic>;
+            final Map<dynamic, dynamic> enrolled =
+                course['enrolledStudents'] as Map<dynamic, dynamic>;
             studentUids.addAll(enrolled.keys.map((e) => e.toString()));
           }
         }
@@ -92,7 +106,9 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
           final futures = studentUids.map((uid) async {
             final snap = await db.child('student').child(uid).get();
             if (!snap.exists) return null;
-            final data = Map<String, dynamic>.from(snap.value as Map<dynamic, dynamic>);
+            final data = Map<String, dynamic>.from(
+              snap.value as Map<dynamic, dynamic>,
+            );
             data['uid'] = uid;
 
             // Build enrolledCourses map limited to teacher's courses
@@ -100,11 +116,14 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
             for (final course in teacherCourses) {
               final cid = course['courseUid']?.toString();
               if (cid == null) continue;
-              final enrolledMap = course['enrolledStudents'] as Map<dynamic, dynamic>?;
+              final enrolledMap =
+                  course['enrolledStudents'] as Map<dynamic, dynamic>?;
               if (enrolledMap != null && enrolledMap.containsKey(uid)) {
                 final entry = enrolledMap[uid];
                 enrolledCourses[cid] = {
-                  'enrolledAt': (entry is Map && entry['enrolledAt'] != null) ? entry['enrolledAt'] : DateTime.now().millisecondsSinceEpoch,
+                  'enrolledAt': (entry is Map && entry['enrolledAt'] != null)
+                      ? entry['enrolledAt']
+                      : DateTime.now().millisecondsSinceEpoch,
                 };
               }
             }
@@ -112,12 +131,14 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
             return data;
           }).toList();
 
-          final results = (await Future.wait(futures)).whereType<Map<String, dynamic>>().toList();
-          
+          final results = (await Future.wait(
+            futures,
+          )).whereType<Map<String, dynamic>>().toList();
+
           // Cache results
           _cacheService.set(cacheKeyStudents, results);
           _cacheService.set(cacheKeyCourseNames, courseNames);
-          
+
           setState(() {
             students = results;
             isLoading = false;
@@ -130,8 +151,12 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
               'uid': 'debug_student_1',
               'name': 'Sam Developer',
               'email': 'sam.dev@example.com',
-              'enrolledCourses': {sampleCourseId: {'enrolledAt': DateTime.now().millisecondsSinceEpoch}}
-            }
+              'enrolledCourses': {
+                sampleCourseId: {
+                  'enrolledAt': DateTime.now().millisecondsSinceEpoch,
+                },
+              },
+            },
           ];
           setState(() {
             students = mock;
@@ -141,7 +166,7 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
           // Cache results
           _cacheService.set(cacheKeyStudents, fetchedStudents);
           _cacheService.set(cacheKeyCourseNames, courseNames);
-          
+
           setState(() {
             students = fetchedStudents;
             isLoading = false;
@@ -151,7 +176,7 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
         // Cache results
         _cacheService.set(cacheKeyStudents, fetchedStudents);
         _cacheService.set(cacheKeyCourseNames, courseNames);
-        
+
         setState(() {
           students = fetchedStudents;
           isLoading = false;
@@ -202,8 +227,75 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
     }
   }
 
-  // For now return all students (no filtering)
-  List<Map<String, dynamic>> get filteredStudents => students;
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Filter students based on selected criteria
+  List<Map<String, dynamic>> get filteredStudents {
+    List<Map<String, dynamic>> result = students;
+
+    // Filter by search query (name or email)
+    if (_searchQuery.isNotEmpty) {
+      result = result.where((student) {
+        final name = (student['name'] ?? '').toString().toLowerCase();
+        final email = (student['email'] ?? '').toString().toLowerCase();
+        final query = _searchQuery.toLowerCase();
+        return name.contains(query) || email.contains(query);
+      }).toList();
+    }
+
+    // Filter by course
+    if (_selectedCourseFilter != null) {
+      result = result.where((student) {
+        final enrolledCourses =
+            student['enrolledCourses'] as Map<dynamic, dynamic>?;
+        if (enrolledCourses == null) return false;
+        return enrolledCourses.containsKey(_selectedCourseFilter);
+      }).toList();
+    }
+
+    // Filter by enrollment date
+    if (_selectedDateFilter != 'all') {
+      final now = DateTime.now();
+      DateTime? cutoffDate;
+
+      switch (_selectedDateFilter) {
+        case 'week':
+          cutoffDate = now.subtract(const Duration(days: 7));
+          break;
+        case 'month':
+          cutoffDate = now.subtract(const Duration(days: 30));
+          break;
+        case 'year':
+          cutoffDate = now.subtract(const Duration(days: 365));
+          break;
+      }
+
+      if (cutoffDate != null) {
+        result = result.where((student) {
+          final enrolledCourses =
+              student['enrolledCourses'] as Map<dynamic, dynamic>?;
+          if (enrolledCourses == null || enrolledCourses.isEmpty) return false;
+
+          // Check if any enrollment is after cutoff date
+          for (final courseData in enrolledCourses.values) {
+            if (courseData is Map && courseData['enrolledAt'] != null) {
+              final enrolledAt = DateTime.fromMillisecondsSinceEpoch(
+                courseData['enrolledAt'] as int,
+              );
+              if (enrolledAt.isAfter(cutoffDate!)) return true;
+            }
+          }
+          return false;
+        }).toList();
+      }
+    }
+
+    return result;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -225,19 +317,159 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  // Students list header
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Students',
+                  // Header with filter toggle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Students',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          // Active filters indicator
+                          if (_selectedCourseFilter != null ||
+                              _selectedDateFilter != 'all' ||
+                              _searchQuery.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 4,
+                              ),
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color:
+                                    (isDark
+                                            ? AppTheme.darkAccent
+                                            : AppTheme.primaryColor)
+                                        .withOpacity(0.15),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                '${displayStudents.length}/${students.length}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.primaryColor,
+                                ),
+                              ),
+                            ),
+                          // Filter toggle button
+                          InkWell(
+                            onTap: () =>
+                                setState(() => _showFilters = !_showFilters),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: _showFilters
+                                    ? (isDark
+                                          ? AppTheme.darkAccent
+                                          : AppTheme.primaryColor)
+                                    : (isDark
+                                          ? AppTheme.darkCard
+                                          : Colors.white),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? AppTheme.darkAccent.withOpacity(0.3)
+                                      : AppTheme.primaryColor.withOpacity(0.2),
+                                ),
+                              ),
+                              child: Icon(
+                                _showFilters
+                                    ? Icons.filter_list_off
+                                    : Icons.filter_list,
+                                color: _showFilters
+                                    ? Colors.white
+                                    : (isDark
+                                          ? AppTheme.darkAccent
+                                          : AppTheme.primaryColor),
+                                size: 20,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Search bar
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? AppTheme.darkCard : Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade200,
+                      ),
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: (value) =>
+                          setState(() => _searchQuery = value),
                       style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                      ),
+                      decoration: InputDecoration(
+                        hintText: 'Search students by name or email...',
+                        hintStyle: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey,
+                        ),
+                        prefixIcon: Icon(
+                          Icons.search,
+                          color: isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor,
+                        ),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: Icon(
+                                  Icons.clear,
+                                  color: isDark
+                                      ? AppTheme.darkTextSecondary
+                                      : Colors.grey,
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  setState(() => _searchQuery = '');
+                                },
+                              )
+                            : null,
+                        filled: true,
+                        fillColor: isDark ? AppTheme.darkCard : Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(height: 12),
+
+                  // Filter chips (visible when _showFilters is true)
+                  if (_showFilters) ...[
+                    _buildFilterSection(isDark),
+                    const SizedBox(height: 12),
+                  ],
 
                   // Student List
                   Expanded(
@@ -348,22 +580,28 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
                                       showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(
-                                          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+                                          backgroundColor: isDark
+                                              ? AppTheme.darkCard
+                                              : Colors.white,
                                           title: Text(studentName),
                                           content: Column(
                                             mainAxisSize: MainAxisSize.min,
-                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
                                             children: [
                                               Text('Email: $studentEmail'),
                                               const SizedBox(height: 8),
                                               Text('Courses:'),
                                               const SizedBox(height: 6),
-                                              ...enrolledCourseNames.map((c) => Text('• $c')),
+                                              ...enrolledCourseNames.map(
+                                                (c) => Text('• $c'),
+                                              ),
                                             ],
                                           ),
                                           actions: [
                                             TextButton(
-                                              onPressed: () => Navigator.pop(context),
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
                                               child: const Text('Close'),
                                             ),
                                           ],
@@ -524,47 +762,87 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
                                                   children: enrolledCourseNames
                                                       .map(
                                                         (name) => Container(
-                                                          padding: const EdgeInsets.symmetric(
-                                                            horizontal: 12,
-                                                            vertical: 6,
-                                                          ),
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 12,
+                                                                vertical: 6,
+                                                              ),
                                                           decoration: BoxDecoration(
                                                             gradient: LinearGradient(
                                                               colors: isDark
                                                                   ? [
-                                                                      AppTheme.darkAccent.withOpacity(0.2),
-                                                                      AppTheme.darkPrimaryLight.withOpacity(0.15),
+                                                                      AppTheme
+                                                                          .darkAccent
+                                                                          .withOpacity(
+                                                                            0.2,
+                                                                          ),
+                                                                      AppTheme
+                                                                          .darkPrimaryLight
+                                                                          .withOpacity(
+                                                                            0.15,
+                                                                          ),
                                                                     ]
                                                                   : [
-                                                                      courseTagColor.withOpacity(0.12),
-                                                                      courseTagColor.withOpacity(0.08),
+                                                                      courseTagColor
+                                                                          .withOpacity(
+                                                                            0.12,
+                                                                          ),
+                                                                      courseTagColor
+                                                                          .withOpacity(
+                                                                            0.08,
+                                                                          ),
                                                                     ],
-                                                              begin: Alignment.topLeft,
-                                                              end: Alignment.bottomRight,
+                                                              begin: Alignment
+                                                                  .topLeft,
+                                                              end: Alignment
+                                                                  .bottomRight,
                                                             ),
-                                                            borderRadius: BorderRadius.circular(12),
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
                                                             border: Border.all(
                                                               color: isDark
-                                                                  ? AppTheme.darkAccent.withOpacity(0.4)
-                                                                  : courseTagColor.withOpacity(0.3),
+                                                                  ? AppTheme
+                                                                        .darkAccent
+                                                                        .withOpacity(
+                                                                          0.4,
+                                                                        )
+                                                                  : courseTagColor
+                                                                        .withOpacity(
+                                                                          0.3,
+                                                                        ),
                                                               width: 1,
                                                             ),
                                                           ),
                                                           child: Row(
-                                                            mainAxisSize: MainAxisSize.min,
+                                                            mainAxisSize:
+                                                                MainAxisSize
+                                                                    .min,
                                                             children: [
                                                               Icon(
-                                                                Icons.book_outlined,
+                                                                Icons
+                                                                    .book_outlined,
                                                                 size: 12,
-                                                                color: isDark ? AppTheme.darkAccent : courseTagColor,
+                                                                color: isDark
+                                                                    ? AppTheme
+                                                                          .darkAccent
+                                                                    : courseTagColor,
                                                               ),
-                                                              const SizedBox(width: 4),
+                                                              const SizedBox(
+                                                                width: 4,
+                                                              ),
                                                               Text(
                                                                 name,
                                                                 style: TextStyle(
                                                                   fontSize: 11,
-                                                                  fontWeight: FontWeight.w600,
-                                                                  color: isDark ? AppTheme.darkAccent : courseTagColor,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w600,
+                                                                  color: isDark
+                                                                      ? AppTheme
+                                                                            .darkAccent
+                                                                      : courseTagColor,
                                                                 ),
                                                               ),
                                                             ],
@@ -639,6 +917,232 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildFilterSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: isDark
+                ? AppTheme.darkAccent.withOpacity(0.05)
+                : Colors.black.withOpacity(0.03),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Filter by Course
+          Row(
+            children: [
+              Icon(
+                Icons.book_outlined,
+                size: 16,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Filter by Course',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
+                ),
+              ),
+              const Spacer(),
+              if (_selectedCourseFilter != null)
+                GestureDetector(
+                  onTap: () => setState(() => _selectedCourseFilter = null),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (isDark ? AppTheme.darkError : AppTheme.error)
+                          .withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      'Clear',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: isDark ? AppTheme.darkError : AppTheme.error,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildCourseFilterChip(null, 'All Courses', isDark),
+                ...courseNames.entries.map(
+                  (entry) =>
+                      _buildCourseFilterChip(entry.key, entry.value, isDark),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          // Filter by Enrollment Date
+          Row(
+            children: [
+              Icon(
+                Icons.calendar_today_outlined,
+                size: 16,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Filter by Enrollment Date',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildDateFilterChip('all', 'All Time', isDark),
+                _buildDateFilterChip('week', 'Last Week', isDark),
+                _buildDateFilterChip('month', 'Last Month', isDark),
+                _buildDateFilterChip('year', 'Last Year', isDark),
+              ],
+            ),
+          ),
+
+          // Clear All Filters Button
+          if (_selectedCourseFilter != null ||
+              _selectedDateFilter != 'all' ||
+              _searchQuery.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Center(
+              child: TextButton.icon(
+                onPressed: () {
+                  setState(() {
+                    _selectedCourseFilter = null;
+                    _selectedDateFilter = 'all';
+                    _searchQuery = '';
+                    _searchController.clear();
+                  });
+                },
+                icon: Icon(
+                  Icons.clear_all,
+                  size: 18,
+                  color: isDark ? AppTheme.darkError : AppTheme.error,
+                ),
+                label: Text(
+                  'Clear All Filters',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkError : AppTheme.error,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCourseFilterChip(String? courseId, String label, bool isDark) {
+    final isSelected = _selectedCourseFilter == courseId;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: () => setState(() => _selectedCourseFilter = courseId),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDateFilterChip(String value, String label, bool isDark) {
+    final isSelected = _selectedDateFilter == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: () => setState(() => _selectedDateFilter = value),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+              color: isSelected
+                  ? Colors.white
+                  : (isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

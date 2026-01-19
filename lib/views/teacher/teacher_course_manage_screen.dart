@@ -40,6 +40,7 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
   bool _isLoading = true;
   int? _playingVideoIndex;
   String? _teacherName;
+  bool _isVideosExpanded = true; // For collapsible video list
 
   // Theme helper
   bool get isDark => mounted ? AppTheme.isDarkMode(context) : false;
@@ -56,7 +57,9 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
     final cacheKeyTeacher = 'teacher_name_$uid';
 
     // Check cache first for instant display
-    final cachedVideos = _cacheService.get<List<Map<String, dynamic>>>(cacheKeyVideos);
+    final cachedVideos = _cacheService.get<List<Map<String, dynamic>>>(
+      cacheKeyVideos,
+    );
     final cachedTeacherName = _cacheService.get<String>(cacheKeyTeacher);
 
     if (cachedVideos != null) {
@@ -500,24 +503,26 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
           // Videos section header
           SliverToBoxAdapter(child: _buildVideosHeader()),
 
-          // Videos list
-          _isLoading
-              ? const SliverToBoxAdapter(
-                  child: Center(
-                    child: Padding(
-                      padding: EdgeInsets.all(32),
-                      child: CircularProgressIndicator(),
+          // Videos list (collapsible)
+          if (_isVideosExpanded) ...[
+            _isLoading
+                ? const SliverToBoxAdapter(
+                    child: Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(32),
+                        child: CircularProgressIndicator(),
+                      ),
+                    ),
+                  )
+                : _videos.isEmpty
+                ? SliverToBoxAdapter(child: _buildEmptyState())
+                : SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _buildVideoItem(index),
+                      childCount: _videos.length,
                     ),
                   ),
-                )
-              : _videos.isEmpty
-              ? SliverToBoxAdapter(child: _buildEmptyState())
-              : SliverList(
-                  delegate: SliverChildBuilderDelegate(
-                    (context, index) => _buildVideoItem(index),
-                    childCount: _videos.length,
-                  ),
-                ),
+          ],
 
           // Q&A Section
           SliverToBoxAdapter(
@@ -564,7 +569,18 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
       flexibleSpace: FlexibleSpaceBar(
         title: Text(
           widget.courseTitle,
-          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+            shadows: [
+              Shadow(
+                offset: Offset(0, 1),
+                blurRadius: 3,
+                color: Colors.black54,
+              ),
+            ],
+          ),
         ),
         background: Stack(
           fit: StackFit.expand,
@@ -717,49 +733,63 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
   }
 
   Widget _buildVideosHeader() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-      child: Row(
-        children: [
-          Icon(
-            Icons.playlist_play,
-            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Course Videos',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
-              color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+    return InkWell(
+      onTap: () {
+        setState(() {
+          _isVideosExpanded = !_isVideosExpanded;
+        });
+      },
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+        child: Row(
+          children: [
+            Icon(
+              Icons.playlist_play,
+              color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
             ),
-          ),
-          const Spacer(),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-            decoration: BoxDecoration(
-              color:
-                  (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                      .withOpacity(isDark ? 0.2 : 0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: isDark
-                  ? Border.all(
-                      color: AppTheme.darkPrimaryLight.withOpacity(0.3),
-                    )
-                  : null,
-            ),
-            child: Text(
-              '${_videos.length} videos',
+            const SizedBox(width: 8),
+            Text(
+              'Course Videos',
               style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkPrimaryLight
-                    : AppTheme.primaryColor,
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+                color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
               ),
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+            Icon(
+              _isVideosExpanded
+                  ? Icons.keyboard_arrow_up
+                  : Icons.keyboard_arrow_down,
+              color: isDark ? AppTheme.darkTextSecondary : Colors.grey,
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+              decoration: BoxDecoration(
+                color:
+                    (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                        .withOpacity(isDark ? 0.2 : 0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: isDark
+                    ? Border.all(
+                        color: AppTheme.darkPrimaryLight.withOpacity(0.3),
+                      )
+                    : null,
+              ),
+              child: Text(
+                '${_videos.length} videos',
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -861,89 +891,349 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
     final accentColor = isDark
         ? AppTheme.darkPrimaryLight
         : AppTheme.primaryColor;
+    final isPublic = video['isPublic'] ?? true;
 
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: isPlaying
-            ? accentColor.withOpacity(isDark ? 0.15 : 0.05)
-            : (isDark ? AppTheme.darkCard : Colors.white),
-        borderRadius: BorderRadius.circular(12),
-        border: isPlaying
-            ? Border.all(
-                color: accentColor.withOpacity(isDark ? 0.5 : 0.3),
-                width: 2,
-              )
-            : (isDark ? Border.all(color: AppTheme.darkBorderColor) : null),
-        boxShadow: isDark
-            ? null
-            : [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)],
-      ),
-      child: ListTile(
-        contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 50,
-          height: 50,
-          decoration: BoxDecoration(
-            color: isPlaying
-                ? accentColor
-                : (isDark ? AppTheme.darkSurface : Colors.grey.shade200),
-            borderRadius: BorderRadius.circular(10),
-            border: isDark && !isPlaying
-                ? Border.all(color: AppTheme.darkBorderColor)
-                : null,
-          ),
-          child: Center(
-            child: isPlaying
-                ? const Icon(Icons.play_arrow, color: Colors.white)
-                : Text(
-                    '${index + 1}',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      color: isDark
-                          ? AppTheme.darkTextSecondary
-                          : Colors.grey.shade600,
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _playingVideoIndex = isPlaying ? null : index;
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: isPlaying
+              ? accentColor.withOpacity(isDark ? 0.15 : 0.05)
+              : (isDark ? AppTheme.darkCard : Colors.white),
+          borderRadius: BorderRadius.circular(12),
+          border: isPlaying
+              ? Border.all(
+                  color: accentColor.withOpacity(isDark ? 0.5 : 0.3),
+                  width: 2,
+                )
+              : (isDark ? Border.all(color: AppTheme.darkBorderColor) : null),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.03),
+                    blurRadius: 8,
+                  ),
+                ],
+        ),
+        child: Column(
+          children: [
+            ListTile(
+              contentPadding: const EdgeInsets.all(12),
+              leading: Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: isPlaying
+                      ? accentColor
+                      : (isDark ? AppTheme.darkSurface : Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(10),
+                  border: isDark && !isPlaying
+                      ? Border.all(color: AppTheme.darkBorderColor)
+                      : null,
+                ),
+                child: Center(
+                  child: isPlaying
+                      ? const Icon(Icons.play_arrow, color: Colors.white)
+                      : Text(
+                          '${index + 1}',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : Colors.grey.shade600,
+                          ),
+                        ),
+                ),
+              ),
+              title: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      video['title'] ?? 'Video ${index + 1}',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: isPlaying
+                            ? accentColor
+                            : (isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary),
+                      ),
                     ),
                   ),
-          ),
-        ),
-        title: Text(
-          video['title'] ?? 'Video ${index + 1}',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: isPlaying
-                ? accentColor
-                : (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
-          ),
-        ),
-        subtitle:
-            video['description'] != null &&
-                video['description'].toString().isNotEmpty
-            ? Text(
-                video['description'],
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isPublic
+                          ? AppTheme.success.withOpacity(0.15)
+                          : Colors.orange.withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      isPublic ? 'Public' : 'Private',
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        color: isPublic ? AppTheme.success : Colors.orange,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              subtitle:
+                  video['description'] != null &&
+                      video['description'].toString().isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Text(
+                        video['description'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey.shade600,
+                        ),
+                      ),
+                    )
+                  : null,
+              trailing: PopupMenuButton<String>(
+                icon: Icon(
+                  Icons.more_vert,
                   color: isDark
                       ? AppTheme.darkTextSecondary
                       : Colors.grey.shade600,
                 ),
-              )
-            : null,
-        trailing: IconButton(
-          icon: Icon(
-            isPlaying ? Icons.stop_circle : Icons.play_circle_fill,
-            color: accentColor,
-            size: 36,
-          ),
-          onPressed: () {
-            setState(() {
-              _playingVideoIndex = isPlaying ? null : index;
-            });
-          },
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                color: isDark ? AppTheme.darkCard : Colors.white,
+                onSelected: (value) {
+                  switch (value) {
+                    case 'play':
+                      setState(() {
+                        _playingVideoIndex = isPlaying ? null : index;
+                      });
+                      break;
+                    case 'visibility':
+                      _toggleVideoVisibility(video, index);
+                      break;
+                    case 'delete':
+                      _showDeleteVideoDialog(video, index);
+                      break;
+                  }
+                },
+                itemBuilder: (context) => [
+                  PopupMenuItem(
+                    value: 'play',
+                    child: Row(
+                      children: [
+                        Icon(
+                          isPlaying ? Icons.stop : Icons.play_arrow,
+                          color: accentColor,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          isPlaying ? 'Stop' : 'Play',
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'visibility',
+                    child: Row(
+                      children: [
+                        Icon(
+                          isPublic ? Icons.visibility_off : Icons.visibility,
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey.shade600,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          isPublic ? 'Make Private' : 'Make Public',
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : Colors.black87,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    value: 'delete',
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.delete_outline,
+                          color: isDark ? AppTheme.darkError : Colors.red,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'Delete',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkError : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Future<void> _toggleVideoVisibility(
+    Map<String, dynamic> video,
+    int index,
+  ) async {
+    final isCurrentlyPublic = video['isPublic'] ?? true;
+    try {
+      await _courseService.updateVideoVisibility(
+        teacherUid: FirebaseAuth.instance.currentUser!.uid,
+        courseUid: widget.courseUid,
+        videoId: video['id'] ?? video['videoId'],
+        isPublic: !isCurrentlyPublic,
+      );
+
+      setState(() {
+        _videos[index]['isPublic'] = !isCurrentlyPublic;
+      });
+
+      // Clear cache
+      _cacheService.clearPrefix('course_videos_${widget.courseUid}');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isCurrentlyPublic
+                  ? 'Video is now private'
+                  : 'Video is now public',
+            ),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to update video: $e')));
+      }
+    }
+  }
+
+  void _showDeleteVideoDialog(Map<String, dynamic> video, int index) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: isDark ? AppTheme.darkError : Colors.red,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Delete Video',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${video['title']}"? This action cannot be undone.',
+          style: TextStyle(
+            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : Colors.grey,
+              ),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              await _deleteVideo(video, index);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkError : Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _deleteVideo(Map<String, dynamic> video, int index) async {
+    try {
+      await _courseService.deleteVideo(
+        teacherUid: FirebaseAuth.instance.currentUser!.uid,
+        courseUid: widget.courseUid,
+        videoId: video['id'] ?? video['videoId'],
+      );
+
+      setState(() {
+        _videos.removeAt(index);
+        if (_playingVideoIndex == index) {
+          _playingVideoIndex = null;
+        } else if (_playingVideoIndex != null && _playingVideoIndex! > index) {
+          _playingVideoIndex = _playingVideoIndex! - 1;
+        }
+      });
+
+      // Clear cache
+      _cacheService.clearPrefix('course_videos_${widget.courseUid}');
+      _cacheService.clearPrefix('teacher_');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video deleted successfully'),
+            backgroundColor: AppTheme.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to delete video: $e')));
+      }
+    }
   }
 }

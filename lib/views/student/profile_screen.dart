@@ -86,15 +86,17 @@ class _ProfileScreenState extends State<ProfileScreen>
 
         // Calculate progress in parallel instead of sequential
         if (enrolledCoursesList.isNotEmpty) {
-          final progressFutures = enrolledCoursesList.map((course) => 
-            courseService.calculateCourseProgress(
-              studentUid: uid,
-              courseUid: course['courseUid'],
-            )
-          ).toList();
-          
+          final progressFutures = enrolledCoursesList
+              .map(
+                (course) => courseService.calculateCourseProgress(
+                  studentUid: uid,
+                  courseUid: course['courseUid'],
+                ),
+              )
+              .toList();
+
           final progressResults = await Future.wait(progressFutures);
-          
+
           for (final progress in progressResults) {
             totalProgress += progress;
             if (progress >= 1.0) completed++;
@@ -154,15 +156,17 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       // Calculate progress in parallel instead of sequential
       if (enrolledCoursesList.isNotEmpty) {
-        final progressFutures = enrolledCoursesList.map((course) => 
-          courseService.calculateCourseProgress(
-            studentUid: uid,
-            courseUid: course['courseUid'],
-          )
-        ).toList();
-        
+        final progressFutures = enrolledCoursesList
+            .map(
+              (course) => courseService.calculateCourseProgress(
+                studentUid: uid,
+                courseUid: course['courseUid'],
+              ),
+            )
+            .toList();
+
         final progressResults = await Future.wait(progressFutures);
-        
+
         for (final progress in progressResults) {
           totalProgress += progress;
           if (progress >= 1.0) completed++;
@@ -323,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     _newPasswordController.clear();
     _confirmPasswordController.clear();
     final isDark = AppTheme.isDarkMode(context);
-    
+
     // State variables for the dialog
     bool obscureCurrentPassword = true;
     bool obscureNewPassword = true;
@@ -340,30 +344,35 @@ class _ProfileScreenState extends State<ProfileScreen>
           // Check password match
           void validatePasswords() {
             setDialogState(() {
-              if (_newPasswordController.text.isNotEmpty && 
+              if (_newPasswordController.text.isNotEmpty &&
                   _newPasswordController.text.length < 6) {
                 newPasswordError = 'Password must be at least 6 characters';
               } else {
                 newPasswordError = null;
               }
-              
+
               if (_confirmPasswordController.text.isNotEmpty &&
-                  _newPasswordController.text != _confirmPasswordController.text) {
+                  _newPasswordController.text !=
+                      _confirmPasswordController.text) {
                 confirmPasswordError = 'Passwords do not match';
               } else {
                 confirmPasswordError = null;
               }
             });
           }
-          
+
           return AlertDialog(
             backgroundColor: AppTheme.getCardColor(context),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
             title: Row(
               children: [
                 Icon(
                   Icons.lock,
-                  color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
                 ),
                 const SizedBox(width: 10),
                 Text(
@@ -394,14 +403,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                       errorText: currentPasswordError,
                       prefixIcon: Icon(
                         Icons.lock_outline,
-                        color: currentPasswordError != null 
+                        color: currentPasswordError != null
                             ? Theme.of(context).colorScheme.error
                             : AppTheme.getTextSecondary(context),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          obscureCurrentPassword 
-                              ? Icons.visibility_off 
+                          obscureCurrentPassword
+                              ? Icons.visibility_off
                               : Icons.visibility,
                           color: AppTheme.getTextSecondary(context),
                         ),
@@ -445,7 +454,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // New Password
                   TextField(
                     controller: _newPasswordController,
@@ -460,14 +469,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                       errorText: newPasswordError,
                       prefixIcon: Icon(
                         Icons.lock_outline,
-                        color: newPasswordError != null 
+                        color: newPasswordError != null
                             ? Theme.of(context).colorScheme.error
                             : AppTheme.getTextSecondary(context),
                       ),
                       suffixIcon: IconButton(
                         icon: Icon(
-                          obscureNewPassword 
-                              ? Icons.visibility_off 
+                          obscureNewPassword
+                              ? Icons.visibility_off
                               : Icons.visibility,
                           color: AppTheme.getTextSecondary(context),
                         ),
@@ -511,7 +520,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Confirm New Password
                   TextField(
                     controller: _confirmPasswordController,
@@ -526,12 +535,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                       errorText: confirmPasswordError,
                       prefixIcon: Icon(
                         Icons.lock_outline,
-                        color: confirmPasswordError != null 
+                        color: confirmPasswordError != null
                             ? Theme.of(context).colorScheme.error
-                            : (_confirmPasswordController.text.isNotEmpty && 
-                               _newPasswordController.text == _confirmPasswordController.text)
-                                ? Colors.green
-                                : AppTheme.getTextSecondary(context),
+                            : (_confirmPasswordController.text.isNotEmpty &&
+                                  _newPasswordController.text ==
+                                      _confirmPasswordController.text)
+                            ? Colors.green
+                            : AppTheme.getTextSecondary(context),
                       ),
                       suffixIcon: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -539,24 +549,28 @@ class _ProfileScreenState extends State<ProfileScreen>
                           // Match indicator
                           if (_confirmPasswordController.text.isNotEmpty)
                             Icon(
-                              _newPasswordController.text == _confirmPasswordController.text
+                              _newPasswordController.text ==
+                                      _confirmPasswordController.text
                                   ? Icons.check_circle
                                   : Icons.cancel,
-                              color: _newPasswordController.text == _confirmPasswordController.text
+                              color:
+                                  _newPasswordController.text ==
+                                      _confirmPasswordController.text
                                   ? Colors.green
                                   : Theme.of(context).colorScheme.error,
                               size: 20,
                             ),
                           IconButton(
                             icon: Icon(
-                              obscureConfirmPassword 
-                                  ? Icons.visibility_off 
+                              obscureConfirmPassword
+                                  ? Icons.visibility_off
                                   : Icons.visibility,
                               color: AppTheme.getTextSecondary(context),
                             ),
                             onPressed: () {
                               setDialogState(() {
-                                obscureConfirmPassword = !obscureConfirmPassword;
+                                obscureConfirmPassword =
+                                    !obscureConfirmPassword;
                               });
                             },
                           ),
@@ -569,9 +583,10 @@ class _ProfileScreenState extends State<ProfileScreen>
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: _confirmPasswordController.text.isNotEmpty
-                              ? (_newPasswordController.text == _confirmPasswordController.text
-                                  ? Colors.green
-                                  : Theme.of(context).colorScheme.error)
+                              ? (_newPasswordController.text ==
+                                        _confirmPasswordController.text
+                                    ? Colors.green
+                                    : Theme.of(context).colorScheme.error)
                               : AppTheme.getBorderColor(context),
                         ),
                       ),
@@ -579,12 +594,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                         borderRadius: BorderRadius.circular(12),
                         borderSide: BorderSide(
                           color: _confirmPasswordController.text.isNotEmpty
-                              ? (_newPasswordController.text == _confirmPasswordController.text
-                                  ? Colors.green
-                                  : Theme.of(context).colorScheme.error)
+                              ? (_newPasswordController.text ==
+                                        _confirmPasswordController.text
+                                    ? Colors.green
+                                    : Theme.of(context).colorScheme.error)
                               : (isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor),
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor),
                           width: 2,
                         ),
                       ),
@@ -615,69 +631,93 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ),
               ),
               ElevatedButton(
-                onPressed: isLoading ? null : () async {
-                  // Validate all fields
-                  bool hasError = false;
-                  
-                  if (_currentPasswordController.text.isEmpty) {
-                    setDialogState(() => currentPasswordError = 'Please enter current password');
-                    hasError = true;
-                  }
-                  
-                  if (_newPasswordController.text.isEmpty) {
-                    setDialogState(() => newPasswordError = 'Please enter new password');
-                    hasError = true;
-                  } else if (_newPasswordController.text.length < 6) {
-                    setDialogState(() => newPasswordError = 'Password must be at least 6 characters');
-                    hasError = true;
-                  }
-                  
-                  if (_confirmPasswordController.text.isEmpty) {
-                    setDialogState(() => confirmPasswordError = 'Please confirm new password');
-                    hasError = true;
-                  } else if (_newPasswordController.text != _confirmPasswordController.text) {
-                    setDialogState(() => confirmPasswordError = 'Passwords do not match');
-                    hasError = true;
-                  }
-                  
-                  if (hasError) return;
+                onPressed: isLoading
+                    ? null
+                    : () async {
+                        // Validate all fields
+                        bool hasError = false;
 
-                  setDialogState(() => isLoading = true);
+                        if (_currentPasswordController.text.isEmpty) {
+                          setDialogState(
+                            () => currentPasswordError =
+                                'Please enter current password',
+                          );
+                          hasError = true;
+                        }
 
-                  try {
-                    final user = FirebaseAuth.instance.currentUser!;
-                    final credential = EmailAuthProvider.credential(
-                      email: user.email!,
-                      password: _currentPasswordController.text,
-                    );
-                    await user.reauthenticateWithCredential(credential);
-                    await user.updatePassword(_newPasswordController.text);
+                        if (_newPasswordController.text.isEmpty) {
+                          setDialogState(
+                            () =>
+                                newPasswordError = 'Please enter new password',
+                          );
+                          hasError = true;
+                        } else if (_newPasswordController.text.length < 6) {
+                          setDialogState(
+                            () => newPasswordError =
+                                'Password must be at least 6 characters',
+                          );
+                          hasError = true;
+                        }
 
-                    Navigator.pop(ctx);
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password changed successfully!'),
-                          backgroundColor: AppTheme.success,
-                        ),
-                      );
-                    }
-                  } on FirebaseAuthException catch (e) {
-                    setDialogState(() {
-                      isLoading = false;
-                      if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
-                        currentPasswordError = 'Incorrect current password';
-                      } else {
-                        currentPasswordError = e.message ?? 'Authentication failed';
-                      }
-                    });
-                  } catch (e) {
-                    setDialogState(() {
-                      isLoading = false;
-                      currentPasswordError = 'Failed to change password. Please check your current password.';
-                    });
-                  }
-                },
+                        if (_confirmPasswordController.text.isEmpty) {
+                          setDialogState(
+                            () => confirmPasswordError =
+                                'Please confirm new password',
+                          );
+                          hasError = true;
+                        } else if (_newPasswordController.text !=
+                            _confirmPasswordController.text) {
+                          setDialogState(
+                            () =>
+                                confirmPasswordError = 'Passwords do not match',
+                          );
+                          hasError = true;
+                        }
+
+                        if (hasError) return;
+
+                        setDialogState(() => isLoading = true);
+
+                        try {
+                          final user = FirebaseAuth.instance.currentUser!;
+                          final credential = EmailAuthProvider.credential(
+                            email: user.email!,
+                            password: _currentPasswordController.text,
+                          );
+                          await user.reauthenticateWithCredential(credential);
+                          await user.updatePassword(
+                            _newPasswordController.text,
+                          );
+
+                          Navigator.pop(ctx);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Password changed successfully!'),
+                                backgroundColor: AppTheme.success,
+                              ),
+                            );
+                          }
+                        } on FirebaseAuthException catch (e) {
+                          setDialogState(() {
+                            isLoading = false;
+                            if (e.code == 'wrong-password' ||
+                                e.code == 'invalid-credential') {
+                              currentPasswordError =
+                                  'Incorrect current password';
+                            } else {
+                              currentPasswordError =
+                                  e.message ?? 'Authentication failed';
+                            }
+                          });
+                        } catch (e) {
+                          setDialogState(() {
+                            isLoading = false;
+                            currentPasswordError =
+                                'Failed to change password. Please check your current password.';
+                          });
+                        }
+                      },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isDark
                       ? AppTheme.darkAccent
@@ -986,13 +1026,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                     Icons.help_outline,
                     "Help & Support",
                     "Get assistance and FAQs",
-                    () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("Help & Support coming soon"),
-                        ),
-                      );
-                    },
+                    _showHelpSupportDialog,
                   ),
                   Divider(height: 1, color: AppTheme.getBorderColor(context)),
                   _buildActionTile(
@@ -1183,6 +1217,361 @@ class _ProfileScreenState extends State<ProfileScreen>
                       .withOpacity(0.5),
             ),
             child: const Text("Logout"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showHelpSupportDialog() {
+    final isDark = AppTheme.isDarkMode(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 400, maxHeight: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isDark
+                        ? [AppTheme.darkAccent, AppTheme.darkPrimaryLight]
+                        : [AppTheme.primaryColor, AppTheme.primaryLight],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(20),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(
+                        Icons.help_outline,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Help & Support',
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'How can we assist you?',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: const Icon(Icons.close, color: Colors.white70),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Content
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // FAQs Section
+                      Text(
+                        'Frequently Asked Questions',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildFaqItem(
+                        'How do I enroll in a course?',
+                        'Browse courses in the Explore section, tap on any course you like, and click "Enroll" to start learning immediately.',
+                        isDark,
+                      ),
+                      _buildFaqItem(
+                        'How can I track my progress?',
+                        'Your course progress is shown on each course card and in the course player. You can also see overall progress in your profile.',
+                        isDark,
+                      ),
+                      _buildFaqItem(
+                        'How do I leave a review?',
+                        'After completing some videos in a course, you can leave a review by going to the course details and tapping the review option.',
+                        isDark,
+                      ),
+                      _buildFaqItem(
+                        'Can I download videos for offline viewing?',
+                        'Currently, videos are available for streaming only. Offline viewing feature is coming soon!',
+                        isDark,
+                      ),
+                      _buildFaqItem(
+                        'How do I change my profile information?',
+                        'Go to Profile > Edit Profile to update your name, profile picture, and other details.',
+                        isDark,
+                      ),
+
+                      const SizedBox(height: 20),
+                      Divider(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Contact Section
+                      Text(
+                        'Contact Support',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildContactTile(
+                        Icons.email_outlined,
+                        'Email Support',
+                        'eduverse.company@gmail.com',
+                        () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Email copied to clipboard'),
+                            ),
+                          );
+                        },
+                        isDark,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildContactTile(
+                        Icons.access_time,
+                        'Response Time',
+                        'Usually within 24-48 hours',
+                        null,
+                        isDark,
+                      ),
+                      const SizedBox(height: 8),
+                      _buildContactTile(
+                        Icons.info_outline,
+                        'App Version',
+                        '1.0.0',
+                        null,
+                        isDark,
+                      ),
+
+                      const SizedBox(height: 20),
+                      Divider(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Tips Section
+                      Text(
+                        'Learning Tips',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTipItem(
+                        '📚',
+                        'Set a daily learning goal to stay consistent',
+                        isDark,
+                      ),
+                      _buildTipItem(
+                        '⭐',
+                        'Leave reviews to help other students and instructors',
+                        isDark,
+                      ),
+                      _buildTipItem(
+                        '🔔',
+                        'Enable notifications to never miss course updates',
+                        isDark,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFaqItem(String question, String answer, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(
+            question,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+            ),
+          ),
+          iconColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+          collapsedIconColor: isDark
+              ? AppTheme.darkTextSecondary
+              : AppTheme.textSecondary,
+          children: [
+            Text(
+              answer,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
+                height: 1.5,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildContactTile(
+    IconData icon,
+    String title,
+    String subtitle,
+    VoidCallback? onTap,
+    bool isDark,
+  ) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                icon,
+                size: 20,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (onTap != null)
+              Icon(
+                Icons.copy,
+                size: 16,
+                color: isDark
+                    ? AppTheme.darkTextTertiary
+                    : Colors.grey.shade400,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTipItem(String emoji, String tip, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 16)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              tip,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
+              ),
+            ),
           ),
         ],
       ),
