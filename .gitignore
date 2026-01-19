@@ -46,3 +46,7 @@ app.*.map.json
 
 # env
 *.env
+
+# Firebase Service Account Key (SENSITIVE - NEVER COMMIT)
+**/serviceAccountKey.json
+**/service-account*.json
