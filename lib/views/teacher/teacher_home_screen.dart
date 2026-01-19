@@ -29,6 +29,12 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     });
   }
 
+  void _navigateToStudentsTab() {
+    setState(() {
+      _selectedIndex = 2; // Students tab index
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -37,6 +43,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         role: widget.role,
         uid: widget.uid,
         onSeeAllCourses: _navigateToCoursesTab,
+        onSeeAllStudents: _navigateToStudentsTab,
       ),
       const TeacherCoursesScreen(),
       const TeacherStudentsScreen(),

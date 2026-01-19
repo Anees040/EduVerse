@@ -40,6 +40,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
   String? _studentName;
   bool _isSubmitting = false;
   bool _showAllQuestions = true; // Default to showing all questions
+  String _selectedFilter = 'all'; // all, unanswered, answered, recent
 
   @override
   void initState() {
@@ -812,6 +813,28 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
           const Divider(height: 1),
 
+          // Filter chips (Teacher only)
+          if (widget.isTeacher) ...[
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    _buildFilterChip('All', 'all', isDark),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Unanswered', 'unanswered', isDark),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Answered', 'answered', isDark),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('Recent', 'recent', isDark),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(height: 1),
+          ],
+
           // Ask Question (Student only)
           if (!widget.isTeacher) ...[
             Padding(
@@ -915,13 +938,22 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                 : _qaService.getQuestionsStream(widget.courseUid),
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Padding(
-                  padding: EdgeInsets.all(32),
-                  child: Center(child: CircularProgressIndicator()),
+                return Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    children: List.generate(
+                      2,
+                      (index) => _buildQuestionShimmer(isDark),
+                    ),
+                  ),
                 );
               }
 
-              final questions = snapshot.data ?? [];
+              final allQuestions = snapshot.data ?? [];
+              // Apply filter for teachers
+              final questions = widget.isTeacher
+                  ? _applyFilter(allQuestions)
+                  : allQuestions;
 
               if (questions.isEmpty) {
                 return Padding(
@@ -936,7 +968,9 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'No questions yet',
+                          widget.isTeacher && _selectedFilter != 'all'
+                              ? 'No ${_selectedFilter} questions'
+                              : 'No questions yet',
                           style: TextStyle(
                             color: Colors.grey.shade500,
                             fontSize: 14,
@@ -971,6 +1005,130 @@ class _QASectionWidgetState extends State<QASectionWidget> {
         ],
       ),
     );
+  }
+
+  Widget _buildQuestionShimmer(bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurfaceColor : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.grey.shade700
+                            : Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Container(
+                      width: 60,
+                      height: 10,
+                      decoration: BoxDecoration(
+                        color: isDark
+                            ? Colors.grey.shade800
+                            : Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            height: 14,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(7),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Container(
+            width: 200,
+            height: 14,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+              borderRadius: BorderRadius.circular(7),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChip(String label, String value, bool isDark) {
+    final isSelected = _selectedFilter == value;
+    return GestureDetector(
+      onTap: () => setState(() => _selectedFilter = value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkSurfaceColor : Colors.grey.shade200),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700),
+          ),
+        ),
+      ),
+    );
+  }
+
+  List<Map<String, dynamic>> _applyFilter(
+    List<Map<String, dynamic>> questions,
+  ) {
+    switch (_selectedFilter) {
+      case 'unanswered':
+        return questions.where((q) => q['isAnswered'] != true).toList();
+      case 'answered':
+        return questions.where((q) => q['isAnswered'] == true).toList();
+      case 'recent':
+        // Sort by timestamp descending and take recent ones (last 7 days)
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
+        return questions.where((q) {
+          final timestamp = q['timestamp'];
+          if (timestamp == null) return false;
+          return timestamp > sevenDaysAgo;
+        }).toList();
+      case 'all':
+      default:
+        return questions;
+    }
   }
 
   Widget _buildQuestionTile(Map<String, dynamic> q, bool isDark) {

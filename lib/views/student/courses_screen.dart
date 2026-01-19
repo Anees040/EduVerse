@@ -105,7 +105,6 @@ class _CoursesScreenState extends State<CoursesScreen>
     }
   }
 
-
   Future<void> _fetchUnenrolledCourses() async {
     try {
       final fetchedCourses = await _courseService.getUnenrolledCourses(
@@ -117,12 +116,11 @@ class _CoursesScreenState extends State<CoursesScreen>
       });
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Failed to load courses: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to load courses: $e")));
     }
   }
-
 
   Future<void> _enrollInCourse(String courseUid) async {
     try {
@@ -406,12 +404,13 @@ class _CoursesScreenState extends State<CoursesScreen>
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     child: GridView.builder(
                       itemCount: filteredCourses.length,
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 260,
-                        childAspectRatio: 0.50,
-                        crossAxisSpacing: 12,
-                        mainAxisSpacing: 12,
-                      ),
+                      gridDelegate:
+                          const SliverGridDelegateWithMaxCrossAxisExtent(
+                            maxCrossAxisExtent: 260,
+                            childAspectRatio: 0.50,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                          ),
                       itemBuilder: (context, index) {
                         final course = filteredCourses[index];
                         final isEnrolled = course['_isEnrolled'] == true;
@@ -428,17 +427,24 @@ class _CoursesScreenState extends State<CoursesScreen>
                           showEnrollButton: !isEnrolled,
                           progress: progress,
                           instructorName: course['teacherName'],
-                            instructorRating: course['courseRating'] != null
+                          instructorRating: course['courseRating'] != null
                               ? (course['courseRating'] as num).toDouble()
-                              : (course['teacherRating'] != null ? (course['teacherRating'] as num).toDouble() : null),
-                            reviewCount: course['courseReviewCount'] ?? course['reviewCount'],
+                              : (course['teacherRating'] != null
+                                    ? (course['teacherRating'] as num)
+                                          .toDouble()
+                                    : null),
+                          reviewCount:
+                              course['courseReviewCount'] ??
+                              course['reviewCount'],
                           videoCount: (() {
                             final v = course['videoCount'];
                             if (v is int) return v;
                             final vids = course['videos'];
                             if (vids is Map) return vids.length;
                             if (vids is List) return vids.length;
-                            if (course['videoUrl'] != null || course['video'] != null) return 1;
+                            if (course['videoUrl'] != null ||
+                                course['video'] != null)
+                              return 1;
                             return 0;
                           })(),
                           onTap: isEnrolled
@@ -457,6 +463,14 @@ class _CoursesScreenState extends State<CoursesScreen>
 
   void _showEnrollDialog(Map<String, dynamic> course) {
     final isDark = AppTheme.isDarkMode(context);
+    final courseRating = course['courseRating'] != null
+        ? (course['courseRating'] as num).toDouble()
+        : (course['teacherRating'] != null
+              ? (course['teacherRating'] as num).toDouble()
+              : 0.0);
+    final reviewCount =
+        course['courseReviewCount'] ?? course['reviewCount'] ?? 0;
+
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -489,78 +503,220 @@ class _CoursesScreenState extends State<CoursesScreen>
           ],
         ),
         content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 400),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  height: 120,
-                  width: double.infinity,
-                  child: Image.network(
-                    course['imageUrl'] ?? '',
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 120,
-                      color:
-                          (isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor)
-                              .withOpacity(0.1),
-                      child: Icon(
-                        Icons.image,
-                        size: 40,
-                        color: AppTheme.getTextSecondary(context),
-                      ),
-                    ),
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
+          constraints: BoxConstraints(
+            maxWidth: 400,
+            maxHeight: MediaQuery.of(context).size.height * 0.65,
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: SizedBox(
+                    height: 120,
+                    width: double.infinity,
+                    child: Image.network(
+                      course['imageUrl'] ?? '',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
                         height: 120,
                         color:
                             (isDark
                                     ? AppTheme.darkPrimaryLight
                                     : AppTheme.primaryColor)
                                 .withOpacity(0.1),
-                        child: Center(
-                          child: CircularProgressIndicator(
+                        child: Icon(
+                          Icons.image,
+                          size: 40,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                      ),
+                      loadingBuilder: (context, child, loadingProgress) {
+                        if (loadingProgress == null) return child;
+                        return Container(
+                          height: 120,
+                          color:
+                              (isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.1),
+                          child: Center(
+                            child: CircularProgressIndicator(
+                              color: isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  course['title'] ?? 'Untitled Course',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 18,
+                    color: AppTheme.getTextPrimary(context),
+                  ),
+                ),
+                const SizedBox(height: 4),
+
+                // Instructor name
+                if (course['teacherName'] != null)
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.person_outline,
+                        size: 14,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        course['teacherName'],
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 8),
+
+                // Rating display
+                if (reviewCount > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: (isDark ? AppTheme.darkWarning : AppTheme.warning)
+                          .withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ...List.generate(
+                          5,
+                          (index) => Icon(
+                            index < courseRating.round()
+                                ? Icons.star_rounded
+                                : Icons.star_outline_rounded,
+                            size: 16,
                             color: isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor,
+                                ? AppTheme.darkWarning
+                                : AppTheme.warning,
                           ),
                         ),
+                        const SizedBox(width: 6),
+                        Text(
+                          '${courseRating.toStringAsFixed(1)} ($reviewCount reviews)',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                const SizedBox(height: 12),
+                Text(
+                  course['description'] ?? 'No description',
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                ),
+
+                // Reviews section
+                if (reviewCount > 0) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.rate_review,
+                        size: 16,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'Student Reviews',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                          color: AppTheme.getTextPrimary(context),
+                        ),
+                      ),
+                      const Spacer(),
+                      GestureDetector(
+                        onTap: () => _showAllCourseReviewsDialog(course),
+                        child: Text(
+                          'See All →',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  // Show recent reviews preview
+                  FutureBuilder<List<Map<String, dynamic>>>(
+                    future: _courseService.getCourseReviews(
+                      courseUid: course['courseUid'],
+                    ),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+
+                      final reviews = snapshot.data ?? [];
+                      final previewReviews = reviews.take(2).toList();
+
+                      if (previewReviews.isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return Column(
+                        children: previewReviews
+                            .map(
+                              (review) =>
+                                  _buildReviewPreviewCard(review, isDark),
+                            )
+                            .toList(),
                       );
                     },
                   ),
+                ],
+
+                const SizedBox(height: 16),
+                Text(
+                  'Would you like to enroll in this course?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.getTextPrimary(context),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              Text(
-                course['title'] ?? 'Untitled Course',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                  color: AppTheme.getTextPrimary(context),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                course['description'] ?? 'No description',
-                style: TextStyle(color: AppTheme.getTextSecondary(context)),
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Would you like to enroll in this course?',
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: AppTheme.getTextPrimary(context),
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         actions: [
@@ -592,6 +748,295 @@ class _CoursesScreenState extends State<CoursesScreen>
                       .withOpacity(0.5),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewPreviewCard(Map<String, dynamic> review, bool isDark) {
+    final rating = (review['rating'] ?? 0.0) as double;
+    final studentName = review['studentName'] ?? 'Student';
+    final reviewText = review['reviewText'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
+                child: Text(
+                  studentName[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  studentName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                    color: isDark
+                        ? AppTheme.darkTextPrimary
+                        : AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+              // Stars
+              ...List.generate(
+                5,
+                (index) => Icon(
+                  index < rating.round()
+                      ? Icons.star_rounded
+                      : Icons.star_outline_rounded,
+                  size: 12,
+                  color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                ),
+              ),
+            ],
+          ),
+          if (reviewText.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Text(
+              reviewText,
+              style: TextStyle(
+                fontSize: 11,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  void _showAllCourseReviewsDialog(Map<String, dynamic> course) {
+    final isDark = AppTheme.isDarkMode(context);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkWarning : AppTheme.warning)
+                    .withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.rate_review,
+                color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Course Reviews',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    course['title'] ?? 'Course',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.85,
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _courseService.getCourseReviews(
+              courseUid: course['courseUid'],
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final reviews = snapshot.data ?? [];
+
+              if (reviews.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.rate_review_outlined,
+                        size: 48,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : Colors.grey,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No reviews yet',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: reviews.length,
+                itemBuilder: (ctx, index) =>
+                    _buildFullReviewCard(reviews[index], isDark),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Close',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullReviewCard(Map<String, dynamic> review, bool isDark) {
+    final rating = (review['rating'] ?? 0.0) as double;
+    final studentName = review['studentName'] ?? 'Student';
+    final reviewText = review['reviewText'] ?? '';
+    final createdAt = review['createdAt'] != null
+        ? DateTime.fromMillisecondsSinceEpoch(review['createdAt']).toLocal()
+        : null;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
+                child: Text(
+                  studentName[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  studentName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark
+                        ? AppTheme.darkTextPrimary
+                        : AppTheme.textPrimary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+              // Rating stars
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  5,
+                  (index) => Icon(
+                    index < rating.round()
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    size: 14,
+                    color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (reviewText.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              reviewText,
+              style: TextStyle(
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (createdAt != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -631,8 +1076,10 @@ class _CoursesScreenState extends State<CoursesScreen>
             progress: progress,
             instructorName: course['teacherName'],
             instructorRating: course['courseRating'] != null
-              ? (course['courseRating'] as num).toDouble()
-              : (course['teacherRating'] != null ? (course['teacherRating'] as num).toDouble() : null),
+                ? (course['courseRating'] as num).toDouble()
+                : (course['teacherRating'] != null
+                      ? (course['teacherRating'] as num).toDouble()
+                      : null),
             reviewCount: course['courseReviewCount'] ?? course['reviewCount'],
             videoCount: (() {
               final v = course['videoCount'];
@@ -640,7 +1087,8 @@ class _CoursesScreenState extends State<CoursesScreen>
               final vids = course['videos'];
               if (vids is Map) return vids.length;
               if (vids is List) return vids.length;
-              if (course['videoUrl'] != null || course['video'] != null) return 1;
+              if (course['videoUrl'] != null || course['video'] != null)
+                return 1;
               return 0;
             })(),
             onTap: () => _openCourse(course),
@@ -649,7 +1097,6 @@ class _CoursesScreenState extends State<CoursesScreen>
       ),
     );
   }
-
 
   Widget _buildEmptyState({
     required IconData icon,
@@ -743,7 +1190,7 @@ class _CoursesScreenState extends State<CoursesScreen>
     _searchController.dispose();
     super.dispose();
   }
-  
+
   Future<void> _fetchEnrolledCourses() async {
     try {
       final fetched = await _courseService.getEnrolledCourses(
@@ -782,5 +1229,4 @@ class _CoursesScreenState extends State<CoursesScreen>
       );
     }
   }
-
 }

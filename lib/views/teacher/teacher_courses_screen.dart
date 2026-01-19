@@ -5,7 +5,6 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/views/teacher/add_course_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
-import 'package:eduverse/widgets/course_card.dart';
 
 class TeacherCoursesScreen extends StatefulWidget {
   const TeacherCoursesScreen({super.key});
@@ -21,6 +20,12 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   bool isLoading = true;
   List<Map<String, dynamic>> courses = [];
   int uniqueStudentCount = 0;
+
+  // Search and filter state
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  String _sortBy = 'newest'; // newest, oldest, students, videos, rating
+  bool _showFilters = false;
 
   // Keep tab alive
   @override
@@ -44,11 +49,13 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     final cachedStudents = _cacheService.get<int>(cacheKeyStudents);
 
     if (cachedCourses != null && cachedStudents != null) {
-      setState(() {
-        courses = cachedCourses;
-        uniqueStudentCount = cachedStudents;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          courses = cachedCourses;
+          uniqueStudentCount = cachedStudents;
+          isLoading = false;
+        });
+      }
       // Refresh in background
       _refreshCoursesInBackground(
         teacherUid,
@@ -58,6 +65,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       return;
     }
 
+    if (!mounted) return;
     setState(() => isLoading = true);
 
     try {
@@ -69,17 +77,34 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       final fetchedCourses = results[0] as List<Map<String, dynamic>>;
       final studentCount = results[1] as int;
 
+      // Fetch rating stats for each course
+      for (int i = 0; i < fetchedCourses.length; i++) {
+        final courseUid = fetchedCourses[i]['courseUid'];
+        try {
+          final stats = await _courseService.getCourseRatingStats(
+            courseUid: courseUid,
+          );
+          fetchedCourses[i]['averageRating'] = stats['averageRating'] ?? 0.0;
+          fetchedCourses[i]['reviewCount'] = stats['reviewCount'] ?? 0;
+        } catch (_) {
+          fetchedCourses[i]['averageRating'] = 0.0;
+          fetchedCourses[i]['reviewCount'] = 0;
+        }
+      }
+
       // Cache results
       _cacheService.set(cacheKeyCourses, fetchedCourses);
       _cacheService.set(cacheKeyStudents, studentCount);
 
-      setState(() {
-        courses = fetchedCourses;
-        uniqueStudentCount = studentCount;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          courses = fetchedCourses;
+          uniqueStudentCount = studentCount;
+          isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -101,6 +126,21 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
 
       final fetchedCourses = results[0] as List<Map<String, dynamic>>;
       final studentCount = results[1] as int;
+
+      // Fetch rating stats for each course
+      for (int i = 0; i < fetchedCourses.length; i++) {
+        final courseUid = fetchedCourses[i]['courseUid'];
+        try {
+          final stats = await _courseService.getCourseRatingStats(
+            courseUid: courseUid,
+          );
+          fetchedCourses[i]['averageRating'] = stats['averageRating'] ?? 0.0;
+          fetchedCourses[i]['reviewCount'] = stats['reviewCount'] ?? 0;
+        } catch (_) {
+          fetchedCourses[i]['averageRating'] = 0.0;
+          fetchedCourses[i]['reviewCount'] = 0;
+        }
+      }
 
       _cacheService.set(cacheKeyCourses, fetchedCourses);
       _cacheService.set(cacheKeyStudents, studentCount);
@@ -147,6 +187,74 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   }
 
   @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  // Filtered and sorted courses
+  List<Map<String, dynamic>> get filteredCourses {
+    List<Map<String, dynamic>> result = courses;
+
+    // Filter by search query
+    if (_searchQuery.isNotEmpty) {
+      result = result.where((course) {
+        final title = (course['title'] ?? '').toString().toLowerCase();
+        final description = (course['description'] ?? '')
+            .toString()
+            .toLowerCase();
+        final query = _searchQuery.toLowerCase();
+        return title.contains(query) || description.contains(query);
+      }).toList();
+    }
+
+    // Sort
+    switch (_sortBy) {
+      case 'newest':
+        result.sort(
+          (a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0),
+        );
+        break;
+      case 'oldest':
+        result.sort(
+          (a, b) => (a['createdAt'] ?? 0).compareTo(b['createdAt'] ?? 0),
+        );
+        break;
+      case 'students':
+        result.sort(
+          (a, b) =>
+              (b['enrolledCount'] ?? 0).compareTo(a['enrolledCount'] ?? 0),
+        );
+        break;
+      case 'videos':
+        result.sort((a, b) {
+          int aVideos = _getVideoCount(a);
+          int bVideos = _getVideoCount(b);
+          return bVideos.compareTo(aVideos);
+        });
+        break;
+      case 'rating':
+        result.sort(
+          (a, b) =>
+              (b['averageRating'] ?? 0.0).compareTo(a['averageRating'] ?? 0.0),
+        );
+        break;
+    }
+
+    return result;
+  }
+
+  int _getVideoCount(Map<String, dynamic> course) {
+    final v = course['videoCount'];
+    if (v is int) return v;
+    final vids = course['videos'];
+    if (vids is Map) return vids.length;
+    if (vids is List) return vids.length;
+    if (course['videoUrl'] != null || course['video'] != null) return 1;
+    return 0;
+  }
+
+  @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = AppTheme.isDarkMode(context);
@@ -167,16 +275,41 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
               color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
               child: _buildCoursesList(),
             ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: isDark
-            ? AppTheme.darkPrimaryLight
-            : AppTheme.primaryColor,
-        onPressed: _createNewCourse,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text(
-          'Create Course',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // View all reviews FAB
+          if (courses.isNotEmpty)
+            FloatingActionButton(
+              heroTag: 'reviews',
+              mini: true,
+              backgroundColor: isDark
+                  ? AppTheme.darkAccent
+                  : AppTheme.accentColor,
+              onPressed: () => _showAllReviewsDialog(context),
+              child: const Icon(
+                Icons.rate_review,
+                color: Colors.white,
+                size: 20,
+              ),
+            ),
+          const SizedBox(height: 12),
+          FloatingActionButton.extended(
+            heroTag: 'create',
+            backgroundColor: isDark
+                ? AppTheme.darkPrimaryLight
+                : AppTheme.primaryColor,
+            onPressed: _createNewCourse,
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text(
+              'Create Course',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -264,63 +397,872 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   }
 
   Widget _buildCoursesList() {
+    final isDark = AppTheme.isDarkMode(context);
+    final displayCourses = filteredCourses;
+
     return CustomScrollView(
       slivers: [
         // Stats header
         SliverToBoxAdapter(child: _buildStatsHeader()),
 
-        // Section title
+        // Search and filter section
         SliverToBoxAdapter(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-            child: Text(
-              'Your Courses',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.getTextPrimary(context),
-              ),
+            child: Column(
+              children: [
+                // Search bar
+                Container(
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkCard : Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: isDark
+                          ? AppTheme.darkBorder
+                          : Colors.grey.shade200,
+                    ),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (value) => setState(() => _searchQuery = value),
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search courses...',
+                      hintStyle: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : Colors.grey,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchQuery.isNotEmpty)
+                            IconButton(
+                              icon: Icon(
+                                Icons.clear,
+                                color: isDark
+                                    ? AppTheme.darkTextSecondary
+                                    : Colors.grey,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => _searchQuery = '');
+                              },
+                            ),
+                          // Filter toggle
+                          IconButton(
+                            icon: Icon(
+                              _showFilters
+                                  ? Icons.filter_list_off
+                                  : Icons.filter_list,
+                              color: _showFilters
+                                  ? (isDark
+                                        ? AppTheme.darkAccent
+                                        : AppTheme.primaryColor)
+                                  : (isDark
+                                        ? AppTheme.darkTextSecondary
+                                        : Colors.grey),
+                            ),
+                            onPressed: () =>
+                                setState(() => _showFilters = !_showFilters),
+                          ),
+                        ],
+                      ),
+                      filled: true,
+                      fillColor: isDark ? AppTheme.darkCard : Colors.white,
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                  ),
+                ),
+
+                // Sort/filter options
+                if (_showFilters) ...[
+                  const SizedBox(height: 12),
+                  _buildSortFilterSection(isDark),
+                ],
+              ],
             ),
           ),
         ),
 
-        // Courses grid
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-            sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              childAspectRatio: 0.60,
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
+        // Section title with count
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Your Courses',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextPrimary(context),
+                  ),
+                ),
+                if (_searchQuery.isNotEmpty || _sortBy != 'newest')
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color:
+                          (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                              .withOpacity(0.15),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      '${displayCourses.length}/${courses.length}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-            delegate: SliverChildBuilderDelegate((context, index) {
-              final course = courses[index];
-              return CourseCard(
-                title: course['title'] ?? 'Untitled Course',
-                description: course['description'],
-                imageUrl: course['imageUrl'] ?? '',
-                createdAt: course['createdAt'],
-                isTeacherView: true,
-                enrolledCount: course['enrolledCount'] ?? 0,
-                videoCount: (() {
-                  final v = course['videoCount'];
-                  if (v is int) return v;
-                  final vids = course['videos'];
-                  if (vids is Map) return vids.length;
-                  if (vids is List) return vids.length;
-                  if (course['videoUrl'] != null || course['video'] != null) return 1;
-                  return 0;
-                })(),
-                onTap: () => _openCourseManagement(course),
-              );
-            }, childCount: courses.length),
           ),
         ),
+
+        // Courses grid or empty state
+        displayCourses.isEmpty
+            ? SliverFillRemaining(
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.search_off,
+                        size: 48,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No courses match your search',
+                        style: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                sliver: SliverGrid(
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: 2,
+                    childAspectRatio: 0.72,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                  ),
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final course = displayCourses[index];
+                    return _buildCourseCard(course, isDark);
+                  }, childCount: displayCourses.length),
+                ),
+              ),
 
         // Bottom padding
         const SliverToBoxAdapter(child: SizedBox(height: 100)),
       ],
+    );
+  }
+
+  Widget _buildSortFilterSection(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.sort,
+                size: 16,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Sort by',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildSortChip('newest', 'Newest', Icons.schedule, isDark),
+                _buildSortChip('oldest', 'Oldest', Icons.history, isDark),
+                _buildSortChip(
+                  'students',
+                  'Most Students',
+                  Icons.people,
+                  isDark,
+                ),
+                _buildSortChip(
+                  'videos',
+                  'Most Videos',
+                  Icons.video_library,
+                  isDark,
+                ),
+                _buildSortChip('rating', 'Highest Rated', Icons.star, isDark),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSortChip(
+    String value,
+    String label,
+    IconData icon,
+    bool isDark,
+  ) {
+    final isSelected = _sortBy == value;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: InkWell(
+        onTap: () => setState(() => _sortBy = value),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 14,
+                color: isSelected
+                    ? Colors.white
+                    : (isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCourseCard(Map<String, dynamic> course, bool isDark) {
+    final videoCount = _getVideoCount(course);
+    final enrolledCount = course['enrolledCount'] ?? 0;
+    final rating = (course['averageRating'] ?? 0.0) as double;
+    final reviewCount = (course['reviewCount'] ?? 0) as int;
+
+    return GestureDetector(
+      onTap: () => _openCourseManagement(course),
+      child: Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? AppTheme.darkAccent.withOpacity(0.05)
+                  : Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: AspectRatio(
+                aspectRatio: 16 / 9,
+                child: (course['imageUrl'] as String? ?? '').isNotEmpty
+                    ? Image.network(
+                        course['imageUrl'],
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) =>
+                            _buildPlaceholderImage(isDark),
+                      )
+                    : _buildPlaceholderImage(isDark),
+              ),
+            ),
+
+            // Content
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(
+                      course['title'] ?? 'Untitled Course',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Stats row - improved visibility
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.video_library,
+                          size: 14,
+                          color: isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$videoCount',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Icon(
+                          Icons.people,
+                          size: 14,
+                          color: isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$enrolledCount',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: isDark
+                                ? AppTheme.darkTextPrimary
+                                : AppTheme.textPrimary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+
+                    // Rating row
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.star_rounded,
+                          size: 14,
+                          color: isDark
+                              ? AppTheme.darkWarning
+                              : AppTheme.warning,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          reviewCount > 0
+                              ? '${rating.toStringAsFixed(1)} ($reviewCount)'
+                              : 'No reviews',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: reviewCount > 0
+                                ? FontWeight.w600
+                                : FontWeight.w400,
+                            fontStyle: reviewCount > 0
+                                ? FontStyle.normal
+                                : FontStyle.italic,
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const Spacer(),
+
+                    // View Reviews link
+                    if (reviewCount > 0)
+                      GestureDetector(
+                        onTap: () => _showCourseReviewsDialog(context, course),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              'View Reviews',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w600,
+                                color: isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor,
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_ios,
+                              size: 10,
+                              color: isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                            ),
+                          ],
+                        ),
+                      )
+                    else
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          'Tap to manage',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: isDark
+                                ? AppTheme.darkTextTertiary
+                                : Colors.grey,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPlaceholderImage(bool isDark) {
+    return Container(
+      color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(
+        0.1,
+      ),
+      child: Center(
+        child: Icon(
+          Icons.video_library,
+          size: 32,
+          color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+        ),
+      ),
+    );
+  }
+
+  void _showCourseReviewsDialog(
+    BuildContext context,
+    Map<String, dynamic> course,
+  ) async {
+    final isDark = AppTheme.isDarkMode(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkWarning : AppTheme.warning)
+                    .withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.rate_review,
+                color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Reviews',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                  ),
+                  Text(
+                    course['title'] ?? 'Course',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.85,
+          height: MediaQuery.of(context).size.height * 0.5,
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _courseService.getCourseReviews(
+              courseUid: course['courseUid'],
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final reviews = snapshot.data ?? [];
+
+              if (reviews.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.rate_review_outlined,
+                        size: 48,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : Colors.grey,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No reviews yet',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: reviews.length,
+                itemBuilder: (ctx, index) =>
+                    _buildReviewCard(reviews[index], isDark),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Close',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAllReviewsDialog(BuildContext context) async {
+    final isDark = AppTheme.isDarkMode(context);
+    final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkWarning : AppTheme.warning)
+                    .withOpacity(0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.reviews,
+                color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              'All Course Reviews',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: MediaQuery.of(context).size.width * 0.85,
+          height: MediaQuery.of(context).size.height * 0.6,
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: _courseService.getTeacherAllCourseReviews(
+              teacherUid: teacherUid,
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              final reviews = snapshot.data ?? [];
+
+              if (reviews.isEmpty) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.rate_review_outlined,
+                        size: 48,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : Colors.grey,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'No reviews yet',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Reviews from students will appear here',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextTertiary
+                              : Colors.grey.shade400,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }
+
+              return ListView.builder(
+                itemCount: reviews.length,
+                itemBuilder: (ctx, index) => _buildReviewCard(
+                  reviews[index],
+                  isDark,
+                  showCourseTitle: true,
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Close',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReviewCard(
+    Map<String, dynamic> review,
+    bool isDark, {
+    bool showCourseTitle = false,
+  }) {
+    final rating = (review['rating'] ?? 0.0) as double;
+    final studentName = review['studentName'] ?? 'Student';
+    final reviewText = review['reviewText'] ?? '';
+    final createdAt = review['createdAt'] != null
+        ? DateTime.fromMillisecondsSinceEpoch(review['createdAt']).toLocal()
+        : null;
+    final courseTitle = review['courseTitle'];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header: name, rating, date
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
+                child: Text(
+                  studentName[0].toUpperCase(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      studentName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                        fontSize: 13,
+                      ),
+                    ),
+                    if (showCourseTitle && courseTitle != null)
+                      Text(
+                        courseTitle,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
+                ),
+              ),
+              // Rating stars
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(
+                  5,
+                  (index) => Icon(
+                    index < rating.round()
+                        ? Icons.star_rounded
+                        : Icons.star_outline_rounded,
+                    size: 14,
+                    color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (reviewText.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            Text(
+              reviewText,
+              style: TextStyle(
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (createdAt != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+              style: TextStyle(
+                fontSize: 10,
+                color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 
