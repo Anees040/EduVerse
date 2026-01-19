@@ -18,10 +18,15 @@
 require("dotenv").config();
 
 const functions = require("firebase-functions");
+const admin = require("firebase-admin");
 const fetch = require("node-fetch");
 const cors = require("cors");
-const { sendEmail, sendVerificationEmail, sendWelcomeEmail } = require("./utils/sendEmail");
+const { sendEmail, sendVerificationEmail, sendWelcomeEmail, sendPasswordChangedEmail } = require("./utils/sendEmail");
 
+// Initialize Firebase Admin SDK
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 // Initialize CORS middleware - allow requests from any origin for development
 // In production, you should restrict this to your domain
@@ -404,6 +409,152 @@ exports.sendVerificationCode = functions.https.onRequest((req, res) => {
       return res.status(500).json({ 
         success: false, 
         error: `Failed to send verification email: ${error.message}` 
+      });
+    }
+  });
+});
+
+/**
+ * resetPassword - Reset user password after email verification
+ * 
+ * This function uses Firebase Admin SDK to update the user's password
+ * after they've verified their email through our custom verification flow.
+ * 
+ * SECURITY: This endpoint verifies that:
+ * 1. The verification code was correctly verified in the database
+ * 2. The verification is recent (within 15 minutes)
+ * 
+ * Request body:
+ * {
+ *   "email": "user@example.com",
+ *   "newPassword": "newSecurePassword123!",
+ *   "verificationKey": "email_key_from_database" (optional, for extra security)
+ * }
+ * 
+ * Response:
+ * {
+ *   "success": true,
+ *   "message": "Password updated successfully"
+ * }
+ */
+exports.resetPassword = functions.https.onRequest((req, res) => {
+  corsHandler(req, res, async () => {
+    if (req.method !== "POST") {
+      return res.status(405).json({ 
+        success: false, 
+        error: "Method not allowed. Use POST." 
+      });
+    }
+
+    try {
+      const { email, newPassword } = req.body;
+
+      // Validate inputs
+      if (!email || typeof email !== "string" || !email.includes("@")) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Missing or invalid email address" 
+        });
+      }
+
+      if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Password must be at least 8 characters" 
+        });
+      }
+
+      const normalizedEmail = email.toLowerCase().trim();
+      const emailKey = normalizedEmail.replace(/\./g, '_').replace(/@/g, '_at_');
+
+      // Verify that the email was recently verified in our database
+      const db = admin.database();
+      const verificationRef = db.ref(`verification_codes/${emailKey}`);
+      const verificationSnapshot = await verificationRef.once('value');
+
+      if (!verificationSnapshot.exists()) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "No verification found. Please verify your email first." 
+        });
+      }
+
+      const verificationData = verificationSnapshot.val();
+
+      // Check if email was verified
+      if (!verificationData.verified) {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Email not verified. Please complete verification first." 
+        });
+      }
+
+      // Check if verification is recent (within 15 minutes of verification)
+      const currentTime = Date.now();
+      const verificationTime = verificationData.timestamp || 0;
+      const fifteenMinutes = 15 * 60 * 1000;
+
+      if (currentTime - verificationTime > fifteenMinutes) {
+        // Clean up expired verification
+        await verificationRef.remove();
+        return res.status(400).json({ 
+          success: false, 
+          error: "Verification expired. Please start the password reset process again." 
+        });
+      }
+
+      // Get the user by email
+      let userRecord;
+      try {
+        userRecord = await admin.auth().getUserByEmail(normalizedEmail);
+      } catch (authError) {
+        if (authError.code === 'auth/user-not-found') {
+          return res.status(404).json({ 
+            success: false, 
+            error: "No account found with this email address." 
+          });
+        }
+        throw authError;
+      }
+
+      // Update the password using Firebase Admin SDK
+      await admin.auth().updateUser(userRecord.uid, {
+        password: newPassword
+      });
+
+      // Clean up the verification code
+      await verificationRef.remove();
+
+      // Send password changed confirmation email
+      try {
+        await sendPasswordChangedEmail(normalizedEmail, userRecord.displayName || normalizedEmail.split('@')[0]);
+        console.log(`✅ Password changed confirmation email sent to ${normalizedEmail}`);
+      } catch (emailError) {
+        // Don't fail the password reset if email fails
+        console.error("Failed to send password changed email:", emailError);
+      }
+
+      console.log(`✅ Password successfully reset for user: ${normalizedEmail}`);
+
+      return res.status(200).json({ 
+        success: true, 
+        message: "Password updated successfully! You can now sign in with your new password." 
+      });
+
+    } catch (error) {
+      console.error("Password reset error:", error);
+      
+      // Handle specific Firebase errors
+      if (error.code === 'auth/weak-password') {
+        return res.status(400).json({ 
+          success: false, 
+          error: "Password is too weak. Please use a stronger password." 
+        });
+      }
+
+      return res.status(500).json({ 
+        success: false, 
+        error: `Failed to reset password: ${error.message}` 
       });
     }
   });
