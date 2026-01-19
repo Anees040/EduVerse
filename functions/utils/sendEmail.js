@@ -307,10 +307,116 @@ If you didn't request a password reset, you can safely ignore this email.
   return sendEmail({ to, subject, text, html });
 }
 
+/**
+ * Send a password changed confirmation email
+ * 
+ * @param {string} to - Recipient email address
+ * @param {string} userName - User's name for personalization
+ * @returns {Promise<Object>} - Send result
+ */
+async function sendPasswordChangedEmail(to, userName = "User") {
+  const subject = "Your EduVerse Password Has Been Changed";
+  const changeTime = new Date().toLocaleString('en-US', { 
+    timeZone: 'UTC', 
+    dateStyle: 'full', 
+    timeStyle: 'short' 
+  }) + ' UTC';
+  
+  const html = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Password Changed</title>
+    </head>
+    <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+      <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+        <!-- Header -->
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎓 EduVerse</h1>
+          <p style="color: rgba(255, 255, 255, 0.9); margin-top: 8px; font-size: 14px;">Your Learning Journey Starts Here</p>
+        </div>
+        
+        <!-- Content -->
+        <div style="padding: 40px 30px;">
+          <div style="text-align: center; margin-bottom: 30px;">
+            <div style="display: inline-block; background-color: #d4edda; border-radius: 50%; padding: 20px;">
+              <span style="font-size: 48px;">✅</span>
+            </div>
+          </div>
+          
+          <h2 style="color: #333333; margin-top: 0; text-align: center;">Password Changed Successfully</h2>
+          
+          <p style="color: #666666; font-size: 16px; line-height: 1.6;">
+            Hello, ${userName}!
+          </p>
+          
+          <p style="color: #666666; font-size: 16px; line-height: 1.6;">
+            This email confirms that your EduVerse account password was successfully changed on <strong>${changeTime}</strong>.
+          </p>
+          
+          <!-- Info Box -->
+          <div style="background-color: #e8f4fd; border-left: 4px solid #667eea; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+            <p style="color: #333333; margin: 0; font-size: 14px;">
+              <strong>🔒 Security Notice:</strong> If you made this change, you can safely ignore this email. Your account is secure.
+            </p>
+          </div>
+          
+          <p style="color: #666666; font-size: 14px; line-height: 1.6;">
+            If you did <strong>not</strong> make this change, please take the following steps immediately:
+          </p>
+          
+          <ul style="color: #666666; font-size: 14px; line-height: 1.8;">
+            <li>Reset your password again using the "Forgot Password" option</li>
+            <li>Check your account for any unauthorized activity</li>
+            <li>Contact our support team if you need assistance</li>
+          </ul>
+          
+          <p style="color: #999999; font-size: 13px; margin-top: 30px; font-style: italic;">
+            You're receiving this email because a password change was requested for your EduVerse account (${to}).
+          </p>
+        </div>
+        
+        <!-- Footer -->
+        <div style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+          <p style="color: #999999; font-size: 12px; margin: 0;">
+            © 2026 EduVerse. All rights reserved.<br>
+            This is an automated security notification, please do not reply.
+          </p>
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+
+  const text = `
+Password Changed Successfully
+
+Hello, ${userName}!
+
+This email confirms that your EduVerse account password was successfully changed on ${changeTime}.
+
+SECURITY NOTICE: If you made this change, you can safely ignore this email. Your account is secure.
+
+If you did NOT make this change, please:
+- Reset your password again using the "Forgot Password" option
+- Check your account for any unauthorized activity
+- Contact our support team if you need assistance
+
+You're receiving this email because a password change was requested for your EduVerse account (${to}).
+
+© 2026 EduVerse. All rights reserved.
+  `;
+
+  return sendEmail({ to, subject, text, html });
+}
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
   sendWelcomeEmail,
   sendPasswordResetEmail,
+  sendPasswordChangedEmail,
   transporter, // Export for testing
 };

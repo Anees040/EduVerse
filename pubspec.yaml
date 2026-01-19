@@ -49,6 +49,7 @@ dependencies:
   mailer: ^6.1.2
   crypto: ^3.0.6
   flutter_svg: ^2.0.10+1
+  flutter_markdown: ^0.6.18+2
 
 
 dev_dependencies:

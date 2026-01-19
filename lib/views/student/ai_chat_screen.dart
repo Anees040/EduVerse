@@ -5,6 +5,7 @@ import 'package:eduverse/services/chat_repository.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 
 class AIChatScreen extends StatefulWidget {
   final bool openNew;
@@ -1209,19 +1210,82 @@ StatelessWidgets are lightweight and performant - use them when your widget does
                             ),
                           ],
                         )
-                      : SelectableText(
-                          message["text"] ?? "",
-                          style: TextStyle(
-                            color: isUser
-                                ? Colors.white
-                                : (isDark
-                                      ? AppTheme
-                                            .darkTextPrimary // Brighter text for AI responses
-                                      : AppTheme.textPrimary),
-                            fontSize: 15,
-                            height: 1.5,
-                          ),
-                        ),
+                      : isUser
+                          ? SelectableText(
+                              message["text"] ?? "",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                height: 1.5,
+                              ),
+                            )
+                          : MarkdownBody(
+                              data: message["text"] ?? "",
+                              selectable: true,
+                              styleSheet: MarkdownStyleSheet(
+                                p: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontSize: 15,
+                                  height: 1.5,
+                                ),
+                                h1: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                h2: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                h3: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                strong: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                em: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                code: TextStyle(
+                                  color: isDark
+                                      ? Colors.greenAccent
+                                      : Colors.green.shade800,
+                                  backgroundColor: isDark
+                                      ? Colors.black26
+                                      : Colors.grey.shade200,
+                                  fontFamily: 'monospace',
+                                  fontSize: 14,
+                                ),
+                                codeblockDecoration: BoxDecoration(
+                                  color: isDark
+                                      ? Colors.black38
+                                      : Colors.grey.shade100,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                listBullet: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                ),
+                              ),
+                            ),
                 ),
               ),
               if (isUser) ...[

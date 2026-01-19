@@ -39,6 +39,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
   final TextEditingController _answerController = TextEditingController();
   String? _studentName;
   bool _isSubmitting = false;
+  bool _showAllQuestions = true; // Default to showing all questions
 
   @override
   void initState() {
@@ -715,17 +716,71 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                   color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
                 ),
                 const SizedBox(width: 8),
-                Text(
-                  'Q&A Discussion',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: isDark
-                        ? AppTheme.darkTextPrimary
-                        : AppTheme.textPrimary,
+                Expanded(
+                  child: Text(
+                    'Q&A Discussion',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
                   ),
                 ),
-                const Spacer(),
+                // Toggle for showing all questions vs current video
+                if (widget.videoId != null) ...[
+                  GestureDetector(
+                    onTap: () =>
+                        setState(() => _showAllQuestions = !_showAllQuestions),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: _showAllQuestions
+                            ? (isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor)
+                            : (isDark
+                                  ? AppTheme.darkSurfaceColor
+                                  : Colors.grey.shade200),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            _showAllQuestions
+                                ? Icons.all_inclusive
+                                : Icons.video_library,
+                            size: 14,
+                            color: _showAllQuestions
+                                ? Colors.white
+                                : (isDark
+                                      ? AppTheme.darkTextSecondary
+                                      : Colors.grey.shade600),
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _showAllQuestions ? 'All' : 'Video',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: _showAllQuestions
+                                  ? Colors.white
+                                  : (isDark
+                                        ? AppTheme.darkTextSecondary
+                                        : Colors.grey.shade600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                ],
                 StreamBuilder<int>(
                   stream: _qaService.getUnansweredCountStream(widget.courseUid),
                   builder: (context, snapshot) {
@@ -852,7 +907,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
           // Questions List
           StreamBuilder<List<Map<String, dynamic>>>(
-            stream: widget.videoId != null
+            stream: (widget.videoId != null && !_showAllQuestions)
                 ? _qaService.getVideoQuestionsStream(
                     widget.courseUid,
                     widget.videoId!,
@@ -1009,6 +1064,47 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                         ],
                       ),
                       const SizedBox(height: 6),
+
+                      // Video title indicator (when showing all questions)
+                      if (_showAllQuestions &&
+                          q['videoTitle'] != null &&
+                          q['videoTitle'].toString().isNotEmpty) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          margin: const EdgeInsets.only(bottom: 6),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.purple.withOpacity(0.15)
+                                : Colors.purple.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.video_library,
+                                size: 12,
+                                color: Colors.purple.shade600,
+                              ),
+                              const SizedBox(width: 4),
+                              Flexible(
+                                child: Text(
+                                  q['videoTitle'],
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.purple.shade600,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
 
                       // Question text
                       Text(

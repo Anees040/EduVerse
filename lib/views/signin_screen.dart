@@ -68,20 +68,20 @@ class _SigninScreenState extends State<SigninScreen> {
   // Reset form state when toggling roles
   void _onRoleToggle(bool studentSelected) {
     if (isStudent == studentSelected) return; // No change needed
-    
+
     // Unfocus any active field
     FocusScope.of(context).unfocus();
-    
+
     // Dispose old controllers
     _disposeControllers();
-    
+
     // Reinitialize controllers with fresh instances
     _initializeControllers();
-    
+
     setState(() {
       isStudent = studentSelected;
       _errorMessage = null;
-      
+
       // Create new form key to force complete form rebuild without validation
       _formKey = GlobalKey<FormState>();
     });
@@ -93,7 +93,8 @@ class _SigninScreenState extends State<SigninScreen> {
     final TextEditingController verificationCodeController =
         TextEditingController();
     final TextEditingController newPasswordController = TextEditingController();
-    final TextEditingController confirmPasswordController = TextEditingController();
+    final TextEditingController confirmPasswordController =
+        TextEditingController();
     final formKey = GlobalKey<FormState>();
     bool isLoading = false;
     bool codeSent = false;
@@ -111,13 +112,14 @@ class _SigninScreenState extends State<SigninScreen> {
         builder: (context, setDialogState) {
           // Monitor password matching
           void checkPasswordMatch() {
-            final match = newPasswordController.text == confirmPasswordController.text ||
-                          confirmPasswordController.text.isEmpty;
+            final match =
+                newPasswordController.text == confirmPasswordController.text ||
+                confirmPasswordController.text.isEmpty;
             if (passwordsMatch != match) {
               setDialogState(() => passwordsMatch = match);
             }
           }
-          
+
           return AlertDialog(
             backgroundColor: AppTheme.getCardColor(context),
             shape: RoundedRectangleBorder(
@@ -176,7 +178,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           errorText: emailError,
                           prefixIcon: Icon(
                             Icons.email_outlined,
-                            color: emailError != null 
+                            color: emailError != null
                                 ? Theme.of(context).colorScheme.error
                                 : AppTheme.getIconSecondary(context),
                           ),
@@ -185,7 +187,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                         ),
                       ),
-                      
+
                       // Success message for code sent (inline instead of snackbar)
                       if (codeSuccessMessage != null && codeSent) ...[
                         const SizedBox(height: 12),
@@ -194,11 +196,17 @@ class _SigninScreenState extends State<SigninScreen> {
                           decoration: BoxDecoration(
                             color: Colors.green.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                            border: Border.all(
+                              color: Colors.green.withOpacity(0.3),
+                            ),
                           ),
                           child: Row(
                             children: [
-                              const Icon(Icons.check_circle, color: Colors.green, size: 20),
+                              const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -214,7 +222,7 @@ class _SigninScreenState extends State<SigninScreen> {
                           ),
                         ),
                       ],
-                      
+
                       if (codeSent) ...[
                         const SizedBox(height: 16),
                         TextFormField(
@@ -253,11 +261,17 @@ class _SigninScreenState extends State<SigninScreen> {
                         decoration: BoxDecoration(
                           color: Colors.green.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          border: Border.all(
+                            color: Colors.green.withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.verified, color: Colors.green, size: 20),
+                            const Icon(
+                              Icons.verified,
+                              color: Colors.green,
+                              size: 20,
+                            ),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
@@ -291,7 +305,9 @@ class _SigninScreenState extends State<SigninScreen> {
                           if (!value.contains(RegExp(r'[a-zA-Z]'))) {
                             return 'Password must contain at least 1 letter';
                           }
-                          if (!value.contains(RegExp(r'[!@#$%^&*(),.?":{}|<>]'))) {
+                          if (!value.contains(
+                            RegExp(r'[!@#$%^&*(),.?":{}|<>]'),
+                          )) {
                             return 'Password must contain at least 1 special character';
                           }
                           return null;
@@ -355,7 +371,8 @@ class _SigninScreenState extends State<SigninScreen> {
                             ),
                             onPressed: () {
                               setDialogState(() {
-                                obscureConfirmPassword = !obscureConfirmPassword;
+                                obscureConfirmPassword =
+                                    !obscureConfirmPassword;
                               });
                             },
                           ),
@@ -363,14 +380,18 @@ class _SigninScreenState extends State<SigninScreen> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           // Real-time password match indicator
-                          helperText: confirmPasswordController.text.isNotEmpty && passwordsMatch
+                          helperText:
+                              confirmPasswordController.text.isNotEmpty &&
+                                  passwordsMatch
                               ? '✓ Passwords match'
                               : null,
                           helperStyle: const TextStyle(
                             color: Colors.green,
                             fontWeight: FontWeight.w500,
                           ),
-                          errorText: confirmPasswordController.text.isNotEmpty && !passwordsMatch
+                          errorText:
+                              confirmPasswordController.text.isNotEmpty &&
+                                  !passwordsMatch
                               ? 'Passwords do not match'
                               : null,
                         ),
@@ -395,52 +416,72 @@ class _SigninScreenState extends State<SigninScreen> {
                         if (!codeSent) {
                           // Validate email format first
                           if (!formKey.currentState!.validate()) return;
-                          
+
                           setDialogState(() {
                             isLoading = true;
                             emailError = null;
                           });
 
                           try {
-                            // Check if email exists in database
+                            // Check if email exists in database FIRST
                             final emailExists = await _auth.checkEmailExists(
                               resetEmailController.text.trim(),
                             );
-                            
+
                             if (!emailExists) {
                               setDialogState(() {
-                                emailError = 'This email is not registered with EduVerse';
+                                emailError =
+                                    'This email is not registered with EduVerse';
                                 isLoading = false;
                               });
                               return;
                             }
-                            
+
+                            // Check rate limit (max 2 verification codes per week)
+                            final rateLimitError = await _emailVerificationService
+                                .checkVerificationCodeRateLimit(
+                                  resetEmailController.text.trim(),
+                                );
+                            if (rateLimitError != null) {
+                              setDialogState(() {
+                                emailError = rateLimitError;
+                                isLoading = false;
+                              });
+                              return;
+                            }
+
                             // Send verification code
-                            await _emailVerificationService.sendVerificationCode(
-                              resetEmailController.text.trim(),
-                            );
+                            await _emailVerificationService
+                                .sendVerificationCode(
+                                  resetEmailController.text.trim(),
+                                );
                             setDialogState(() {
                               codeSent = true;
-                              codeSuccessMessage = 'Verification code sent to your email!';
+                              codeSuccessMessage =
+                                  'Verification code sent to your email!';
                               isLoading = false;
                             });
                           } catch (e) {
                             setDialogState(() {
-                              emailError = e.toString().replaceAll('Exception: ', '');
+                              emailError = e.toString().replaceAll(
+                                'Exception: ',
+                                '',
+                              );
                               isLoading = false;
                             });
                           }
                         } else if (!codeVerified) {
                           // Verify code
                           if (!formKey.currentState!.validate()) return;
-                          
+
                           setDialogState(() => isLoading = true);
-                          
+
                           try {
-                            final verified = await _emailVerificationService.verifyCode(
-                              resetEmailController.text.trim(),
-                              verificationCodeController.text.trim(),
-                            );
+                            final verified = await _emailVerificationService
+                                .verifyCode(
+                                  resetEmailController.text.trim(),
+                                  verificationCodeController.text.trim(),
+                                );
                             if (verified) {
                               setDialogState(() {
                                 codeVerified = true;
@@ -452,38 +493,50 @@ class _SigninScreenState extends State<SigninScreen> {
                             if (ctx.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(e.toString().replaceAll('Exception: ', '')),
-                                  backgroundColor: Theme.of(context).colorScheme.error,
+                                  content: Text(
+                                    e.toString().replaceAll('Exception: ', ''),
+                                  ),
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.error,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
                             }
                           }
                         } else {
-                          // Reset password
+                          // Reset password using Cloud Function
                           if (!formKey.currentState!.validate()) return;
                           if (!passwordsMatch) return;
-                          
+
                           setDialogState(() => isLoading = true);
-                          
+
                           try {
-                            // Send password reset email from Firebase
-                            await _auth.sendPasswordResetEmail(
-                              resetEmailController.text.trim(),
+                            // Call Cloud Function to actually update password
+                            await _auth.resetPasswordViaCloudFunction(
+                              email: resetEmailController.text.trim(),
+                              newPassword: newPasswordController.text,
                             );
-                            
+
                             if (ctx.mounted) {
                               Navigator.pop(ctx);
-                              // Show success dialog instead of snackbar
-                              _showPasswordResetSuccessDialog(resetEmailController.text.trim());
+                              // Show success dialog
+                              _showPasswordResetSuccessDialog(
+                                resetEmailController.text.trim(),
+                                isActualReset: true,
+                              );
                             }
                           } catch (e) {
                             setDialogState(() => isLoading = false);
                             if (ctx.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: Text(e.toString()),
-                                  backgroundColor: Theme.of(context).colorScheme.error,
+                                  content: Text(
+                                    e.toString().replaceAll('Exception: ', ''),
+                                  ),
+                                  backgroundColor: Theme.of(
+                                    context,
+                                  ).colorScheme.error,
                                   behavior: SnackBarBehavior.floating,
                                 ),
                               );
@@ -492,8 +545,12 @@ class _SigninScreenState extends State<SigninScreen> {
                         }
                       },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.isDarkMode(context) ? AppTheme.darkAccent : AppTheme.primaryColor,
-                  foregroundColor: AppTheme.isDarkMode(context) ? Colors.black : Colors.white,
+                  backgroundColor: AppTheme.isDarkMode(context)
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
+                  foregroundColor: AppTheme.isDarkMode(context)
+                      ? Colors.black
+                      : Colors.white,
                 ),
                 child: isLoading
                     ? const SizedBox(
@@ -520,15 +577,16 @@ class _SigninScreenState extends State<SigninScreen> {
   }
 
   // Show password reset success dialog
-  void _showPasswordResetSuccessDialog(String email) {
+  void _showPasswordResetSuccessDialog(
+    String email, {
+    bool isActualReset = false,
+  }) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.getCardColor(context),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -539,15 +597,17 @@ class _SigninScreenState extends State<SigninScreen> {
                 color: Colors.green.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: const Icon(
-                Icons.mark_email_read,
+              child: Icon(
+                isActualReset ? Icons.check_circle : Icons.mark_email_read,
                 color: Colors.green,
                 size: 60,
               ),
             ),
             const SizedBox(height: 24),
             Text(
-              'Password Reset Link Sent!',
+              isActualReset
+                  ? 'Password Changed Successfully!'
+                  : 'Password Reset Link Sent!',
               style: TextStyle(
                 color: AppTheme.getTextPrimary(context),
                 fontSize: 20,
@@ -557,7 +617,9 @@ class _SigninScreenState extends State<SigninScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'We\'ve sent a password reset link to:',
+              isActualReset
+                  ? 'Your password has been updated successfully for:'
+                  : 'We\'ve sent a password reset link to:',
               style: TextStyle(
                 color: AppTheme.getTextSecondary(context),
                 fontSize: 14,
@@ -576,7 +638,9 @@ class _SigninScreenState extends State<SigninScreen> {
             ),
             const SizedBox(height: 12),
             Text(
-              'Please check your inbox and follow the link to set your new password.',
+              isActualReset
+                  ? 'You can now sign in with your new password. A confirmation email has been sent to your inbox.'
+                  : 'Please check your inbox and follow the link to set your new password.',
               style: TextStyle(
                 color: AppTheme.getTextSecondary(context),
                 fontSize: 13,
@@ -589,16 +653,20 @@ class _SigninScreenState extends State<SigninScreen> {
               child: ElevatedButton(
                 onPressed: () => Navigator.pop(ctx),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.isDarkMode(context) ? AppTheme.darkAccent : AppTheme.primaryColor,
-                  foregroundColor: AppTheme.isDarkMode(context) ? Colors.black : Colors.white,
+                  backgroundColor: AppTheme.isDarkMode(context)
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
+                  foregroundColor: AppTheme.isDarkMode(context)
+                      ? Colors.black
+                      : Colors.white,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Got It',
-                  style: TextStyle(
+                child: Text(
+                  isActualReset ? 'Sign In Now' : 'Got It',
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -627,7 +695,7 @@ class _SigninScreenState extends State<SigninScreen> {
     } catch (e) {
       // Unfocus all fields after failed login
       FocusScope.of(context).unfocus();
-      
+
       setState(() {
         _errorMessage = _formatErrorMessage(e.toString());
         _passwordController.clear(); // Clear password on error
@@ -674,7 +742,9 @@ class _SigninScreenState extends State<SigninScreen> {
           ),
           backgroundColor: AppTheme.primaryColor,
           behavior: SnackBarBehavior.floating,
-          shape: const RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+          shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(10)),
+          ),
           margin: const EdgeInsets.all(16),
           duration: const Duration(seconds: 2),
         ),

@@ -3,20 +3,39 @@
     "student": {
       ".read": "auth != null",
       "$uid": {
+        ".read": "auth != null",
         ".write": "$uid === auth.uid"
       }
     },
     "teacher": {
       ".read": "auth != null",
       "$uid": {
+        ".read": "auth != null",
         ".write": "$uid === auth.uid",
         "courses": {
+          ".read": "auth != null",
           "$courseId": {
+            ".read": "auth != null",
+            ".write": "auth != null",
             "enrolledStudents": {
+              ".read": "auth != null",
               "$studentUid": {
-                ".write": "auth != null && $studentUid === auth.uid"
+                ".read": "auth != null",
+                ".write": "auth != null"
+              }
+            },
+            "reviews": {
+              ".read": "auth != null",
+              "$reviewId": {
+                ".write": "auth != null"
               }
             }
+          }
+        },
+        "reviews": {
+          ".read": "auth != null",
+          "$reviewId": {
+            ".write": "auth != null"
           }
         }
       }
@@ -24,36 +43,105 @@
     "courses": {
       ".read": "auth != null",
       "$courseId": {
-        ".write": "auth != null && (root.child('teacher').child(auth.uid).exists() || root.child('courses').child($courseId).child('teacherId').val() === auth.uid)",
+        ".read": "auth != null",
+        ".write": "auth != null",
         "enrolledStudents": {
+          ".read": "auth != null",
           "$studentUid": {
-            ".write": "auth != null && ($studentUid === auth.uid || root.child('teacher').child(auth.uid).exists())"
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        },
+        "reviews": {
+          ".read": "auth != null",
+          "$studentId": {
+            ".write": "auth != null"
+          }
+        },
+        "questions": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "$questionId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
           }
         }
       }
     },
     "bookmarks": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
       }
     },
     "chat_history": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid",
+        "$chatId": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && $uid === auth.uid",
+          "messages": {
+            ".read": "auth != null && $uid === auth.uid",
+            ".write": "auth != null && $uid === auth.uid"
+          }
+        }
+      }
+    },
+    "chat_sessions": {
+      ".read": "auth != null",
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "chat_messages": {
+      ".read": "auth != null",
+      "$chatId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$messageId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
       }
     },
     "notifications": {
+      ".read": "auth != null",
       "$uid": {
-        ".read": "$uid === auth.uid",
-        ".write": "$uid === auth.uid"
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$notificationId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
       }
     },
     "verification_codes": {
       "$emailKey": {
         ".read": true,
         ".write": true
+      }
+    },
+    "password_reset_attempts": {
+      "$emailKey": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "verification_code_attempts": {
+      "$emailKey": {
+        ".read": true,
+        ".write": true
+      }
+    },
+    "registered_emails": {
+      ".read": true,
+      "$emailKey": {
+        ".read": true,
+        ".write": "auth != null"
       }
     },
     ".read": false,
