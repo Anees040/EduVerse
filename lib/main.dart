@@ -30,7 +30,7 @@ Future<void> main() async {
   } catch (e) {
     print('Initialization error: $e');
   }
-
+// Run the app with ThemeService provider
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeService(),

@@ -40,6 +40,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   final BookmarkService _bookmarkService = BookmarkService();
   final CacheService _cacheService = CacheService();
   final String _studentUid = FirebaseAuth.instance.currentUser!.uid;
+  final ScrollController _scrollController = ScrollController();
 
   List<Map<String, dynamic>> _videos = [];
   Map<String, dynamic> _progress = {};
@@ -52,12 +53,36 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   Duration _currentVideoPosition = Duration.zero;
   bool _isVideosExpanded = true; // For collapsible video list
   int _privateVideoCount = 0; // Number of private videos
+  bool _isVideoMinimized = false; // For picture-in-picture style
+  bool _isTransitioning = false; // For smooth transition
 
   @override
   void initState() {
     super.initState();
     _loadCourseData();
     _checkBookmarkStatus();
+    _scrollController.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_onScroll);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    // When user scrolls past the video height, minimize the video
+    final videoHeight = MediaQuery.of(context).size.width * 9 / 16;
+    final shouldMinimize = _scrollController.offset > videoHeight + 50;
+    if (shouldMinimize != _isVideoMinimized && !_isTransitioning) {
+      _isTransitioning = true;
+      setState(() => _isVideoMinimized = shouldMinimize);
+      // Allow smooth transition to complete
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted) _isTransitioning = false;
+      });
+    }
   }
 
   Future<void> _checkBookmarkStatus() async {
@@ -367,106 +392,182 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                     : AppTheme.primaryColor,
               ),
             )
-          : Column(
+          : Stack(
               children: [
-                // Fixed video player at top
-                _buildVideoPlayer(),
+                CustomScrollView(
+                  controller: _scrollController,
+                  slivers: [
+                    // Pinned app bar with back button
+                    _buildSliverAppBar(),
 
-                // Scrollable content below
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        // Course title bar
-                        _buildTitleBar(),
+                    // Video player (placeholder space when minimized)
+                    SliverToBoxAdapter(
+                      child: _isVideoMinimized
+                          ? SizedBox(
+                              height:
+                                  MediaQuery.of(context).size.width * 9 / 16,
+                            )
+                          : _buildVideoPlayer(),
+                    ),
 
-                        // Progress indicator
-                        _buildProgressSection(),
+                    // Progress indicator
+                    SliverToBoxAdapter(child: _buildProgressSection()),
 
-                        // Video list
-                        _buildVideoList(),
+                    // Video list
+                    SliverToBoxAdapter(child: _buildVideoList()),
 
-                        // Course description
-                        _buildDescription(),
+                    // Course description
+                    SliverToBoxAdapter(child: _buildDescription()),
 
-                        // Q&A Section
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: QASectionWidget(
-                            courseUid: widget.courseUid,
-                            videoId: _videos.isNotEmpty
-                                ? _videos[_currentVideoIndex]['videoId']
-                                : null,
-                            videoTitle: _videos.isNotEmpty
-                                ? _videos[_currentVideoIndex]['title']
-                                : null,
-                            isTeacher: false,
-                            courseName: widget.courseTitle,
-                            getCurrentVideoPosition: () =>
-                                _currentVideoPosition,
-                            onTimestampTap: (duration) {
-                              // Show a snackbar since we can't directly seek
-                              // In a real implementation, you'd add seek functionality
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(
-                                    'Go to ${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')} in the video',
-                                  ),
-                                  duration: const Duration(seconds: 2),
+                    // Q&A Section
+                    SliverToBoxAdapter(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                        child: QASectionWidget(
+                          courseUid: widget.courseUid,
+                          videoId: _videos.isNotEmpty
+                              ? _videos[_currentVideoIndex]['videoId']
+                              : null,
+                          videoTitle: _videos.isNotEmpty
+                              ? _videos[_currentVideoIndex]['title']
+                              : null,
+                          isTeacher: false,
+                          courseName: widget.courseTitle,
+                          getCurrentVideoPosition: () => _currentVideoPosition,
+                          onTimestampTap: (duration) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  'Go to ${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')} in the video',
                                 ),
+                                duration: const Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+
+                    const SliverToBoxAdapter(child: SizedBox(height: 32)),
+                  ],
+                ),
+
+                // Floating mini video player when scrolled - smooth animated transition
+                if (_videos.isNotEmpty)
+                  AnimatedPositioned(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeOutCubic,
+                    top: _isVideoMinimized
+                        ? MediaQuery.of(context).padding.top + kToolbarHeight
+                        : -(MediaQuery.of(context).size.width * 9 / 16 + 50),
+                    left: 0,
+                    right: 0,
+                    child: AnimatedOpacity(
+                      duration: const Duration(milliseconds: 200),
+                      opacity: _isVideoMinimized ? 1.0 : 0.0,
+                      child: Material(
+                        elevation: 8,
+                        child: GestureDetector(
+                          onVerticalDragEnd: (details) {
+                            // Swipe up to expand
+                            if (details.velocity.pixelsPerSecond.dy < -100) {
+                              _scrollController.animateTo(
+                                0,
+                                duration: const Duration(milliseconds: 300),
+                                curve: Curves.easeOut,
                               );
-                            },
+                            }
+                          },
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                _buildVideoPlayer(),
+                                // Swipe indicator bar (no text, just visual indicator)
+                                GestureDetector(
+                                  onTap: () {
+                                    _scrollController.animateTo(
+                                      0,
+                                      duration: const Duration(
+                                        milliseconds: 300,
+                                      ),
+                                      curve: Curves.easeOut,
+                                    );
+                                  },
+                                  child: Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 6,
+                                    ),
+                                    color: isDark
+                                        ? AppTheme.darkSurface
+                                        : Colors.grey.shade100,
+                                    child: Center(
+                                      child: Container(
+                                        width: 40,
+                                        height: 4,
+                                        decoration: BoxDecoration(
+                                          color: isDark
+                                              ? AppTheme.darkTextSecondary
+                                                    .withOpacity(0.5)
+                                              : Colors.grey.shade400,
+                                          borderRadius: BorderRadius.circular(
+                                            2,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-
-                        const SizedBox(height: 32),
-                      ],
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
     );
   }
 
-  Widget _buildTitleBar() {
+  Widget _buildSliverAppBar() {
     final isDark = AppTheme.isDarkMode(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: isDark
-            ? AppTheme.darkPrimaryGradient
-            : AppTheme.primaryGradient,
+    return SliverAppBar(
+      pinned: true,
+      floating: false,
+      expandedHeight: 0, // No expanded height, just the bar
+      backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+      leading: IconButton(
+        icon: Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.arrow_back, color: Colors.white, size: 20),
+        ),
+        onPressed: () => Navigator.pop(context),
       ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              widget.courseTitle,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Bookmark Button
-          IconButton(
-            icon: Icon(
-              _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-              color: Colors.white,
-            ),
-            onPressed: _toggleBookmark,
-            tooltip: _isBookmarked ? 'Remove bookmark' : 'Add bookmark',
-          ),
-        ],
+      title: Text(
+        widget.courseTitle,
+        style: const TextStyle(
+          fontSize: 18,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
       ),
     );
   }
@@ -581,6 +682,35 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                         ),
                       ),
                   ],
+                ),
+              ),
+              // Bookmark button - more accessible
+              GestureDetector(
+                onTap: _toggleBookmark,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: _isBookmarked
+                        ? (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
+                              .withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: _isBookmarked
+                          ? (isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.accentColor)
+                          : AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Icon(
+                    _isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+                    color: _isBookmarked
+                        ? (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
+                        : AppTheme.getTextSecondary(context),
+                    size: 22,
+                  ),
                 ),
               ),
               Text(

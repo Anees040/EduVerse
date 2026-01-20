@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/utils/route_transitions.dart';
 import 'package:eduverse/views/teacher/add_course_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
 
@@ -159,7 +160,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   void _createNewCourse() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const AddCourseScreen()),
+      SlideAndFadeRoute(page: const AddCourseScreen()),
     ).then((_) {
       // Clear cache to force reload
       _cacheService.clearPrefix('teacher_');
@@ -170,8 +171,8 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   void _openCourseManagement(Map<String, dynamic> course) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => TeacherCourseManageScreen(
+      SlideAndFadeRoute(
+        page: TeacherCourseManageScreen(
           courseUid: course['courseUid'],
           courseTitle: course['title'] ?? 'Untitled Course',
           imageUrl: course['imageUrl'] ?? '',

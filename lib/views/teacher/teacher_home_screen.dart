@@ -7,6 +7,7 @@ import 'package:eduverse/views/teacher/teacher_home_tab.dart';
 import 'package:eduverse/views/teacher/teacher_profile_screen.dart';
 import 'package:eduverse/views/teacher/teacher_students_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/utils/route_transitions.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
   final String uid;
@@ -103,8 +104,8 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(
-                        builder: (_) => const NotificationsScreen(),
+                      SlideAndFadeRoute(
+                        page: const NotificationsScreen(),
                       ),
                     );
                   },

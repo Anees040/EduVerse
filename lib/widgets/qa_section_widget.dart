@@ -33,7 +33,8 @@ class QASectionWidget extends StatefulWidget {
   State<QASectionWidget> createState() => _QASectionWidgetState();
 }
 
-class _QASectionWidgetState extends State<QASectionWidget> {
+class _QASectionWidgetState extends State<QASectionWidget>
+    with AutomaticKeepAliveClientMixin {
   final QAService _qaService = QAService();
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
@@ -42,10 +43,47 @@ class _QASectionWidgetState extends State<QASectionWidget> {
   bool _showAllQuestions = true; // Default to showing all questions
   String _selectedFilter = 'all'; // all, unanswered, answered, recent
 
+  // Cache the stream to prevent rebuilding
+  Stream<List<Map<String, dynamic>>>? _questionsStream;
+  String? _lastVideoId;
+  bool _lastShowAllQuestions = true;
+
+  @override
+  bool get wantKeepAlive => true; // Preserve state when scrolling
+
   @override
   void initState() {
     super.initState();
     _loadStudentName();
+    _updateQuestionsStream();
+  }
+
+  @override
+  void didUpdateWidget(QASectionWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Only update stream if video changed
+    if (oldWidget.videoId != widget.videoId ||
+        oldWidget.courseUid != widget.courseUid) {
+      _updateQuestionsStream();
+    }
+  }
+
+  void _updateQuestionsStream() {
+    final needsUpdate =
+        _lastVideoId != widget.videoId ||
+        _lastShowAllQuestions != _showAllQuestions ||
+        _questionsStream == null;
+
+    if (needsUpdate) {
+      _lastVideoId = widget.videoId;
+      _lastShowAllQuestions = _showAllQuestions;
+      _questionsStream = (widget.videoId != null && !_showAllQuestions)
+          ? _qaService.getVideoQuestionsStream(
+              widget.courseUid,
+              widget.videoId!,
+            )
+          : _qaService.getQuestionsStream(widget.courseUid);
+    }
   }
 
   Future<void> _loadStudentName() async {
@@ -708,6 +746,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
@@ -746,8 +785,12 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                 // Toggle for showing all questions vs current video
                 if (widget.videoId != null) ...[
                   GestureDetector(
-                    onTap: () =>
-                        setState(() => _showAllQuestions = !_showAllQuestions),
+                    onTap: () {
+                      setState(() {
+                        _showAllQuestions = !_showAllQuestions;
+                        _updateQuestionsStream();
+                      });
+                    },
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -940,14 +983,9 @@ class _QASectionWidgetState extends State<QASectionWidget> {
             const Divider(height: 1),
           ],
 
-          // Questions List
+          // Questions List - Use cached stream
           StreamBuilder<List<Map<String, dynamic>>>(
-            stream: (widget.videoId != null && !_showAllQuestions)
-                ? _qaService.getVideoQuestionsStream(
-                    widget.courseUid,
-                    widget.videoId!,
-                  )
-                : _qaService.getQuestionsStream(widget.courseUid),
+            stream: _questionsStream,
             builder: (context, snapshot) {
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return Padding(
