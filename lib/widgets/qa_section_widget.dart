@@ -86,11 +86,14 @@ class _QASectionWidgetState extends State<QASectionWidget> {
       );
 
       _questionController.clear();
+      // StreamBuilder will automatically update with new question
+      // No need to call setState here, avoiding screen refresh
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Question submitted! 📝'),
             backgroundColor: AppTheme.success,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -127,12 +130,15 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
       _answerController.clear();
       Navigator.pop(context);
+      // StreamBuilder will automatically update with new answer
+      // No setState needed, avoiding screen refresh
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Answer posted! ✅'),
             backgroundColor: AppTheme.success,
+            duration: Duration(seconds: 2),
           ),
         );
       }
@@ -209,11 +215,13 @@ class _QASectionWidgetState extends State<QASectionWidget> {
           courseUid: widget.courseUid,
           questionId: questionId,
         );
+        // StreamBuilder will automatically update after deletion
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Question deleted'),
               backgroundColor: Colors.grey,
+              duration: Duration(seconds: 2),
             ),
           );
         }
@@ -297,11 +305,13 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                     newQuestion: editController.text.trim(),
                   );
                   Navigator.pop(ctx);
+                  // StreamBuilder will automatically update with edited question
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Question updated! ✏️'),
                         backgroundColor: AppTheme.success,
+                        duration: Duration(seconds: 2),
                       ),
                     );
                   }
@@ -397,11 +407,13 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                     newAnswer: editController.text.trim(),
                   );
                   Navigator.pop(ctx);
+                  // StreamBuilder will automatically update with edited answer
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
                         content: Text('Answer updated! ✏️'),
                         backgroundColor: AppTheme.success,
+                        duration: Duration(seconds: 2),
                       ),
                     );
                   }
@@ -491,11 +503,13 @@ class _QASectionWidgetState extends State<QASectionWidget> {
           courseUid: widget.courseUid,
           questionId: questionId,
         );
+        // StreamBuilder will automatically update after deletion
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Answer deleted'),
               backgroundColor: Colors.grey,
+              duration: Duration(seconds: 2),
             ),
           );
         }

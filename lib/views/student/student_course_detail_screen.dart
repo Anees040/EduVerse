@@ -226,6 +226,9 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           studentUid: _studentUid,
           courseUid: widget.courseUid,
         ),
+        _courseService.getCourseVideos(
+          courseUid: widget.courseUid,
+        ), // Get all videos for count
       ]);
 
       final videos = results[0] as List<Map<String, dynamic>>;
@@ -233,6 +236,12 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       final overallProgress = results[2] as double;
       final courseDetails = results[3] as Map<String, dynamic>?;
       final hasReviewed = results[4] as bool;
+      final allVideos = results[5] as List<Map<String, dynamic>>;
+
+      // Calculate private video count
+      final totalCount = allVideos.length;
+      final publicCount = videos.length;
+      final privateCount = totalCount - publicCount;
 
       // Update cache
       _cacheService.set(cacheKey, {
@@ -241,6 +250,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         'overallProgress': overallProgress,
         'hasReviewed': hasReviewed,
         'teacherUid': courseDetails?['teacherUid'],
+        'privateVideoCount': privateCount,
       });
 
       if (mounted) {
@@ -250,6 +260,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           _overallProgress = overallProgress;
           _hasReviewed = hasReviewed;
           _teacherUid = courseDetails?['teacherUid'];
+          _privateVideoCount = privateCount;
         });
       }
     } catch (_) {
@@ -549,12 +560,26 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      '${_countCompletedVideos()} of ${_videos.length} videos completed',
+                      '${_countCompletedVideos()} of ${_videos.length + _privateVideoCount} videos completed',
                       style: TextStyle(
                         color: AppTheme.getTextSecondary(context),
                         fontSize: 13,
                       ),
                     ),
+                    if (_privateVideoCount > 0)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          '($_privateVideoCount private video${_privateVideoCount > 1 ? 's' : ''})',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(
+                              context,
+                            ).withOpacity(0.7),
+                            fontSize: 11,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
