@@ -39,7 +39,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
     // load history but don't auto-open last chat when openNew==true
     _loadChatHistory();
   }
-  
+
   Future<void> _detectRole() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     ownerId = uid;
@@ -57,23 +57,29 @@ class _AIChatScreenState extends State<AIChatScreen> {
   }
 
   Future<void> _loadChatHistory() async {
+    if (!mounted) return;
     setState(() => _isLoadingHistory = true);
     try {
       await _detectRole();
       if (ownerId == null) {
-        setState(() => _isLoadingHistory = false);
+        if (mounted) setState(() => _isLoadingHistory = false);
         return;
       }
 
-      final sessions = await chatRepository.getSessionsForUser(userId: ownerId!, role: ownerRole);
+      final sessions = await chatRepository.getSessionsForUser(
+        userId: ownerId!,
+        role: ownerRole,
+      );
       // Convert sessions to legacy map for UI compatibility
       chatHistory = sessions
-          .map((s) => {
-                'id': s.id,
-                'title': s.title,
-                'createdAt': s.createdAt ?? 0,
-                'updatedAt': s.updatedAt ?? 0,
-              })
+          .map(
+            (s) => {
+              'id': s.id,
+              'title': s.title,
+              'createdAt': s.createdAt ?? 0,
+              'updatedAt': s.updatedAt ?? 0,
+            },
+          )
           .toList();
 
       // set latest chat as active if none (unless opened as a fresh chat)
@@ -83,27 +89,32 @@ class _AIChatScreenState extends State<AIChatScreen> {
         await _loadChat(currentChatId!);
       }
 
-      setState(() {
-        _isLoadingHistory = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingHistory = false;
+        });
+      }
     } catch (e) {
-      setState(() => _isLoadingHistory = false);
+      if (mounted) setState(() => _isLoadingHistory = false);
     }
   }
 
   Future<void> _startNewChat() async {
     // Start a fresh in-memory chat without creating DB session yet.
     // Actual DB session will be created when the user sends the first message.
-    setState(() {
-      currentChatId = null;
-      messages = [];
-    });
+    if (mounted) {
+      setState(() {
+        currentChatId = null;
+        messages = [];
+      });
+    }
     await _loadChatHistory();
     _closeDrawerIfOpen();
   }
 
   Future<void> _loadChat(String chatId) async {
     final chatMessages = await chatRepository.getMessagesForChat(chatId);
+    if (!mounted) return;
     setState(() {
       currentChatId = chatId;
       messages = chatMessages
@@ -132,12 +143,18 @@ class _AIChatScreenState extends State<AIChatScreen> {
   Future<void> _deleteChat(String chatId) async {
     if (ownerId == null) await _detectRole();
     if (ownerId == null) return;
-    await chatRepository.deleteChat(chatId: chatId, ownerId: ownerId!, ownerRole: ownerRole);
+    await chatRepository.deleteChat(
+      chatId: chatId,
+      ownerId: ownerId!,
+      ownerRole: ownerRole,
+    );
     if (currentChatId == chatId) {
-      setState(() {
-        currentChatId = null;
-        messages = [];
-      });
+      if (mounted) {
+        setState(() {
+          currentChatId = null;
+          messages = [];
+        });
+      }
     }
     await _loadChatHistory();
   }
@@ -239,6 +256,7 @@ class _AIChatScreenState extends State<AIChatScreen> {
       await _loadChatHistory();
     }
 
+    if (!mounted) return;
     setState(() {
       messages.add({"sender": "user", "text": text});
       _controller.clear();
@@ -246,37 +264,55 @@ class _AIChatScreenState extends State<AIChatScreen> {
     });
 
     // Save user message to new messages store
-    await chatRepository.addMessage(chatId: currentChatId!, role: 'user', content: text);
+    await chatRepository.addMessage(
+      chatId: currentChatId!,
+      role: 'user',
+      content: text,
+    );
 
     // Show typing indicator
-    setState(() {
-      messages.add({"sender": "ai", "text": "Thinking..."});
-    });
+    if (mounted) {
+      setState(() {
+        messages.add({"sender": "ai", "text": "Thinking..."});
+      });
+    }
 
     _scrollToBottom();
 
     try {
       final aiText = await generateAIResponse(text);
 
-      setState(() {
-        messages.removeLast();
-        messages.add({"sender": "ai", "text": aiText});
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          messages.removeLast();
+          messages.add({"sender": "ai", "text": aiText});
+          _isLoading = false;
+        });
+      }
 
       // Save AI response to new messages store
-      await chatRepository.addMessage(chatId: currentChatId!, role: 'assistant', content: aiText);
+      await chatRepository.addMessage(
+        chatId: currentChatId!,
+        role: 'assistant',
+        content: aiText,
+      );
     } catch (e) {
       final errorMessage = "Sorry, something went wrong. Please try again.";
-      setState(() {
-        messages.removeLast();
-        messages.add({"sender": "ai", "text": errorMessage});
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          messages.removeLast();
+          messages.add({"sender": "ai", "text": errorMessage});
+          _isLoading = false;
+        });
+      }
 
       // Save error response to new messages store so chat is not lost
       if (currentChatId != null) {
-        await chatRepository.addMessage(chatId: currentChatId!, role: 'assistant', content: errorMessage);
+        await chatRepository.addMessage(
+          chatId: currentChatId!,
+          role: 'assistant',
+          content: errorMessage,
+        );
       }
     }
 
@@ -1211,81 +1247,81 @@ StatelessWidgets are lightweight and performant - use them when your widget does
                           ],
                         )
                       : isUser
-                          ? SelectableText(
-                              message["text"] ?? "",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                height: 1.5,
-                              ),
-                            )
-                          : MarkdownBody(
-                              data: message["text"] ?? "",
-                              selectable: true,
-                              styleSheet: MarkdownStyleSheet(
-                                p: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                  fontSize: 15,
-                                  height: 1.5,
-                                ),
-                                h1: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                h2: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                h3: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                strong: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                                em: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                  fontStyle: FontStyle.italic,
-                                ),
-                                code: TextStyle(
-                                  color: isDark
-                                      ? Colors.greenAccent
-                                      : Colors.green.shade800,
-                                  backgroundColor: isDark
-                                      ? Colors.black26
-                                      : Colors.grey.shade200,
-                                  fontFamily: 'monospace',
-                                  fontSize: 14,
-                                ),
-                                codeblockDecoration: BoxDecoration(
-                                  color: isDark
-                                      ? Colors.black38
-                                      : Colors.grey.shade100,
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                listBullet: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkTextPrimary
-                                      : AppTheme.textPrimary,
-                                ),
-                              ),
+                      ? SelectableText(
+                          message["text"] ?? "",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            height: 1.5,
+                          ),
+                        )
+                      : MarkdownBody(
+                          data: message["text"] ?? "",
+                          selectable: true,
+                          styleSheet: MarkdownStyleSheet(
+                            p: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                              fontSize: 15,
+                              height: 1.5,
                             ),
+                            h1: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            h2: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            h3: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            strong: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            em: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                              fontStyle: FontStyle.italic,
+                            ),
+                            code: TextStyle(
+                              color: isDark
+                                  ? Colors.greenAccent
+                                  : Colors.green.shade800,
+                              backgroundColor: isDark
+                                  ? Colors.black26
+                                  : Colors.grey.shade200,
+                              fontFamily: 'monospace',
+                              fontSize: 14,
+                            ),
+                            codeblockDecoration: BoxDecoration(
+                              color: isDark
+                                  ? Colors.black38
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            listBullet: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                            ),
+                          ),
+                        ),
                 ),
               ),
               if (isUser) ...[

@@ -20,11 +20,19 @@ class _CoursesScreenState extends State<CoursesScreen>
   final CacheService _cacheService = CacheService();
   final String _studentUid = FirebaseAuth.instance.currentUser!.uid;
 
-  // Search functionality
-  final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
+  // Separate search for explore and enrolled tabs
+  final TextEditingController _exploreSearchController =
+      TextEditingController();
+  final TextEditingController _enrolledSearchController =
+      TextEditingController();
+  String _exploreSearchQuery = '';
+  String _enrolledSearchQuery = '';
 
-  // Filter for enrolled courses (removed unused filter variable)
+  // Filter options for explore tab
+  String _exploreFilterBy = 'all'; // all, recent, rating, videos
+
+  // Filter options for enrolled tab
+  String _enrolledFilterBy = 'all'; // all, recent, progress, completed
 
   bool isLoading = true;
   List<Map<String, dynamic>> courses = [];
@@ -244,11 +252,11 @@ class _CoursesScreenState extends State<CoursesScreen>
     );
   }
 
-  // Helper to filter courses by search query
-  List<Map<String, dynamic>> _filterCoursesByQuery(
+  // Helper to filter explore courses by search query
+  List<Map<String, dynamic>> _filterExploreCoursesByQuery(
     List<Map<String, dynamic>> courseList,
   ) {
-    if (_searchQuery.isEmpty) return courseList;
+    if (_exploreSearchQuery.isEmpty) return courseList;
     return courseList.where((course) {
       final title = (course['title'] ?? '').toString().toLowerCase();
       final description = (course['description'] ?? '')
@@ -257,33 +265,226 @@ class _CoursesScreenState extends State<CoursesScreen>
       final teacherName = (course['teacherName'] ?? '')
           .toString()
           .toLowerCase();
-      final query = _searchQuery.toLowerCase();
+      final query = _exploreSearchQuery.toLowerCase();
       return title.contains(query) ||
           description.contains(query) ||
           teacherName.contains(query);
     }).toList();
   }
 
-  // Get all courses (enrolled + unenrolled) filtered by search
-  List<Map<String, dynamic>> _getAllFilteredCourses() {
-    final allCourses = <Map<String, dynamic>>[];
-    // Add enrolled courses with marker
-    for (final course in enrolledCourses) {
-      allCourses.add({...course, '_isEnrolled': true});
+  // Helper to filter enrolled courses by search query
+  List<Map<String, dynamic>> _filterEnrolledCoursesByQuery(
+    List<Map<String, dynamic>> courseList,
+  ) {
+    if (_enrolledSearchQuery.isEmpty) return courseList;
+    return courseList.where((course) {
+      final title = (course['title'] ?? '').toString().toLowerCase();
+      final description = (course['description'] ?? '')
+          .toString()
+          .toLowerCase();
+      final teacherName = (course['teacherName'] ?? '')
+          .toString()
+          .toLowerCase();
+      final query = _enrolledSearchQuery.toLowerCase();
+      return title.contains(query) ||
+          description.contains(query) ||
+          teacherName.contains(query);
+    }).toList();
+  }
+
+  // Filter and sort explore courses
+  List<Map<String, dynamic>> _sortExploreCourses(
+    List<Map<String, dynamic>> courseList,
+  ) {
+    List<Map<String, dynamic>> filtered;
+
+    switch (_exploreFilterBy) {
+      case 'recent':
+        // Filter to courses created in last 30 days, sorted by most recent
+        final thirtyDaysAgo = DateTime.now()
+            .subtract(const Duration(days: 30))
+            .millisecondsSinceEpoch;
+        filtered = courseList.where((course) {
+          final createdAt = course['createdAt'] ?? 0;
+          return createdAt > thirtyDaysAgo;
+        }).toList();
+        filtered.sort(
+          (a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0),
+        );
+        // If no recent courses, show all sorted by most recent
+        if (filtered.isEmpty) {
+          filtered = List<Map<String, dynamic>>.from(courseList);
+          filtered.sort(
+            (a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0),
+          );
+        }
+        break;
+      case 'rating':
+        // Filter to courses with rating >= 4.0, sorted by highest rating
+        filtered = courseList.where((course) {
+          final rating =
+              (course['courseRating'] ?? course['teacherRating'] ?? 0.0) as num;
+          return rating >= 4.0;
+        }).toList();
+        filtered.sort((a, b) {
+          final ratingA =
+              (a['courseRating'] ?? a['teacherRating'] ?? 0.0) as num;
+          final ratingB =
+              (b['courseRating'] ?? b['teacherRating'] ?? 0.0) as num;
+          return ratingB.compareTo(ratingA);
+        });
+        // If no top rated courses, show all sorted by rating
+        if (filtered.isEmpty) {
+          filtered = List<Map<String, dynamic>>.from(courseList);
+          filtered.sort((a, b) {
+            final ratingA =
+                (a['courseRating'] ?? a['teacherRating'] ?? 0.0) as num;
+            final ratingB =
+                (b['courseRating'] ?? b['teacherRating'] ?? 0.0) as num;
+            return ratingB.compareTo(ratingA);
+          });
+        }
+        break;
+      case 'videos':
+        // Filter to courses with >= 5 videos, sorted by most videos
+        filtered = courseList.where((course) {
+          final count = (course['videoCount'] ?? 0) as int;
+          return count >= 5;
+        }).toList();
+        filtered.sort((a, b) {
+          final countA = (a['videoCount'] ?? 0) as int;
+          final countB = (b['videoCount'] ?? 0) as int;
+          return countB.compareTo(countA);
+        });
+        // If no courses with many videos, show all sorted by video count
+        if (filtered.isEmpty) {
+          filtered = List<Map<String, dynamic>>.from(courseList);
+          filtered.sort((a, b) {
+            final countA = (a['videoCount'] ?? 0) as int;
+            final countB = (b['videoCount'] ?? 0) as int;
+            return countB.compareTo(countA);
+          });
+        }
+        break;
+      default:
+        // 'all' - no filtering, keep default order
+        filtered = List<Map<String, dynamic>>.from(courseList);
+        break;
     }
-    // Add unenrolled courses with marker
-    for (final course in courses) {
-      allCourses.add({...course, '_isEnrolled': false});
+    return filtered;
+  }
+
+  // Filter and sort enrolled courses
+  List<Map<String, dynamic>> _sortEnrolledCourses(
+    List<Map<String, dynamic>> courseList,
+  ) {
+    List<Map<String, dynamic>> filtered;
+
+    switch (_enrolledFilterBy) {
+      case 'recent':
+        // Filter to recently enrolled (last 7 days), sorted by most recent
+        final sevenDaysAgo = DateTime.now()
+            .subtract(const Duration(days: 7))
+            .millisecondsSinceEpoch;
+        filtered = courseList.where((course) {
+          final enrolledAt = course['enrolledAt'] ?? course['createdAt'] ?? 0;
+          return enrolledAt > sevenDaysAgo;
+        }).toList();
+        filtered.sort((a, b) {
+          final enrolledAtA = a['enrolledAt'] ?? a['createdAt'] ?? 0;
+          final enrolledAtB = b['enrolledAt'] ?? b['createdAt'] ?? 0;
+          return enrolledAtB.compareTo(enrolledAtA);
+        });
+        // If no recent enrollments, show all sorted by enrollment date
+        if (filtered.isEmpty) {
+          filtered = List<Map<String, dynamic>>.from(courseList);
+          filtered.sort((a, b) {
+            final enrolledAtA = a['enrolledAt'] ?? a['createdAt'] ?? 0;
+            final enrolledAtB = b['enrolledAt'] ?? b['createdAt'] ?? 0;
+            return enrolledAtB.compareTo(enrolledAtA);
+          });
+        }
+        break;
+      case 'progress':
+        // Filter to courses in progress (0% < progress < 100%), sorted by highest progress
+        filtered = courseList.where((course) {
+          final progress = courseProgress[course['courseUid']] ?? 0.0;
+          return progress > 0.0 && progress < 1.0;
+        }).toList();
+        filtered.sort((a, b) {
+          final progressA = courseProgress[a['courseUid']] ?? 0.0;
+          final progressB = courseProgress[b['courseUid']] ?? 0.0;
+          return progressB.compareTo(progressA);
+        });
+        // If no courses in progress, show all sorted by progress
+        if (filtered.isEmpty) {
+          filtered = List<Map<String, dynamic>>.from(courseList);
+          filtered.sort((a, b) {
+            final progressA = courseProgress[a['courseUid']] ?? 0.0;
+            final progressB = courseProgress[b['courseUid']] ?? 0.0;
+            return progressB.compareTo(progressA);
+          });
+        }
+        break;
+      case 'completed':
+        // Filter to only completed courses (100% progress)
+        filtered = courseList.where((course) {
+          final progress = courseProgress[course['courseUid']] ?? 0.0;
+          return progress >= 1.0;
+        }).toList();
+        break;
+      default:
+        // 'all' - no filtering, keep default order
+        filtered = List<Map<String, dynamic>>.from(courseList);
+        break;
     }
-    return _filterCoursesByQuery(allCourses);
+    return filtered;
+  }
+
+  // Build filter chip widget
+  Widget _buildFilterChip(
+    String label,
+    String value,
+    bool isSelected,
+    bool isDark,
+    VoidCallback onTap,
+  ) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? (isDark ? const Color(0xFF1A1A2E) : Colors.white)
+                : (isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildExploreCourses() {
     final isDark = AppTheme.isDarkMode(context);
-    // When searching, show all courses (enrolled + unenrolled), otherwise only unenrolled
-    final filteredCourses = _searchQuery.isNotEmpty
-        ? _getAllFilteredCourses()
-        : courses;
+    // Filter and sort courses
+    var filteredCourses = _filterExploreCoursesByQuery(courses);
+    filteredCourses = _sortExploreCourses(filteredCourses);
 
     return RefreshIndicator(
       onRefresh: _loadData,
@@ -291,17 +492,17 @@ class _CoursesScreenState extends State<CoursesScreen>
         children: [
           // Search Bar
           Padding(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
             child: TextField(
-              controller: _searchController,
+              controller: _exploreSearchController,
               style: TextStyle(color: AppTheme.getTextPrimary(context)),
               onChanged: (value) {
                 setState(() {
-                  _searchQuery = value;
+                  _exploreSearchQuery = value;
                 });
               },
               decoration: InputDecoration(
-                hintText: 'Search courses, instructors...',
+                hintText: 'Search available courses...',
                 hintStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
                 prefixIcon: Icon(
                   Icons.search,
@@ -309,7 +510,7 @@ class _CoursesScreenState extends State<CoursesScreen>
                       ? AppTheme.darkPrimaryLight
                       : AppTheme.primaryColor,
                 ),
-                suffixIcon: _searchQuery.isNotEmpty
+                suffixIcon: _exploreSearchQuery.isNotEmpty
                     ? IconButton(
                         icon: Icon(
                           Icons.clear,
@@ -317,8 +518,8 @@ class _CoursesScreenState extends State<CoursesScreen>
                         ),
                         onPressed: () {
                           setState(() {
-                            _searchController.clear();
-                            _searchQuery = '';
+                            _exploreSearchController.clear();
+                            _exploreSearchQuery = '';
                           });
                         },
                       )
@@ -354,8 +555,59 @@ class _CoursesScreenState extends State<CoursesScreen>
             ),
           ),
 
+          // Filter chips
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    'All',
+                    'all',
+                    _exploreFilterBy == 'all',
+                    isDark,
+                    () {
+                      setState(() => _exploreFilterBy = 'all');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Recent',
+                    'recent',
+                    _exploreFilterBy == 'recent',
+                    isDark,
+                    () {
+                      setState(() => _exploreFilterBy = 'recent');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Top Rated',
+                    'rating',
+                    _exploreFilterBy == 'rating',
+                    isDark,
+                    () {
+                      setState(() => _exploreFilterBy = 'rating');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Most Videos',
+                    'videos',
+                    _exploreFilterBy == 'videos',
+                    isDark,
+                    () {
+                      setState(() => _exploreFilterBy = 'videos');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
           // Results count when searching
-          if (_searchQuery.isNotEmpty)
+          if (_exploreSearchQuery.isNotEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               child: Row(
@@ -367,7 +619,7 @@ class _CoursesScreenState extends State<CoursesScreen>
                   ),
                   const SizedBox(width: 6),
                   Text(
-                    '${filteredCourses.length} result${filteredCourses.length != 1 ? 's' : ''} found across all courses',
+                    '${filteredCourses.length} result${filteredCourses.length != 1 ? 's' : ''} found',
                     style: TextStyle(
                       color: AppTheme.getTextSecondary(context),
                       fontSize: 13,
@@ -380,7 +632,7 @@ class _CoursesScreenState extends State<CoursesScreen>
           // Course grid or empty state
           Expanded(
             child: filteredCourses.isEmpty
-                ? _searchQuery.isNotEmpty
+                ? _exploreSearchQuery.isNotEmpty
                       ? _buildEmptyState(
                           icon: Icons.search_off,
                           title: 'No Results Found',
@@ -406,26 +658,22 @@ class _CoursesScreenState extends State<CoursesScreen>
                       itemCount: filteredCourses.length,
                       gridDelegate:
                           const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 260,
-                            childAspectRatio: 0.50,
+                            maxCrossAxisExtent: 220,
+                            childAspectRatio: 0.58,
                             crossAxisSpacing: 12,
                             mainAxisSpacing: 12,
                           ),
                       itemBuilder: (context, index) {
                         final course = filteredCourses[index];
-                        final isEnrolled = course['_isEnrolled'] == true;
-                        final progress = isEnrolled
-                            ? (courseProgress[course['courseUid']] ?? 0.0)
-                            : 0.0;
 
                         return CourseCard(
                           title: course['title'] ?? 'Untitled Course',
                           description: course['description'],
                           imageUrl: course['imageUrl'] ?? '',
                           createdAt: course['createdAt'],
-                          isEnrolled: isEnrolled,
-                          showEnrollButton: !isEnrolled,
-                          progress: progress,
+                          isEnrolled: false,
+                          showEnrollButton: true,
+                          progress: 0.0,
                           instructorName: course['teacherName'],
                           instructorRating: course['courseRating'] != null
                               ? (course['courseRating'] as num).toDouble()
@@ -447,9 +695,12 @@ class _CoursesScreenState extends State<CoursesScreen>
                               return 1;
                             return 0;
                           })(),
-                          onTap: isEnrolled
-                              ? () => _openCourse(course)
-                              : () => _showEnrollDialog(course),
+                          privateVideoCount: (() {
+                            final pv = course['privateVideoCount'];
+                            if (pv is int) return pv;
+                            return 0;
+                          })(),
+                          onTap: () => _showEnrollDialog(course),
                           onEnroll: () => _showEnrollDialog(course),
                         );
                       },
@@ -1043,6 +1294,8 @@ class _CoursesScreenState extends State<CoursesScreen>
   }
 
   Widget _buildEnrolledCourses() {
+    final isDark = AppTheme.isDarkMode(context);
+
     if (enrolledCourses.isEmpty) {
       return _buildEmptyState(
         icon: Icons.bookmark_outline,
@@ -1052,48 +1305,212 @@ class _CoursesScreenState extends State<CoursesScreen>
       );
     }
 
+    // Filter and sort enrolled courses
+    var filteredCourses = _filterEnrolledCoursesByQuery(enrolledCourses);
+    filteredCourses = _sortEnrolledCourses(filteredCourses);
+
     return RefreshIndicator(
       onRefresh: _loadData,
-      child: GridView.builder(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        itemCount: enrolledCourses.length,
-        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: 260,
-          childAspectRatio: 0.50,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
-        ),
-        itemBuilder: (context, index) {
-          final course = enrolledCourses[index];
-          final progress = courseProgress[course['courseUid']] ?? 0.0;
+      child: Column(
+        children: [
+          // Search Bar for enrolled courses
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+            child: TextField(
+              controller: _enrolledSearchController,
+              style: TextStyle(color: AppTheme.getTextPrimary(context)),
+              onChanged: (value) {
+                setState(() {
+                  _enrolledSearchQuery = value;
+                });
+              },
+              decoration: InputDecoration(
+                hintText: 'Search your enrolled courses...',
+                hintStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
+                prefixIcon: Icon(
+                  Icons.search,
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
+                ),
+                suffixIcon: _enrolledSearchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.clear,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        onPressed: () {
+                          setState(() {
+                            _enrolledSearchController.clear();
+                            _enrolledSearchQuery = '';
+                          });
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: AppTheme.getCardColor(context),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: AppTheme.getBorderColor(context),
+                  ),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: AppTheme.getBorderColor(context),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: isDark
+                        ? AppTheme.darkPrimaryLight
+                        : AppTheme.primaryColor,
+                    width: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
 
-          return CourseCard(
-            title: course['title'] ?? 'Untitled Course',
-            description: course['description'],
-            imageUrl: course['imageUrl'] ?? '',
-            createdAt: course['createdAt'],
-            isEnrolled: true,
-            progress: progress,
-            instructorName: course['teacherName'],
-            instructorRating: course['courseRating'] != null
-                ? (course['courseRating'] as num).toDouble()
-                : (course['teacherRating'] != null
-                      ? (course['teacherRating'] as num).toDouble()
-                      : null),
-            reviewCount: course['courseReviewCount'] ?? course['reviewCount'],
-            videoCount: (() {
-              final v = course['videoCount'];
-              if (v is int) return v;
-              final vids = course['videos'];
-              if (vids is Map) return vids.length;
-              if (vids is List) return vids.length;
-              if (course['videoUrl'] != null || course['video'] != null)
-                return 1;
-              return 0;
-            })(),
-            onTap: () => _openCourse(course),
-          );
-        },
+          // Filter chips for enrolled courses
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip(
+                    'All',
+                    'all',
+                    _enrolledFilterBy == 'all',
+                    isDark,
+                    () {
+                      setState(() => _enrolledFilterBy = 'all');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Recent',
+                    'recent',
+                    _enrolledFilterBy == 'recent',
+                    isDark,
+                    () {
+                      setState(() => _enrolledFilterBy = 'recent');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'In Progress',
+                    'progress',
+                    _enrolledFilterBy == 'progress',
+                    isDark,
+                    () {
+                      setState(() => _enrolledFilterBy = 'progress');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildFilterChip(
+                    'Completed',
+                    'completed',
+                    _enrolledFilterBy == 'completed',
+                    isDark,
+                    () {
+                      setState(() => _enrolledFilterBy = 'completed');
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Results count when searching
+          if (_enrolledSearchQuery.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.search,
+                    size: 16,
+                    color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '${filteredCourses.length} result${filteredCourses.length != 1 ? 's' : ''} found',
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Course grid
+          Expanded(
+            child: filteredCourses.isEmpty
+                ? _buildEmptyState(
+                    icon: Icons.search_off,
+                    title: 'No Results Found',
+                    subtitle: 'Try searching with different keywords.',
+                  )
+                : GridView.builder(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    itemCount: filteredCourses.length,
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                          maxCrossAxisExtent: 220,
+                          childAspectRatio: 0.52,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                    itemBuilder: (context, index) {
+                      final course = filteredCourses[index];
+                      final progress =
+                          courseProgress[course['courseUid']] ?? 0.0;
+
+                      return CourseCard(
+                        title: course['title'] ?? 'Untitled Course',
+                        description: course['description'],
+                        imageUrl: course['imageUrl'] ?? '',
+                        createdAt: course['createdAt'],
+                        isEnrolled: true,
+                        progress: progress,
+                        instructorName: course['teacherName'],
+                        instructorRating: course['courseRating'] != null
+                            ? (course['courseRating'] as num).toDouble()
+                            : (course['teacherRating'] != null
+                                  ? (course['teacherRating'] as num).toDouble()
+                                  : null),
+                        reviewCount:
+                            course['courseReviewCount'] ??
+                            course['reviewCount'],
+                        videoCount: (() {
+                          final v = course['videoCount'];
+                          if (v is int) return v;
+                          final vids = course['videos'];
+                          if (vids is Map) return vids.length;
+                          if (vids is List) return vids.length;
+                          if (course['videoUrl'] != null ||
+                              course['video'] != null)
+                            return 1;
+                          return 0;
+                        })(),
+                        onTap: () => _openCourse(course),
+                      );
+                    },
+                  ),
+          ),
+        ],
       ),
     );
   }
@@ -1187,7 +1604,8 @@ class _CoursesScreenState extends State<CoursesScreen>
   @override
   void dispose() {
     _tabController.dispose();
-    _searchController.dispose();
+    _exploreSearchController.dispose();
+    _enrolledSearchController.dispose();
     super.dispose();
   }
 

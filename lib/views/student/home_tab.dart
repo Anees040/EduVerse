@@ -511,6 +511,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     }
 
     final videoCount = computeVideoCount(course);
+    final privateVideoCount = (() {
+      final pv = course['privateVideoCount'];
+      if (pv is int) return pv;
+      return 0;
+    })();
 
     final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
 
@@ -662,6 +667,24 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                               fontWeight: FontWeight.w600,
                             ),
                           ),
+                          // Show private video indicator
+                          if (privateVideoCount > 0 && !isEnrolled) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.lock_outline,
+                              color: Colors.amber.shade300,
+                              size: 10,
+                            ),
+                            const SizedBox(width: 2),
+                            Text(
+                              '+$privateVideoCount',
+                              style: TextStyle(
+                                color: Colors.amber.shade300,
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
