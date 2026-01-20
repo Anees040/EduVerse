@@ -21,6 +21,25 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
   bool? _isTeacher;
 
+  // Filter state
+  String _selectedFilter = 'all';
+
+  // Filter options for teacher
+  static const List<Map<String, dynamic>> _teacherFilters = [
+    {'value': 'all', 'label': 'All', 'icon': Icons.all_inbox},
+    {'value': 'enrollment', 'label': 'Enrollments', 'icon': Icons.person_add},
+    {'value': 'qa_question', 'label': 'Questions', 'icon': Icons.help_outline},
+    {'value': 'course_update', 'label': 'Updates', 'icon': Icons.update},
+  ];
+
+  // Filter options for student
+  static const List<Map<String, dynamic>> _studentFilters = [
+    {'value': 'all', 'label': 'All', 'icon': Icons.all_inbox},
+    {'value': 'new_course', 'label': 'New Courses', 'icon': Icons.school},
+    {'value': 'course_update', 'label': 'Videos', 'icon': Icons.video_library},
+    {'value': 'qa_answer', 'label': 'Answers', 'icon': Icons.question_answer},
+  ];
+
   @override
   void initState() {
     super.initState();
@@ -35,6 +54,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       if (mounted) setState(() => _isTeacher = false);
     }
   }
+
+  List<Map<String, dynamic>> get _filters =>
+      _isTeacher == true ? _teacherFilters : _studentFilters;
 
   @override
   Widget build(BuildContext context) {
@@ -146,95 +168,219 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<List<Map<String, dynamic>>>(
-        stream: _notificationService.getNotificationsStream(_uid),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(
-              child: CircularProgressIndicator(
-                color: isDark
-                    ? AppTheme.darkPrimaryLight
+      body: Column(
+        children: [
+          // Filter chips
+          _buildFilterChips(isDark),
+          // Notifications list
+          Expanded(
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _notificationService.getNotificationsStream(_uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return Center(
+                    child: CircularProgressIndicator(
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
+                    ),
+                  );
+                }
+
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.error_outline,
+                          size: 64,
+                          color: Colors.red.shade300,
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'Error loading notifications',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                final allNotifications = snapshot.data ?? [];
+
+                // Apply filter
+                final notifications = _selectedFilter == 'all'
+                    ? allNotifications
+                    : allNotifications
+                          .where((n) => n['type'] == _selectedFilter)
+                          .toList();
+
+                if (allNotifications.isEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color:
+                                (isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor)
+                                    .withOpacity(0.1),
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.notifications_none,
+                            size: 64,
+                            color:
+                                (isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor)
+                                    .withOpacity(0.5),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+                        Text(
+                          'No notifications yet',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.getTextPrimary(context),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'You\'ll see notifications here when there\'s activity',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                // Show empty state when filter returns no results
+                if (notifications.isEmpty && allNotifications.isNotEmpty) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.filter_list_off,
+                          size: 64,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No notifications match this filter',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: () =>
+                              setState(() => _selectedFilter = 'all'),
+                          child: Text(
+                            'Show all notifications',
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }
+
+                return ListView.builder(
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  itemCount: notifications.length,
+                  itemBuilder: (context, index) {
+                    final notification = notifications[index];
+                    return _buildNotificationTile(notification);
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFilterChips(bool isDark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: _filters.map((filter) {
+            final isSelected = _selectedFilter == filter['value'];
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: FilterChip(
+                label: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      filter['icon'] as IconData,
+                      size: 16,
+                      color: isSelected
+                          ? Colors.white
+                          : (isDark
+                                ? AppTheme.darkTextSecondary
+                                : Colors.grey.shade600),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(filter['label'] as String),
+                  ],
+                ),
+                selected: isSelected,
+                onSelected: (_) {
+                  setState(() => _selectedFilter = filter['value'] as String);
+                },
+                selectedColor: isDark
+                    ? AppTheme.darkAccent
                     : AppTheme.primaryColor,
+                backgroundColor: isDark
+                    ? AppTheme.darkSurface
+                    : Colors.grey.shade100,
+                labelStyle: TextStyle(
+                  color: isSelected
+                      ? Colors.white
+                      : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
+                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                side: BorderSide.none,
+                showCheckmark: false,
               ),
             );
-          }
-
-          if (snapshot.hasError) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red.shade300,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading notifications',
-                    style: TextStyle(color: AppTheme.getTextSecondary(context)),
-                  ),
-                ],
-              ),
-            );
-          }
-
-          final notifications = snapshot.data ?? [];
-
-          if (notifications.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color:
-                          (isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor)
-                              .withOpacity(0.1),
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.notifications_none,
-                      size: 64,
-                      color:
-                          (isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor)
-                              .withOpacity(0.5),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'No notifications yet',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: AppTheme.getTextPrimary(context),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'You\'ll see notifications here when there\'s activity',
-                    style: TextStyle(color: AppTheme.getTextSecondary(context)),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            itemCount: notifications.length,
-            itemBuilder: (context, index) {
-              final notification = notifications[index];
-              return _buildNotificationTile(notification);
-            },
-          );
-        },
+          }).toList(),
+        ),
       ),
     );
   }
@@ -298,9 +444,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           // Navigate only for QA answers, course updates, or QA questions with video context.
           final relatedCourseId = notification['relatedCourseId'] as String?;
           final relatedVideoId = notification['relatedVideoId'] as String?;
-          final relatedVideoTimestamp = notification['relatedVideoTimestamp'] as int?;
+          final relatedVideoTimestamp =
+              notification['relatedVideoTimestamp'] as int?;
           if (relatedCourseId != null &&
-              (type == 'qa_answer' || type == 'course_update' || type == 'qa_question')) {
+              (type == 'qa_answer' ||
+                  type == 'course_update' ||
+                  type == 'qa_question')) {
             // If this is a QA question notification and the current user is a teacher,
             // open the teacher course manage screen so they can answer the question.
             if (type == 'qa_question' && _isTeacher == true) {

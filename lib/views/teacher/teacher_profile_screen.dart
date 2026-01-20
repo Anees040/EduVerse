@@ -5,6 +5,7 @@ import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/theme_service.dart';
 import 'package:eduverse/services/cache_service.dart';
+import 'package:eduverse/services/preferences_service.dart';
 import 'package:eduverse/views/signin_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
@@ -1068,60 +1069,124 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     );
   }
 
-  void _showLogoutDialog(BuildContext context) {
+  void _showLogoutDialog(BuildContext context) async {
+    // Check if user wants to skip confirmation
+    final shouldSkip = await PreferencesService.shouldSkipLogoutConfirm();
+    if (shouldSkip) {
+      _performLogout();
+      return;
+    }
+
+    bool dontShowAgain = false;
+    final isDark = AppTheme.isDarkMode(context);
+
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.getCardColor(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          "Logout",
-          style: TextStyle(color: AppTheme.getTextPrimary(context)),
-        ),
-        content: Text(
-          "Are you sure you want to logout?",
-          style: TextStyle(color: AppTheme.getTextSecondary(context)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              "Cancel",
-              style: TextStyle(color: AppTheme.getTextSecondary(context)),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setLogoutState) {
+          return AlertDialog(
+            backgroundColor: AppTheme.getCardColor(context),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
             ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await FirebaseAuth.instance.signOut();
-                Navigator.pushAndRemoveUntil(
-                  context,
-                  MaterialPageRoute(builder: (context) => const SigninScreen()),
-                  (route) => false,
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(
-                  context,
-                ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.isDarkMode(context)
-                  ? AppTheme.darkAccent
-                  : AppTheme.error,
-              foregroundColor: const Color(0xFFF0F8FF),
-              elevation: 6,
-              shadowColor:
-                  (AppTheme.isDarkMode(context)
-                          ? AppTheme.darkAccent
-                          : AppTheme.error)
+            title: Row(
+              children: [
+                Icon(
+                  Icons.logout,
+                  color: isDark ? AppTheme.darkError : AppTheme.error,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  "Logout",
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Are you sure you want to logout?",
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: dontShowAgain,
+                        onChanged: (value) {
+                          setLogoutState(() => dontShowAgain = value ?? false);
+                        },
+                        activeColor: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Don't show this again",
+                        style: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                          fontSize: 13,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text(
+                  "Cancel",
+                  style: TextStyle(color: AppTheme.getTextSecondary(context)),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (dontShowAgain) {
+                    await PreferencesService.setSkipLogoutConfirm(true);
+                  }
+                  Navigator.pop(ctx);
+                  _performLogout();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.error,
+                  foregroundColor: const Color(0xFFF0F8FF),
+                  elevation: 6,
+                  shadowColor: (isDark ? AppTheme.darkAccent : AppTheme.error)
                       .withOpacity(0.5),
-            ),
-            child: const Text("Logout"),
-          ),
-        ],
+                ),
+                child: const Text("Logout"),
+              ),
+            ],
+          );
+        },
       ),
     );
+  }
+
+  Future<void> _performLogout() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const SigninScreen()),
+        (route) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+    }
   }
 
   void _showHelpSupportDialog() {

@@ -496,6 +496,46 @@ class CourseService {
     }
   }
 
+  /// Get all enrolled students for a course
+  Future<List<Map<String, dynamic>>> getEnrolledStudents({
+    required String courseUid,
+  }) async {
+    // First, find the course and its enrolled students
+    final teachersSnapshot = await _db.child("teacher").get();
+
+    if (!teachersSnapshot.exists) {
+      return [];
+    }
+
+    final teachers = teachersSnapshot.value as Map<dynamic, dynamic>;
+
+    for (final entry in teachers.entries) {
+      final teacherData = entry.value as Map<dynamic, dynamic>?;
+      if (teacherData != null && teacherData['courses'] != null) {
+        final courses = teacherData['courses'] as Map<dynamic, dynamic>;
+        if (courses.containsKey(courseUid)) {
+          final courseData = courses[courseUid] as Map<dynamic, dynamic>?;
+          if (courseData != null && courseData['enrolledStudents'] != null) {
+            final enrolled =
+                courseData['enrolledStudents'] as Map<dynamic, dynamic>;
+            final List<Map<String, dynamic>> students = [];
+
+            enrolled.forEach((uid, data) {
+              students.add({
+                'uid': uid.toString(),
+                ...Map<String, dynamic>.from(data as Map),
+              });
+            });
+
+            return students;
+          }
+        }
+      }
+    }
+
+    return [];
+  }
+
   /// Update video visibility (public/private)
   Future<void> updateVideoVisibility({
     required String teacherUid,
@@ -676,7 +716,7 @@ class CourseService {
           int videoCount = 0;
           int publicVideoCount = 0;
           int privateVideoCount = 0;
-          
+
           Map<dynamic, dynamic>? videosMap;
           if (courseData['videos'] != null) {
             final vidsVal = courseData['videos'];
@@ -708,7 +748,7 @@ class CourseService {
               }
             }
           }
-          
+
           // Count public vs private videos
           if (videosMap != null) {
             videosMap.forEach((key, value) {

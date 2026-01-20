@@ -9,6 +9,7 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/views/student/ai_chat_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/utils/route_transitions.dart';
 
 class TeacherHomeTab extends StatefulWidget {
   final String uid;
@@ -239,8 +240,8 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   void _openCourseManagement(Map<String, dynamic> course) {
     Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (context) => TeacherCourseManageScreen(
+      SlideAndFadeRoute(
+        page: TeacherCourseManageScreen(
           courseUid: course['courseUid'],
           courseTitle: course['title'] ?? 'Untitled Course',
           imageUrl: course['imageUrl'] ?? '',
@@ -812,8 +813,8 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const AIChatScreen(openNew: true),
+                  SlideAndFadeRoute(
+                    page: const AIChatScreen(openNew: true),
                   ),
                 );
               },
@@ -1442,6 +1443,26 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
 
                 try {
                   final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+                  
+                  // Create announcement data for optimistic UI update
+                  final newAnnouncement = {
+                    'announcementId': DateTime.now().millisecondsSinceEpoch.toString(),
+                    'title': title,
+                    'message': message,
+                    'courseUid': courseUid,
+                    'priority': priority,
+                    'createdAt': DateTime.now().millisecondsSinceEpoch,
+                    'isActive': true,
+                  };
+                  
+                  // Optimistic UI update - add to list immediately with animation
+                  setState(() {
+                    announcements.insert(0, newAnnouncement);
+                  });
+                  
+                  // Clear cache and save to backend
+                  _cacheService.clearPrefix('teacher_announcements_');
+                  
                   await _courseService.createAnnouncement(
                     teacherUid: teacherUid,
                     title: title,
@@ -1450,9 +1471,11 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                     priority: priority,
                   );
 
-                  // Refresh data
-                  _cacheService.clearPrefix('teacher_');
-                  _loadAllData();
+                  // Update cache with new data
+                  _cacheService.set(
+                    'teacher_announcements_$teacherUid',
+                    announcements,
+                  );
 
                   if (mounted) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
@@ -1463,6 +1486,12 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                     );
                   }
                 } catch (e) {
+                  // Revert optimistic update on failure
+                  setState(() {
+                    announcements.removeWhere(
+                      (a) => a['title'] == title && a['message'] == message,
+                    );
+                  });
                   if (mounted) {
                     ScaffoldMessenger.of(this.context).showSnackBar(
                       SnackBar(
@@ -1676,13 +1705,52 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             onPressed: () async {
               Navigator.pop(ctx);
               final teacherUid = FirebaseAuth.instance.currentUser!.uid;
-              await _courseService.toggleAnnouncementActive(
-                teacherUid: teacherUid,
-                announcementId: announcement['announcementId'],
-                isActive: !isActive,
-              );
-              _cacheService.clearPrefix('teacher_');
-              _loadAllData();
+              final announcementId = announcement['announcementId'];
+              final newActiveStatus = !isActive;
+              
+              // Optimistic UI update
+              setState(() {
+                final index = announcements.indexWhere(
+                  (a) => a['announcementId'] == announcementId,
+                );
+                if (index != -1) {
+                  announcements[index] = {
+                    ...announcements[index],
+                    'isActive': newActiveStatus,
+                  };
+                }
+              });
+              
+              try {
+                await _courseService.toggleAnnouncementActive(
+                  teacherUid: teacherUid,
+                  announcementId: announcementId,
+                  isActive: newActiveStatus,
+                );
+                _cacheService.clearPrefix('teacher_announcements_');
+                _cacheService.set(
+                  'teacher_announcements_$teacherUid',
+                  announcements,
+                );
+              } catch (e) {
+                // Revert on failure
+                setState(() {
+                  final index = announcements.indexWhere(
+                    (a) => a['announcementId'] == announcementId,
+                  );
+                  if (index != -1) {
+                    announcements[index] = {
+                      ...announcements[index],
+                      'isActive': isActive, // Revert to original
+                    };
+                  }
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to update: $e')),
+                  );
+                }
+              }
             },
             icon: Icon(
               isActive ? Icons.visibility_off : Icons.visibility,
@@ -1705,16 +1773,79 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             onPressed: () async {
               Navigator.pop(ctx);
               final teacherUid = FirebaseAuth.instance.currentUser!.uid;
-              await _courseService.deleteAnnouncement(
-                teacherUid: teacherUid,
-                announcementId: announcement['announcementId'],
+              final announcementId = announcement['announcementId'];
+              
+              // Store for potential undo
+              final removedAnnouncement = Map<String, dynamic>.from(announcement);
+              final removedIndex = announcements.indexWhere(
+                (a) => a['announcementId'] == announcementId,
               );
-              _cacheService.clearPrefix('teacher_');
-              _loadAllData();
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Announcement deleted')),
+              
+              // Optimistic UI update - remove immediately
+              setState(() {
+                announcements.removeWhere(
+                  (a) => a['announcementId'] == announcementId,
                 );
+              });
+              
+              try {
+                await _courseService.deleteAnnouncement(
+                  teacherUid: teacherUid,
+                  announcementId: announcementId,
+                );
+                
+                // Clear cache and update
+                _cacheService.clearPrefix('teacher_announcements_');
+                _cacheService.set(
+                  'teacher_announcements_$teacherUid',
+                  announcements,
+                );
+                
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text('Announcement deleted'),
+                      action: SnackBarAction(
+                        label: 'Undo',
+                        onPressed: () async {
+                          // Restore locally
+                          setState(() {
+                            if (removedIndex >= 0 && removedIndex <= announcements.length) {
+                              announcements.insert(removedIndex, removedAnnouncement);
+                            } else {
+                              announcements.insert(0, removedAnnouncement);
+                            }
+                          });
+                          // Restore to backend
+                          try {
+                            await _courseService.createAnnouncement(
+                              teacherUid: teacherUid,
+                              title: removedAnnouncement['title'] ?? '',
+                              message: removedAnnouncement['message'] ?? '',
+                              courseUid: removedAnnouncement['courseUid'],
+                              priority: removedAnnouncement['priority'] ?? 'normal',
+                            );
+                            _cacheService.clearPrefix('teacher_announcements_');
+                          } catch (_) {}
+                        },
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                // Revert on failure
+                setState(() {
+                  if (removedIndex >= 0 && removedIndex <= announcements.length) {
+                    announcements.insert(removedIndex, removedAnnouncement);
+                  } else {
+                    announcements.insert(0, removedAnnouncement);
+                  }
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Failed to delete: $e')),
+                  );
+                }
               }
             },
             icon: Icon(

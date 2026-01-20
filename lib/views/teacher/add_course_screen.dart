@@ -19,6 +19,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
   bool _loading = false;
   String _uploadStatus = ''; // Status message for user
+  double _uploadProgress = 0.0; // Progress value 0.0 to 1.0
+  String _currentStage = 'image'; // 'image', 'video', 'saving'
 
   final _formKey = GlobalKey<FormState>();
   final TextEditingController titleController = TextEditingController();
@@ -43,27 +45,53 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
     setState(() {
       _loading = true;
+      _uploadProgress = 0.0;
+      _currentStage = 'image';
       _uploadStatus = 'Uploading cover image...';
     });
 
     try {
-      String? imageUrl = await uploadToCloudinaryFromXFile(coverImageFile!);
+      // Upload cover image with progress (image is fast, so we'll simulate 10% of total)
+      String? imageUrl = await uploadToCloudinaryWithSimulatedProgress(
+        coverImageFile!,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _uploadProgress = progress * 0.1; // Image is 10% of total
+            });
+          }
+        },
+      );
 
       if (imageUrl == null) {
         throw Exception("Failed to upload cover image");
       }
 
       setState(() {
-        _uploadStatus = 'Uploading video... (this may take a while)';
+        _currentStage = 'video';
+        _uploadProgress = 0.1;
+        _uploadStatus = 'Uploading video...';
       });
 
-      String? videoUrl = await uploadToCloudinaryFromXFile(selectedVideo!);
+      // Upload video with progress (video is 80% of total)
+      String? videoUrl = await uploadToCloudinaryWithSimulatedProgress(
+        selectedVideo!,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() {
+              _uploadProgress = 0.1 + (progress * 0.8); // 10% to 90%
+            });
+          }
+        },
+      );
 
       if (videoUrl == null) {
         throw Exception("Failed to upload video");
       }
 
       setState(() {
+        _currentStage = 'saving';
+        _uploadProgress = 0.9;
         _uploadStatus = 'Saving course to database...';
       });
 
@@ -75,12 +103,17 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         description: descriptionController.text,
       );
 
+      setState(() {
+        _uploadProgress = 1.0;
+      });
+
       // Success is handled in onPressed
     } finally {
       if (mounted) {
         setState(() {
           _loading = false;
           _uploadStatus = '';
+          _uploadProgress = 0.0;
         });
       }
     }
@@ -395,19 +428,109 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                                   await uploadAndSaveCourse();
 
                                   if (mounted) {
-                                    // Show success SnackBar
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text(
-                                          "Course uploaded successfully!",
-                                        ),
-                                        backgroundColor: Colors.green,
-                                        duration: Duration(seconds: 2),
-                                      ),
+                                    // Show success dialog instead of snackbar
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (ctx) {
+                                        final dialogIsDark =
+                                            AppTheme.isDarkMode(ctx);
+                                        return AlertDialog(
+                                          backgroundColor: dialogIsDark
+                                              ? AppTheme.darkCard
+                                              : Colors.white,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              20,
+                                            ),
+                                          ),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Container(
+                                                padding: const EdgeInsets.all(
+                                                  16,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppTheme.success
+                                                      .withOpacity(0.1),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: Icon(
+                                                  Icons.check_circle,
+                                                  color: AppTheme.success,
+                                                  size: 64,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 20),
+                                              Text(
+                                                'Course Created!',
+                                                style: TextStyle(
+                                                  fontSize: 24,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: dialogIsDark
+                                                      ? AppTheme.darkTextPrimary
+                                                      : Colors.black87,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 12),
+                                              Text(
+                                                'Your course "${titleController.text}" has been uploaded successfully.',
+                                                textAlign: TextAlign.center,
+                                                style: TextStyle(
+                                                  fontSize: 14,
+                                                  color: dialogIsDark
+                                                      ? AppTheme
+                                                            .darkTextSecondary
+                                                      : Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 24),
+                                              SizedBox(
+                                                width: double.infinity,
+                                                child: ElevatedButton(
+                                                  onPressed: () {
+                                                    Navigator.pop(
+                                                      ctx,
+                                                    ); // Close dialog
+                                                    Navigator.pop(
+                                                      context,
+                                                      true,
+                                                    ); // Go back to courses
+                                                  },
+                                                  style: ElevatedButton.styleFrom(
+                                                    backgroundColor:
+                                                        dialogIsDark
+                                                        ? AppTheme.darkAccent
+                                                        : AppTheme.primaryColor,
+                                                    foregroundColor:
+                                                        Colors.white,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 14,
+                                                        ),
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                  child: const Text(
+                                                    'Go to Courses',
+                                                    style: TextStyle(
+                                                      fontSize: 16,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
                                     );
-
-                                    // Navigate back to courses screen
-                                    Navigator.pop(context, true);
                                   }
                                 } catch (e) {
                                   // Show error SnackBar
@@ -453,48 +576,90 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                               ),
                       ),
                     ),
-                    // Upload status message
+                    // Upload status message with progress bar
                     if (_loading && _uploadStatus.isNotEmpty) ...[
                       const SizedBox(height: 16),
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
                           color:
-                              (isDark ? AppTheme.darkPrimaryLight : Colors.blue)
+                              (isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : AppTheme.primaryColor)
                                   .withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color:
                                 (isDark
                                         ? AppTheme.darkPrimaryLight
-                                        : Colors.blue)
+                                        : AppTheme.primaryColor)
                                     .withOpacity(0.3),
                           ),
                         ),
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            SizedBox(
-                              width: 24,
-                              height: 24,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation<Color>(
-                                  isDark
-                                      ? AppTheme.darkPrimaryLight
-                                      : Colors.blue.shade600,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Text(
-                                _uploadStatus,
-                                style: TextStyle(
+                            Row(
+                              children: [
+                                Icon(
+                                  _currentStage == 'image'
+                                      ? Icons.image
+                                      : _currentStage == 'video'
+                                      ? Icons.videocam
+                                      : Icons.save,
                                   color: isDark
                                       ? AppTheme.darkPrimaryLight
-                                      : Colors.blue.shade800,
-                                  fontWeight: FontWeight.w500,
+                                      : AppTheme.primaryColor,
+                                  size: 20,
                                 ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    _uploadStatus,
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? AppTheme.darkTextPrimary
+                                          : Colors.black87,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                                Text(
+                                  '${(_uploadProgress * 100).toInt()}%',
+                                  style: TextStyle(
+                                    color: isDark
+                                        ? AppTheme.darkAccent
+                                        : AppTheme.primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                value: _uploadProgress,
+                                backgroundColor: isDark
+                                    ? AppTheme.darkBorder
+                                    : Colors.grey.shade200,
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  isDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.primaryColor,
+                                ),
+                                minHeight: 10,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Please wait, this may take a few minutes...',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppTheme.darkTextSecondary
+                                    : Colors.grey.shade600,
+                                fontSize: 12,
                               ),
                             ),
                           ],
