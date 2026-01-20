@@ -49,20 +49,25 @@ class _SigninScreenState extends State<SigninScreen> {
     _passwordController.dispose();
   }
 
-  // Email validation - only check for empty on login
+  bool _showEmailError = false;
+  bool _showPasswordError = false;
+
   String? _validateEmail(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter your email';
+    if (!_showEmailError) return null;
+    // If user has entered content, don't show error
+    if (value != null && value.trim().isNotEmpty) {
+      return null;
     }
-    return null;
+    return 'Please enter your email';
   }
 
-  // Password validation - only check for empty on login
   String? _validatePassword(String? value) {
-    if (value == null || value.trim().isEmpty) {
-      return 'Please enter your password';
+    if (!_showPasswordError) return null;
+    // If user has entered content, don't show error
+    if (value != null && value.trim().isNotEmpty) {
+      return null;
     }
-    return null;
+    return 'Please enter your password';
   }
 
   // Reset form state when toggling roles
@@ -999,8 +1004,14 @@ class _SigninScreenState extends State<SigninScreen> {
                               color: AppTheme.getTextPrimary(context),
                             ),
                             validator: _validateEmail,
-                            autovalidateMode:
-                                AutovalidateMode.onUserInteraction,
+                            onChanged: (_) {
+                              if (_showEmailError) {
+                                setState(() {
+                                  _showEmailError = false;
+                                });
+                                _formKey.currentState?.validate();
+                              }
+                            },
                             decoration: InputDecoration(
                               labelText: "Email",
                               hintText: "Enter your email",
@@ -1040,8 +1051,14 @@ class _SigninScreenState extends State<SigninScreen> {
                               color: AppTheme.getTextPrimary(context),
                             ),
                             validator: _validatePassword,
-                            autovalidateMode:
-                                AutovalidateMode.onUserInteraction,
+                            onChanged: (_) {
+                              if (_showPasswordError) {
+                                setState(() {
+                                  _showPasswordError = false;
+                                });
+                                _formKey.currentState?.validate();
+                              }
+                            },
                             decoration: InputDecoration(
                               labelText: "Password",
                               hintText: "Enter your password",
@@ -1109,7 +1126,10 @@ class _SigninScreenState extends State<SigninScreen> {
                         onPressed: _loading
                             ? null
                             : () async {
-                                // Validate form first
+                                setState(() {
+                                  _showEmailError = true;
+                                  _showPasswordError = true;
+                                });
                                 if (!_formKey.currentState!.validate()) {
                                   return;
                                 }

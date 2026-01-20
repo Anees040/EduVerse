@@ -813,27 +813,25 @@ class _QASectionWidgetState extends State<QASectionWidget> {
 
           const Divider(height: 1),
 
-          // Filter chips (Teacher only)
-          if (widget.isTeacher) ...[
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildFilterChip('All', 'all', isDark),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Unanswered', 'unanswered', isDark),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Answered', 'answered', isDark),
-                    const SizedBox(width: 8),
-                    _buildFilterChip('Recent', 'recent', isDark),
-                  ],
-                ),
+          // Filter chips (For both Teacher and Student)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildFilterChip('All', 'all', isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Unanswered', 'unanswered', isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Answered', 'answered', isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('Recent', 'recent', isDark),
+                ],
               ),
             ),
-            const Divider(height: 1),
-          ],
+          ),
+          const Divider(height: 1),
 
           // Ask Question (Student only)
           if (!widget.isTeacher) ...[
@@ -950,10 +948,8 @@ class _QASectionWidgetState extends State<QASectionWidget> {
               }
 
               final allQuestions = snapshot.data ?? [];
-              // Apply filter for teachers
-              final questions = widget.isTeacher
-                  ? _applyFilter(allQuestions)
-                  : allQuestions;
+              // Apply filter for all users (students and teachers)
+              final questions = _applyFilter(allQuestions);
 
               if (questions.isEmpty) {
                 return Padding(
@@ -968,7 +964,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          widget.isTeacher && _selectedFilter != 'all'
+                          _selectedFilter != 'all'
                               ? 'No ${_selectedFilter} questions'
                               : 'No questions yet',
                           style: TextStyle(
@@ -976,7 +972,7 @@ class _QASectionWidgetState extends State<QASectionWidget> {
                             fontSize: 14,
                           ),
                         ),
-                        if (!widget.isTeacher)
+                        if (!widget.isTeacher && _selectedFilter == 'all')
                           Text(
                             'Be the first to ask!',
                             style: TextStyle(

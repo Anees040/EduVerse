@@ -6,6 +6,60 @@ class QAService {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
   final NotificationService _notificationService = NotificationService();
 
+  /// Common greeting patterns for auto-response
+  static const List<String> _greetingPatterns = [
+    'hi',
+    'hello',
+    'hey',
+    'good morning',
+    'good afternoon',
+    'good evening',
+    'howdy',
+    'greetings',
+    'sup',
+    'whats up',
+    "what's up",
+    'yo',
+    'hii',
+    'hiii',
+    'hiiii',
+    'helloo',
+    'hellooo',
+    'heyyy',
+    'heyy',
+    'hai',
+    'hola',
+  ];
+
+  /// Check if a message is a greeting
+  bool _isGreeting(String message) {
+    final normalizedMessage = message.toLowerCase().trim();
+    // Check if the entire message is a greeting or starts with one
+    for (final greeting in _greetingPatterns) {
+      if (normalizedMessage == greeting ||
+          normalizedMessage == '$greeting!' ||
+          normalizedMessage == '$greeting.' ||
+          normalizedMessage == '$greeting?' ||
+          normalizedMessage.startsWith('$greeting ') ||
+          normalizedMessage.startsWith('$greeting!') ||
+          normalizedMessage.startsWith('$greeting,')) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /// Generate an automated greeting response
+  String _generateGreetingResponse(String teacherName) {
+    final responses = [
+      "Hello! 👋 Thanks for reaching out. I'm here to help you with any questions about the course content. Feel free to ask specific questions about the topics covered, and I'll get back to you as soon as possible!",
+      "Hi there! 😊 Welcome to the Q&A section. If you have any questions about the course material, concepts, or need clarification on any topic, please don't hesitate to ask!",
+      "Hey! 👋 Good to hear from you. This is the course Q&A section where you can ask questions about the lessons. What would you like to know?",
+      "Hello! Thanks for your message. Please feel free to ask any questions related to the course content, and I'll help you out. 📚",
+    ];
+    return responses[DateTime.now().millisecond % responses.length];
+  }
+
   /// Ask a question on a course video
   Future<void> askQuestion({
     required String courseUid,
@@ -22,6 +76,33 @@ class QAService {
         .child('questions')
         .push();
 
+    // Check if it's a greeting message for auto-response
+    final isGreeting = _isGreeting(question);
+    String? teacherName;
+
+    // Get course and teacher info
+    final courseSnap = await _db.child('courses').child(courseUid).get();
+    String? teacherUid;
+    String courseName = '';
+
+    if (courseSnap.exists && courseSnap.value != null) {
+      final courseData = Map<String, dynamic>.from(courseSnap.value as Map);
+      teacherUid = courseData['teacherUid'] as String?;
+      courseName = courseData['title'] ?? '';
+
+      // Get teacher name for auto-response
+      if (isGreeting && teacherUid != null) {
+        final teacherSnap = await _db.child('teacher').child(teacherUid).get();
+        if (teacherSnap.exists && teacherSnap.value != null) {
+          final teacherData = Map<String, dynamic>.from(
+            teacherSnap.value as Map,
+          );
+          teacherName = teacherData['name'] ?? 'Instructor';
+        }
+      }
+    }
+
+    // Create the question with auto-answer if it's a greeting
     await questionRef.set({
       'questionId': questionRef.key,
       'videoId': videoId,
@@ -29,36 +110,35 @@ class QAService {
       'studentName': studentName,
       'question': question,
       'createdAt': DateTime.now().millisecondsSinceEpoch,
-      'isAnswered': false,
-      'answer': null,
-      'answeredAt': null,
-      'teacherName': null,
+      'isAnswered': isGreeting,
+      'answer': isGreeting
+          ? _generateGreetingResponse(teacherName ?? 'Instructor')
+          : null,
+      'answeredAt': isGreeting ? DateTime.now().millisecondsSinceEpoch : null,
+      'teacherName': isGreeting
+          ? (teacherName ?? 'Instructor (Auto-reply)')
+          : null,
       'videoTimestamp': videoTimestampSeconds,
       'videoTitle': videoTitle,
+      'isAutoResponse': isGreeting, // Flag to indicate automated response
     });
 
-    // Notify the teacher about the new question (include video context)
-    try {
-      final courseSnap = await _db.child('courses').child(courseUid).get();
-      if (courseSnap.exists && courseSnap.value != null) {
-        final courseData = Map<String, dynamic>.from(courseSnap.value as Map);
-        final String? teacherUid = courseData['teacherUid'] as String?;
-        final String courseName = courseData['title'] ?? '';
-        if (teacherUid != null) {
-          await _notificationService.sendNotification(
-            toUid: teacherUid,
-            title: 'New Question Asked 💬',
-            message: '$studentName asked a question in "$courseName"',
-            type: 'qa_question',
-            relatedCourseId: courseUid,
-            relatedVideoId: videoId,
-            relatedVideoTimestamp: videoTimestampSeconds,
-            fromUid: studentUid,
-          );
-        }
+    // Only notify teacher if it's not a greeting (they don't need to respond to greetings)
+    if (!isGreeting && teacherUid != null && courseName.isNotEmpty) {
+      try {
+        await _notificationService.sendNotification(
+          toUid: teacherUid,
+          title: 'New Question Asked 💬',
+          message: '$studentName asked a question in "$courseName"',
+          type: 'qa_question',
+          relatedCourseId: courseUid,
+          relatedVideoId: videoId,
+          relatedVideoTimestamp: videoTimestampSeconds,
+          fromUid: studentUid,
+        );
+      } catch (e) {
+        // ignore notification failures
       }
-    } catch (e) {
-      // ignore notification failures
     }
   }
 

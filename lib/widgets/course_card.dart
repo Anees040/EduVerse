@@ -15,6 +15,7 @@ class CourseCard extends StatelessWidget {
   final int? reviewCount;
   final int? enrolledCount;
   final int? videoCount;
+  final int? privateVideoCount; // Number of private videos
   final VoidCallback? onTap;
   final VoidCallback? onEnroll;
 
@@ -33,6 +34,7 @@ class CourseCard extends StatelessWidget {
     this.reviewCount,
     this.enrolledCount,
     this.videoCount,
+    this.privateVideoCount,
     this.onTap,
     this.onEnroll,
   });
@@ -51,7 +53,9 @@ class CourseCard extends StatelessWidget {
     // Use same color as the 'Create Course' button:
     // - Light theme: primaryColor
     // - Dark theme: darkPrimaryLight
-    final buttonColor = isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor;
+    final buttonColor = isDark
+        ? AppTheme.darkPrimaryLight
+        : AppTheme.primaryColor;
 
     return GestureDetector(
       onTap: onTap,
@@ -85,7 +89,7 @@ class CourseCard extends StatelessWidget {
                     top: Radius.circular(16),
                   ),
                   child: AspectRatio(
-                      aspectRatio: 16 / 9,
+                    aspectRatio: 16 / 9,
                     child: Image.network(
                       imageUrl,
                       fit: BoxFit.cover,
@@ -93,8 +97,14 @@ class CourseCard extends StatelessWidget {
                         decoration: BoxDecoration(
                           gradient: LinearGradient(
                             colors: isDark
-                                ? [accentColor.withOpacity(0.8), tealAccent.withOpacity(0.6)]
-                                : [AppTheme.primaryColor.withOpacity(0.8), AppTheme.primaryLight.withOpacity(0.6)],
+                                ? [
+                                    accentColor.withOpacity(0.8),
+                                    tealAccent.withOpacity(0.6),
+                                  ]
+                                : [
+                                    AppTheme.primaryColor.withOpacity(0.8),
+                                    AppTheme.primaryLight.withOpacity(0.6),
+                                  ],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
@@ -116,254 +126,390 @@ class CourseCard extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.all(8),
-              child: LayoutBuilder(builder: (context, constraints) {
-                final cardWidth = constraints.maxWidth.isFinite ? constraints.maxWidth : MediaQuery.of(context).size.width;
-                final isCompact = cardWidth < 160;
-                // responsive font sizes (titleFont not needed directly here)
-                final descFont = isCompact ? 10.0 : 12.0;
-                final smallTextFont = isCompact ? 10.0 : 11.0;
-                final avatarSize = isCompact ? 22.0 : 28.0;
-                final iconSize = isCompact ? 12.0 : 14.0;
-                final progressHeight = 6.0;
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final cardWidth = constraints.maxWidth.isFinite
+                      ? constraints.maxWidth
+                      : MediaQuery.of(context).size.width;
+                  final isCompact = cardWidth < 160;
+                  // responsive font sizes (titleFont not needed directly here)
+                  final descFont = isCompact ? 10.0 : 12.0;
+                  final smallTextFont = isCompact ? 10.0 : 11.0;
+                  final avatarSize = isCompact ? 22.0 : 28.0;
+                  final iconSize = isCompact ? 12.0 : 14.0;
+                  final progressHeight = 6.0;
 
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                  Text(
-                    title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 14,
-                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // Instructor name and rating row (more interactive feel)
-                  if (instructorName != null || instructorRating != null) ...[
-                    SizedBox(height: isCompact ? 4 : 6),
-                    Row(
-                      children: [
-                        // Instructor initial avatar
-                        Container(
-                          width: avatarSize,
-                          height: avatarSize,
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.darkSurface : AppTheme.primaryLight,
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            instructorName != null && instructorName!.isNotEmpty
-                                ? instructorName!.trim().split(' ').map((s) => s.isNotEmpty ? s[0] : '').take(2).join()
-                                : 'T',
-                            style: TextStyle(
-                              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                              fontSize: isCompact ? 10 : 12,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
                         ),
-                        SizedBox(width: isCompact ? 6 : 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (instructorName != null) ...[
-                                Text(
-                                  instructorName!,
-                                  style: TextStyle(
-                                    fontSize: isCompact ? 11 : 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      // Instructor name and rating row (more interactive feel)
+                      if (instructorName != null ||
+                          instructorRating != null) ...[
+                        SizedBox(height: isCompact ? 4 : 6),
+                        Row(
+                          children: [
+                            // Instructor initial avatar
+                            Container(
+                              width: avatarSize,
+                              height: avatarSize,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppTheme.darkSurface
+                                    : AppTheme.primaryLight,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                instructorName != null &&
+                                        instructorName!.isNotEmpty
+                                    ? instructorName!
+                                          .trim()
+                                          .split(' ')
+                                          .map((s) => s.isNotEmpty ? s[0] : '')
+                                          .take(2)
+                                          .join()
+                                    : 'T',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontSize: isCompact ? 10 : 12,
+                                  fontWeight: FontWeight.w700,
                                 ),
-                              ],
-                              Row(
+                              ),
+                            ),
+                            SizedBox(width: isCompact ? 6 : 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  if (instructorRating != null) ...[
-                                    Icon(Icons.star, size: iconSize, color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor),
-                                    SizedBox(width: isCompact ? 4 : 6),
+                                  if (instructorName != null) ...[
                                     Text(
-                                      instructorRating!.toStringAsFixed(1),
+                                      instructorName!,
                                       style: TextStyle(
-                                        fontSize: smallTextFont,
-                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                                        fontSize: isCompact ? 11 : 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isDark
+                                            ? AppTheme.darkTextPrimary
+                                            : AppTheme.textPrimary,
                                       ),
-                                    ),
-                                    SizedBox(width: isCompact ? 4 : 6),
-                                  ],
-                                  if (reviewCount != null) ...[
-                                    Text(
-                                      '(${reviewCount.toString()})',
-                                      style: TextStyle(
-                                        fontSize: isCompact ? 10 : 11,
-                                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
+                                  Row(
+                                    children: [
+                                      if (instructorRating != null) ...[
+                                        Icon(
+                                          Icons.star,
+                                          size: iconSize,
+                                          color: isDark
+                                              ? AppTheme.darkPrimaryLight
+                                              : AppTheme.primaryColor,
+                                        ),
+                                        SizedBox(width: isCompact ? 4 : 6),
+                                        Text(
+                                          instructorRating!.toStringAsFixed(1),
+                                          style: TextStyle(
+                                            fontSize: smallTextFont,
+                                            color: isDark
+                                                ? AppTheme.darkTextSecondary
+                                                : AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                        SizedBox(width: isCompact ? 4 : 6),
+                                      ],
+                                      if (reviewCount != null) ...[
+                                        Text(
+                                          '(${reviewCount.toString()})',
+                                          style: TextStyle(
+                                            fontSize: isCompact ? 10 : 11,
+                                            color: isDark
+                                                ? AppTheme.darkTextSecondary
+                                                : AppTheme.textSecondary,
+                                          ),
+                                        ),
+                                      ],
+                                    ],
+                                  ),
                                 ],
                               ),
+                            ),
+                          ],
+                        ),
+                      ],
+                      // For teacher view show quick stats (students, videos)
+                      if (isTeacherView) ...[
+                        SizedBox(height: isCompact ? 4 : 6),
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.people,
+                              size: iconSize,
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : Colors.grey.shade600,
+                            ),
+                            SizedBox(width: isCompact ? 6 : 8),
+                            Text(
+                              '${enrolledCount ?? 0} students',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppTheme.darkTextSecondary
+                                    : Colors.grey.shade700,
+                                fontSize: isCompact ? 11 : 12,
+                              ),
+                            ),
+                            SizedBox(width: isCompact ? 10 : 12),
+                            Icon(
+                              Icons.video_collection,
+                              size: iconSize,
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : Colors.grey.shade600,
+                            ),
+                            SizedBox(width: isCompact ? 6 : 8),
+                            Text(
+                              '${videoCount ?? 0} videos',
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppTheme.darkTextSecondary
+                                    : Colors.grey.shade700,
+                                fontSize: isCompact ? 11 : 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ] else if (description != null &&
+                          description!.isNotEmpty) ...[
+                        SizedBox(height: isCompact ? 4 : 6),
+                        Text(
+                          description!,
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
+                            fontSize: descFont,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        // show video count for student/explore cards in a compact manner
+                        if (!isTeacherView && videoCount != null) ...[
+                          SizedBox(height: isCompact ? 6 : 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.video_collection,
+                                size: iconSize,
+                                color: isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor,
+                              ),
+                              SizedBox(width: isCompact ? 6 : 8),
+                              Text(
+                                videoCount! > 1
+                                    ? '$videoCount videos'
+                                    : '$videoCount video',
+                                style: TextStyle(
+                                  fontSize: isCompact ? 11 : 12,
+                                  color: isDark
+                                      ? AppTheme.darkTextSecondary
+                                      : AppTheme.textSecondary,
+                                ),
+                              ), // Show private video indicator
+                              if (privateVideoCount != null &&
+                                  privateVideoCount! > 0) ...[
+                                SizedBox(width: isCompact ? 4 : 6),
+                                Tooltip(
+                                  message:
+                                      '$privateVideoCount private video${privateVideoCount! > 1 ? 's' : ''} (enroll to unlock)',
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          (isDark
+                                                  ? AppTheme.darkWarning
+                                                  : AppTheme.warning)
+                                              .withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.lock_outline,
+                                          size: isCompact ? 10 : 12,
+                                          color: isDark
+                                              ? AppTheme.darkWarning
+                                              : AppTheme.warning,
+                                        ),
+                                        SizedBox(width: 2),
+                                        Text(
+                                          '+$privateVideoCount',
+                                          style: TextStyle(
+                                            fontSize: isCompact ? 9 : 10,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark
+                                                ? AppTheme.darkWarning
+                                                : AppTheme.warning,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
-                        ),
+                        ],
                       ],
-                    ),
-                  ],
-                  // For teacher view show quick stats (students, videos)
-                  if (isTeacherView) ...[
-                    SizedBox(height: isCompact ? 4 : 6),
-                    Row(
-                      children: [
-                        Icon(Icons.people, size: iconSize, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
-                        SizedBox(width: isCompact ? 6 : 8),
-                        Text(
-                          '${enrolledCount ?? 0} students',
-                          style: TextStyle(
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-                            fontSize: isCompact ? 11 : 12,
-                          ),
-                        ),
-                        SizedBox(width: isCompact ? 10 : 12),
-                        Icon(Icons.video_collection, size: iconSize, color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade600),
-                        SizedBox(width: isCompact ? 6 : 8),
-                        Text(
-                          '${videoCount ?? 0} videos',
-                          style: TextStyle(
-                            color: isDark ? AppTheme.darkTextSecondary : Colors.grey.shade700,
-                            fontSize: isCompact ? 11 : 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ] else if (description != null && description!.isNotEmpty) ...[
-                    SizedBox(height: isCompact ? 4 : 6),
-                    Text(
-                      description!,
-                      style: TextStyle(
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                        fontSize: descFont,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    // show video count for student/explore cards in a compact manner
-                    if (!isTeacherView && videoCount != null) ...[
-                      SizedBox(height: isCompact ? 6 : 8),
-                      Row(
-                        children: [
-                          Icon(Icons.video_collection, size: iconSize, color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor),
-                          SizedBox(width: isCompact ? 6 : 8),
-                          Text(
-                            videoCount! > 1 ? '$videoCount videos' : '$videoCount video',
-                            style: TextStyle(
-                              fontSize: isCompact ? 11 : 12,
-                              color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      const SizedBox(height: 8),
+                      // Date placed above the primary action to make the card feel interactive
+                      if (createdAt != null) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: isCompact ? 2 : 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppTheme.darkSurface.withOpacity(0.9)
+                                  : Colors.black54,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              _formatDate(createdAt),
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: isCompact ? 10 : 11,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ),
-                        ],
+                        ),
+                        SizedBox(height: isCompact ? 4 : 6),
+                      ],
+                      // Show a progress bar for enrolled courses to make the card more interactive
+                      if (isEnrolled) ...[
+                        SizedBox(height: isCompact ? 4 : 6),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: progress.clamp(0.0, 1.0),
+                                  minHeight: progressHeight,
+                                  backgroundColor: isDark
+                                      ? Colors.white12
+                                      : Colors.grey.shade200,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    buttonColor,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            SizedBox(width: isCompact ? 6 : 8),
+                            Text(
+                              '${(progress * 100).toInt()}%',
+                              style: TextStyle(
+                                fontSize: isCompact ? 11 : 12,
+                                fontWeight: FontWeight.w700,
+                                color: isDark
+                                    ? AppTheme.darkTextPrimary
+                                    : AppTheme.textPrimary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        SizedBox(height: isCompact ? 6 : 8),
+                      ],
+                      Container(
+                        width: double.infinity,
+                        margin: const EdgeInsets.only(top: 6),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: buttonColor.withOpacity(0.4),
+                              blurRadius: 8,
+                              spreadRadius: 0,
+                              offset: const Offset(0, 3),
+                            ),
+                          ],
+                        ),
+                        child: ElevatedButton.icon(
+                          onPressed: isTeacherView
+                              ? (onTap ?? onEnroll)
+                              : (isEnrolled ? onTap : onEnroll),
+                          icon: Icon(
+                            isTeacherView
+                                ? Icons.settings
+                                : (isEnrolled
+                                      ? (progress >= 1.0
+                                            ? Icons.check_circle
+                                            : Icons.play_arrow_rounded)
+                                      : Icons.add_rounded),
+                            size: isCompact ? 14 : 16,
+                          ),
+                          label: Text(
+                            isTeacherView
+                                ? 'Manage'
+                                : (isEnrolled
+                                      ? (progress >= 1.0
+                                            ? 'Completed'
+                                            : 'Continue')
+                                      : 'Enroll'),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: buttonColor,
+                            foregroundColor: isDark
+                                ? const Color(0xFF1A1A2E)
+                                : Colors.white,
+                            minimumSize: Size(0, isCompact ? 36 : 40),
+                            padding: EdgeInsets.symmetric(
+                              horizontal: isCompact ? 8 : 10,
+                              vertical: isCompact ? 6 : 8,
+                            ),
+                            alignment: Alignment.center,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 0,
+                            textStyle: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ),
                     ],
-                  ],
-                  const SizedBox(height: 8),
-                  // Date placed above the primary action to make the card feel interactive
-                  if (createdAt != null) ...[
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: isCompact ? 2 : 4),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.darkSurface.withOpacity(0.9) : Colors.black54,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          _formatDate(createdAt),
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: isCompact ? 10 : 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ),
-                    SizedBox(height: isCompact ? 4 : 6),
-                  ],
-                  // Show a progress bar for enrolled courses to make the card more interactive
-                  if (isEnrolled) ...[
-                    SizedBox(height: isCompact ? 4 : 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: LinearProgressIndicator(
-                              value: progress.clamp(0.0, 1.0),
-                              minHeight: progressHeight,
-                              backgroundColor: isDark ? Colors.white12 : Colors.grey.shade200,
-                              valueColor: AlwaysStoppedAnimation<Color>(buttonColor),
-                            ),
-                          ),
-                        ),
-                        SizedBox(width: isCompact ? 6 : 8),
-                        Text(
-                          '${(progress * 100).toInt()}%',
-                          style: TextStyle(
-                            fontSize: isCompact ? 11 : 12,
-                            fontWeight: FontWeight.w700,
-                            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SizedBox(height: isCompact ? 6 : 8),
-                  ],
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(top: 6),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: [
-                        BoxShadow(
-                          color: buttonColor.withOpacity(0.4),
-                          blurRadius: 8,
-                          spreadRadius: 0,
-                          offset: const Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: ElevatedButton.icon(
-                      onPressed: isTeacherView ? (onTap ?? onEnroll) : (isEnrolled ? onTap : onEnroll),
-                      icon: Icon(
-                        isTeacherView ? Icons.settings : (isEnrolled ? Icons.play_arrow_rounded : Icons.add_rounded),
-                        size: isCompact ? 14 : 16,
-                      ),
-                      label: Text(
-                        isTeacherView ? 'Manage' : (isEnrolled ? 'Continue' : 'Enroll'),
-                        style: const TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                        style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonColor,
-                        foregroundColor: Colors.white,
-                        minimumSize: Size(0, isCompact ? 36 : 40),
-                        padding: EdgeInsets.symmetric(horizontal: isCompact ? 8 : 10, vertical: isCompact ? 6 : 8),
-                        alignment: Alignment.center,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        elevation: 0,
-                        textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                      ),
-                    ),
-                  ),
-                ],
-                );
-              }),
+                  );
+                },
+              ),
             ),
           ],
         ),

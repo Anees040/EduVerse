@@ -51,6 +51,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   bool _isBookmarked = false;
   Duration _currentVideoPosition = Duration.zero;
   bool _isVideosExpanded = true; // For collapsible video list
+  int _privateVideoCount = 0; // Number of private videos
 
   @override
   void initState() {
@@ -100,6 +101,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         _overallProgress = cachedData['overallProgress'] ?? 0.0;
         _hasReviewed = cachedData['hasReviewed'] ?? false;
         _teacherUid = cachedData['teacherUid'];
+        _privateVideoCount = cachedData['privateVideoCount'] ?? 0;
         _currentVideoIndex = _determineStartIndex(_videos, _progress);
         _isLoading = false;
       });
@@ -126,6 +128,9 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
           studentUid: _studentUid,
           courseUid: widget.courseUid,
         ),
+        _courseService.getCourseVideos(
+          courseUid: widget.courseUid,
+        ), // Get all videos for count
       ]);
 
       final videos = results[0] as List<Map<String, dynamic>>;
@@ -133,6 +138,12 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       final overallProgress = results[2] as double;
       final courseDetails = results[3] as Map<String, dynamic>?;
       final hasReviewed = results[4] as bool;
+      final allVideos = results[5] as List<Map<String, dynamic>>;
+
+      // Calculate private video count
+      final totalCount = allVideos.length;
+      final publicCount = videos.length;
+      final privateCount = totalCount - publicCount;
 
       // Cache the results
       _cacheService.set(cacheKey, {
@@ -141,6 +152,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         'overallProgress': overallProgress,
         'hasReviewed': hasReviewed,
         'teacherUid': courseDetails?['teacherUid'],
+        'privateVideoCount': privateCount,
       });
 
       // Determine start index: if notification requested a specific video, use it
@@ -153,6 +165,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         _overallProgress = overallProgress;
         _hasReviewed = hasReviewed;
         _teacherUid = courseDetails?['teacherUid'];
+        _privateVideoCount = privateCount;
         // If notification provided a timestamp for the initial video, seed local progress
         if (widget.initialVideoId != null &&
             widget.initialVideoTimestampSeconds != null) {
@@ -739,15 +752,41 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                               .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      '${_videos.length} videos',
-                      style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkPrimaryLight
-                            : AppTheme.primaryColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '${_videos.length} video${_videos.length != 1 ? 's' : ''}',
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (_privateVideoCount > 0) ...[
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.lock,
+                            size: 12,
+                            color: isDark
+                                ? AppTheme.darkWarning
+                                : AppTheme.warning,
+                          ),
+                          const SizedBox(width: 2),
+                          Text(
+                            '+$_privateVideoCount',
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkWarning
+                                  : AppTheme.warning,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],

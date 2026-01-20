@@ -674,9 +674,14 @@ class CourseService {
           // Determine video count: support both Map and List representations,
           // prefer teacher's course node, otherwise check global /courses node
           int videoCount = 0;
+          int publicVideoCount = 0;
+          int privateVideoCount = 0;
+          
+          Map<dynamic, dynamic>? videosMap;
           if (courseData['videos'] != null) {
             final vidsVal = courseData['videos'];
             if (vidsVal is Map) {
+              videosMap = vidsVal;
               videoCount = vidsVal.length;
             } else if (vidsVal is List) {
               videoCount = vidsVal.length;
@@ -685,6 +690,7 @@ class CourseService {
               courseData['video'] != null) {
             // Legacy single video fields
             videoCount = 1;
+            publicVideoCount = 1;
           } else {
             final videosSnap = await _db
                 .child('courses')
@@ -694,13 +700,29 @@ class CourseService {
             if (videosSnap.exists && videosSnap.value != null) {
               final vidsVal = videosSnap.value;
               if (vidsVal is Map) {
-                final Map<dynamic, dynamic> vidsMap = vidsVal;
-                videoCount = vidsMap.length;
+                videosMap = vidsVal;
+                videoCount = vidsVal.length;
               } else if (vidsVal is List) {
                 final List<dynamic> vidsList = vidsVal;
                 videoCount = vidsList.length;
               }
             }
+          }
+          
+          // Count public vs private videos
+          if (videosMap != null) {
+            videosMap.forEach((key, value) {
+              final videoData = value is Map ? value : {};
+              final isPublic = videoData['isPublic'];
+              if (isPublic == false) {
+                privateVideoCount++;
+              } else {
+                publicVideoCount++;
+              }
+            });
+          } else if (publicVideoCount == 0 && videoCount > 0) {
+            // For list-type videos or unknown, assume all public
+            publicVideoCount = videoCount;
           }
 
           allCourses.add({
@@ -711,7 +733,9 @@ class CourseService {
             "reviewCount": reviewCount,
             "courseRating": stats['averageRating'] ?? 0.0,
             "courseReviewCount": stats['reviewCount'] ?? 0,
-            "videoCount": videoCount,
+            "videoCount": publicVideoCount,
+            "privateVideoCount": privateVideoCount,
+            "totalVideoCount": videoCount,
             ...courseData,
           });
         }
