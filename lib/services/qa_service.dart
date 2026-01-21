@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/notification_service.dart';
 
@@ -178,7 +179,7 @@ class QAService {
         );
       } catch (e) {
         // Don't fail if notification fails
-        print('Failed to send notification: $e');
+        debugPrint('Failed to send notification: $e');
       }
     }
   }

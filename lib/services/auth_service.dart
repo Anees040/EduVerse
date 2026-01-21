@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -46,9 +47,13 @@ class AuthService {
         }
 
         await _db.child(role).child(user.uid).set(userData);
-        
+
         // Register email in public lookup table for password reset feature
-        final emailKey = email.toLowerCase().trim().replaceAll('.', '_').replaceAll('@', '_at_');
+        final emailKey = email
+            .toLowerCase()
+            .trim()
+            .replaceAll('.', '_')
+            .replaceAll('@', '_at_');
         await _db.child('registered_emails').child(emailKey).set({
           'email': email.toLowerCase().trim(),
           'role': role,
@@ -133,37 +138,45 @@ class AuthService {
   // Returns null if within limit, or error message if exceeded
   Future<String?> checkPasswordResetRateLimit(String email) async {
     final normalizedEmail = email.toLowerCase().trim();
-    final emailKey = normalizedEmail.replaceAll('.', '_').replaceAll('@', '_at_');
-    
+    final emailKey = normalizedEmail
+        .replaceAll('.', '_')
+        .replaceAll('@', '_at_');
+
     try {
-      final snapshot = await _db.child('password_reset_attempts').child(emailKey).get();
-      
+      final snapshot = await _db
+          .child('password_reset_attempts')
+          .child(emailKey)
+          .get();
+
       if (!snapshot.exists || snapshot.value == null) {
         return null; // No previous attempts, within limit
       }
-      
+
       final data = Map<String, dynamic>.from(snapshot.value as Map);
       final attempts = data['attempts'] as List<dynamic>? ?? [];
-      
+
       final currentTime = DateTime.now().millisecondsSinceEpoch;
       final oneWeekMs = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-      
+
       // Filter to only count attempts within the last week
       final recentAttempts = attempts.where((timestamp) {
         return (currentTime - (timestamp as int)) < oneWeekMs;
       }).toList();
-      
+
       if (recentAttempts.length >= 2) {
         // Calculate when the oldest attempt will expire
-        final oldestAttempt = recentAttempts.reduce((a, b) => 
-          (a as int) < (b as int) ? a : b) as int;
-        final daysLeft = ((oldestAttempt + oneWeekMs - currentTime) / (24 * 60 * 60 * 1000)).ceil();
+        final oldestAttempt =
+            recentAttempts.reduce((a, b) => (a as int) < (b as int) ? a : b)
+                as int;
+        final daysLeft =
+            ((oldestAttempt + oneWeekMs - currentTime) / (24 * 60 * 60 * 1000))
+                .ceil();
         return 'You have reached the maximum of 2 password resets per week. Please try again in $daysLeft day(s).';
       }
-      
+
       return null; // Within limit
     } catch (e) {
-      print('Error checking rate limit: $e');
+      debugPrint('Error checking rate limit: $e');
       return null; // If we can't check, allow the attempt
     }
   }
@@ -210,18 +223,23 @@ class AuthService {
   Future<bool> checkEmailExists(String email) async {
     try {
       final normalizedEmail = email.toLowerCase().trim();
-      final emailKey = normalizedEmail.replaceAll('.', '_').replaceAll('@', '_at_');
-      
+      final emailKey = normalizedEmail
+          .replaceAll('.', '_')
+          .replaceAll('@', '_at_');
+
       // Check in registered_emails collection (public read access)
-      final snapshot = await _db.child('registered_emails').child(emailKey).get();
-      
+      final snapshot = await _db
+          .child('registered_emails')
+          .child(emailKey)
+          .get();
+
       if (snapshot.exists && snapshot.value != null) {
         return true;
       }
-      
+
       return false; // Email not found
     } catch (e) {
-      print('Error checking email exists: $e');
+      debugPrint('Error checking email exists: $e');
       throw 'Unable to verify email. Please try again.';
     }
   }

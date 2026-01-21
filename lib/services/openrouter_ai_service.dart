@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import 'package:http/http.dart' as http;
 
 import '../services/ai_service.dart';
@@ -26,7 +26,8 @@ class OpenRouterAiService implements AiService {
 
     final url = Uri.parse(_endpoint);
 
-    final system = systemPrompt ??
+    final system =
+        systemPrompt ??
         'You are EduVerse AI, a helpful educational assistant. Provide clear, concise, and educational responses.';
 
     final body = {
@@ -40,25 +41,30 @@ class OpenRouterAiService implements AiService {
     };
 
     if (kDebugMode) {
-      print('[OpenRouter] Sending request to $_model');
+      debugPrint('[OpenRouter] Sending request to $_model');
     }
 
     try {
-      final resp = await http.post(url,
-          headers: {
-            'Authorization': 'Bearer $apiKey',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(body)).timeout(const Duration(seconds: 60));
+      final resp = await http
+          .post(
+            url,
+            headers: {
+              'Authorization': 'Bearer $apiKey',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body),
+          )
+          .timeout(const Duration(seconds: 60));
 
-      if (kDebugMode) print('[OpenRouter] status: ${resp.statusCode}');
+      if (kDebugMode) debugPrint('[OpenRouter] status: ${resp.statusCode}');
 
       if (resp.statusCode == 200 || resp.statusCode == 201) {
         final data = jsonDecode(resp.body);
         // Expecting OpenAI-like response: choices[0].message.content
         try {
           final content = data['choices']?[0]?['message']?['content'];
-          if (content is String && content.trim().isNotEmpty) return content.trim();
+          if (content is String && content.trim().isNotEmpty)
+            return content.trim();
         } catch (_) {}
 
         // Fallback: try choices[0].text
@@ -89,7 +95,8 @@ class OpenRouterAiService implements AiService {
       return '❌ OpenRouter API error ${resp.statusCode}';
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      if (msg.contains('timeout')) return '⏱️ Request timed out. Please try again.';
+      if (msg.contains('timeout'))
+        return '⏱️ Request timed out. Please try again.';
       if (msg.contains('socket') || msg.contains('connection')) {
         return '🌐 Network error. Please check your internet connection.';
       }

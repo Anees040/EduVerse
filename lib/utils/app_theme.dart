@@ -225,7 +225,9 @@ class AppTheme {
     final bgColor = backgroundColor ?? (isDark ? darkAccent : primaryColor);
     return ElevatedButton.styleFrom(
       backgroundColor: bgColor,
-      foregroundColor: isDark ? const Color(0xFFF5FAFF) : const Color(0xFFF5F5F5),
+      foregroundColor: isDark
+          ? const Color(0xFFF5FAFF)
+          : const Color(0xFFF5F5F5),
       padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
       elevation: isDark ? 4 : 4,
@@ -644,12 +646,15 @@ class AppTheme {
         indicatorSize: TabBarIndicatorSize.tab,
       ),
 
-      // Snackbar Theme
+      // Snackbar Theme - Improved: centered, themed, shorter duration
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: textPrimary,
-        contentTextStyle: const TextStyle(color: Colors.white),
+        backgroundColor: primaryColor,
+        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        elevation: 6,
+        width: 320, // Centered width, not full width
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
 
       // Dialog Theme
@@ -864,16 +869,18 @@ class AppTheme {
         labelStyle: TextStyle(fontWeight: FontWeight.w600),
       ),
 
-      // Snackbar Theme
+      // Snackbar Theme - Improved: centered, themed, shorter duration
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: darkElevated,
-        contentTextStyle: const TextStyle(color: darkTextPrimary),
+        backgroundColor: darkCard,
+        contentTextStyle: const TextStyle(color: darkTextPrimary, fontSize: 14),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
           side: const BorderSide(color: darkBorder),
         ),
         elevation: 8,
+        width: 320, // Centered width, not full width
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       ),
 
       // Dialog Theme

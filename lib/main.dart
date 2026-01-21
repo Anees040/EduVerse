@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:provider/provider.dart';
@@ -13,24 +14,25 @@ Future<void> main() async {
   try {
     // Initialize Firebase and dotenv in parallel for faster startup
     await Future.wait([
-      Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform,
-      ),
+      Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
       dotenv.load(fileName: ".env").catchError((error) {
         // If .env file is not found, continue anyway
-        print('Warning: Could not load .env file: $error');
+        debugPrint('Warning: Could not load .env file: $error');
         return;
       }),
     ]);
-    
+
     // Enable Firebase Database persistence for offline support and faster reads
-    FirebaseDatabase.instance.setPersistenceEnabled(true);
+    // Note: setPersistenceEnabled is not supported on web platform
+    if (!kIsWeb) {
+      FirebaseDatabase.instance.setPersistenceEnabled(true);
+    }
     // Keep synced data for faster access
     FirebaseDatabase.instance.ref().keepSynced(true);
   } catch (e) {
-    print('Initialization error: $e');
+    debugPrint('Initialization error: $e');
   }
-// Run the app with ThemeService provider
+  // Run the app with ThemeService provider
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeService(),
