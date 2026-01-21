@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:firebase_database/firebase_database.dart';
 
 class NotificationService {
@@ -170,12 +171,12 @@ class NotificationService {
     final studentsSnapshot = await db.child('student').get();
 
     if (!studentsSnapshot.exists || studentsSnapshot.value == null) {
-      print('No students found to notify');
+      debugPrint('No students found to notify');
       return;
     }
 
     final students = Map<String, dynamic>.from(studentsSnapshot.value as Map);
-    print(
+    debugPrint(
       'Notifying ${students.length} students about new course: $courseName',
     );
 
@@ -192,9 +193,9 @@ class NotificationService {
           relatedCourseId: courseId,
           fromUid: teacherUid,
         );
-        print('Notification sent to student: $studentUid');
+        debugPrint('Notification sent to student: $studentUid');
       } catch (e) {
-        print('Failed to notify student $studentUid: $e');
+        debugPrint('Failed to notify student $studentUid: $e');
       }
     }
   }

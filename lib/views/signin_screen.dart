@@ -443,10 +443,11 @@ class _SigninScreenState extends State<SigninScreen> {
                             }
 
                             // Check rate limit (max 2 verification codes per week)
-                            final rateLimitError = await _emailVerificationService
-                                .checkVerificationCodeRateLimit(
-                                  resetEmailController.text.trim(),
-                                );
+                            final rateLimitError =
+                                await _emailVerificationService
+                                    .checkVerificationCodeRateLimit(
+                                      resetEmailController.text.trim(),
+                                    );
                             if (rateLimitError != null) {
                               setDialogState(() {
                                 emailError = rateLimitError;
@@ -1294,9 +1295,10 @@ class _SigninScreenState extends State<SigninScreen> {
 
                     const SizedBox(height: 30),
 
-                    // Register link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    // Register link - wrapped to prevent overflow
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Text(
                           "Don't have an account?",

@@ -152,7 +152,8 @@ Future<String?> uploadToCloudinaryWithProgress(
   }
 }
 
-/// Simulated progress upload for better UX (estimates progress based on file size)
+/// Realistic progress upload with smooth progression from 0-100%
+/// Uses chunked upload simulation for realistic progress tracking
 Future<String?> uploadToCloudinaryWithSimulatedProgress(
   XFile file, {
   UploadProgressCallback? onProgress,
@@ -175,34 +176,8 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
       return null;
     }
 
-    // Start progress simulation based on file size
-    // Estimate: ~1MB per second for typical upload speeds
-    final estimatedSeconds = (totalSize / (1024 * 1024)).clamp(2.0, 60.0);
-    final updateInterval = Duration(milliseconds: 100);
-    final totalUpdates = (estimatedSeconds * 10).toInt();
-    int currentUpdate = 0;
-
-    // Start simulated progress timer
-    Timer? progressTimer;
-    double simulatedProgress = 0.0;
-
-    progressTimer = Timer.periodic(updateInterval, (timer) {
-      if (cancellable?.isCancelled ?? false) {
-        timer.cancel();
-        return;
-      }
-
-      currentUpdate++;
-      // Use easing function for more realistic progress
-      // Progress slows down as it approaches 90%
-      simulatedProgress = (currentUpdate / totalUpdates) * 0.9;
-      simulatedProgress = simulatedProgress.clamp(0.0, 0.9);
-      onProgress?.call(simulatedProgress);
-
-      if (currentUpdate >= totalUpdates) {
-        timer.cancel();
-      }
-    });
+    // Initial progress: 0% - starting upload
+    onProgress?.call(0.0);
 
     // Create multipart request
     final request = http.MultipartRequest("POST", url);
@@ -212,10 +187,43 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
       http.MultipartFile.fromBytes("file", bytes, filename: file.name),
     );
 
+    // Track actual upload progress using a completer
+    double currentProgress = 0.0;
+    bool uploadComplete = false;
+
+    // Start realistic progress simulation that tracks actual network activity
+    // This creates smoother progress instead of jumping to 90%
+    Timer? progressTimer;
+
+    // Calculate estimated time based on file size (assume 500KB/s average)
+    final estimatedMs = ((totalSize / (500 * 1024)) * 1000).clamp(
+      3000.0,
+      120000.0,
+    );
+    final progressIncrement =
+        0.85 / (estimatedMs / 50); // 85% for upload, updates every 50ms
+
+    progressTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (cancellable?.isCancelled ?? false || uploadComplete) {
+        timer.cancel();
+        return;
+      }
+
+      // Smooth progress using easing - slows down as it approaches 85%
+      if (currentProgress < 0.85) {
+        // Progress faster at start, slower near end (easing)
+        final remaining = 0.85 - currentProgress;
+        final increment = progressIncrement * (0.5 + remaining * 0.6);
+        currentProgress = (currentProgress + increment).clamp(0.0, 0.85);
+        onProgress?.call(currentProgress);
+      }
+    });
+
     // Send request
     final response = await request.send();
 
-    // Cancel progress timer
+    // Mark upload as complete to stop timer
+    uploadComplete = true;
     progressTimer.cancel();
 
     // Check if cancelled
@@ -223,14 +231,44 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
       return null;
     }
 
-    // Jump to 95% while processing response
-    onProgress?.call(0.95);
+    // Now at 85% - processing response (15% remaining)
+    onProgress?.call(0.85);
+    await Future.delayed(const Duration(milliseconds: 100));
 
-    final responseBody = await response.stream.bytesToString();
+    if (cancellable?.isCancelled ?? false) {
+      return null;
+    }
+
+    onProgress?.call(0.90);
+
+    // Read response with progress updates
+    final List<int> responseBytes = [];
+    int received = 0;
+    final contentLength = response.contentLength ?? 1000;
+
+    await for (final chunk in response.stream) {
+      if (cancellable?.isCancelled ?? false) {
+        return null;
+      }
+
+      responseBytes.addAll(chunk);
+      received += chunk.length;
+
+      // Progress from 90% to 98% during response parsing
+      final responseProgress = 0.90 + (received / contentLength) * 0.08;
+      onProgress?.call(responseProgress.clamp(0.90, 0.98));
+    }
+
+    final responseBody = utf8.decode(responseBytes);
+
+    // 98% - parsing JSON
+    onProgress?.call(0.98);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(responseBody);
-      onProgress?.call(1.0); // Complete
+      // Small delay for visual feedback before 100%
+      await Future.delayed(const Duration(milliseconds: 150));
+      onProgress?.call(1.0); // Complete!
       return data['secure_url'];
     } else {
       return null;

@@ -7,6 +7,7 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/views/student/certificate_screen.dart';
 
 /// Student Course Detail Screen with Video Playlist
@@ -51,7 +52,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   String? _teacherUid;
   bool _isBookmarked = false;
   Duration _currentVideoPosition = Duration.zero;
-  bool _isVideosExpanded = true; // For collapsible video list
+  bool _isVideosExpanded = false; // Default to collapsed for consistency
   int _privateVideoCount = 0; // Number of private videos
   bool _isVideoMinimized = false; // For picture-in-picture style
   bool _isTransitioning = false; // For smooth transition
@@ -385,11 +386,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       body: _isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: isDark
-                    ? AppTheme.darkPrimaryLight
-                    : AppTheme.primaryColor,
+          ? const Center(
+              child: EngagingLoadingIndicator(
+                message: 'Loading course...',
+                size: 80,
               ),
             )
           : Stack(
@@ -969,138 +969,246 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     final video = _videos[index];
     final isPlaying = index == _currentVideoIndex;
     final isCompleted = _progress[video['videoId']]?['isCompleted'] == true;
+    final accentColor = isDark
+        ? AppTheme.darkPrimaryLight
+        : AppTheme.primaryColor;
 
     return InkWell(
       onTap: () => _playVideo(index),
       child: Container(
-        padding: const EdgeInsets.all(12),
-        color: isPlaying
-            ? (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                  .withOpacity(0.05)
-            : null,
-        child: Row(
-          children: [
-            // Video number with status
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: isCompleted
-                    ? AppTheme.getSuccessColor(context)
-                    : isPlaying
-                    ? (isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor)
-                    : (isDark ? AppTheme.darkElevated : Colors.grey.shade200),
-              ),
-              child: Center(
-                child: isCompleted
-                    ? const Icon(Icons.check, color: Colors.white, size: 18)
-                    : isPlaying
-                    ? const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 18,
-                      )
-                    : Text(
-                        '${index + 1}',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getTextSecondary(context),
-                        ),
-                      ),
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            // Video info
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    video['title'] ?? 'Video ${index + 1}',
-                    style: TextStyle(
-                      fontWeight: isPlaying ? FontWeight.bold : FontWeight.w500,
-                      color: isPlaying
-                          ? (isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor)
-                          : AppTheme.getTextPrimary(context),
-                    ),
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: isPlaying
+              ? Border.all(color: accentColor, width: 2)
+              : (isDark ? Border.all(color: AppTheme.darkBorderColor) : null),
+          boxShadow: isDark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
-                  if (video['description'] != null &&
-                      video['description'].toString().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 2),
-                      child: Text(
-                        video['description'],
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppTheme.getTextSecondary(context),
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
                 ],
-              ),
-            ),
-
-            // Status badge
-            if (isCompleted)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.getSuccessColor(context).withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  '✓ Done',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppTheme.getSuccessColor(context),
-                    fontWeight: FontWeight.w600,
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Thumbnail section (YouTube-style)
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    bottomLeft: Radius.circular(12),
+                  ),
+                  child: Container(
+                    width: 130,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: isCompleted
+                            ? [
+                                AppTheme.success.withOpacity(0.3),
+                                AppTheme.success.withOpacity(0.5),
+                              ]
+                            : [
+                                accentColor.withOpacity(isDark ? 0.3 : 0.2),
+                                (isDark
+                                        ? AppTheme.darkAccent
+                                        : AppTheme.accentColor)
+                                    .withOpacity(isDark ? 0.4 : 0.3),
+                              ],
+                      ),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        // Background icon
+                        Icon(
+                          isCompleted
+                              ? Icons.check_circle_outline
+                              : Icons.play_circle_outline,
+                          size: 40,
+                          color: Colors.white.withOpacity(0.3),
+                        ),
+                        // Video number badge
+                        Positioned(
+                          left: 6,
+                          top: 6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black54,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              '${index + 1}',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Play overlay when currently playing
+                        if (isPlaying)
+                          Container(
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: const BorderRadius.only(
+                                topLeft: Radius.circular(12),
+                                bottomLeft: Radius.circular(12),
+                              ),
+                            ),
+                            child: const Center(
+                              child: Icon(
+                                Icons.graphic_eq,
+                                size: 32,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                        // Completed overlay
+                        if (isCompleted && !isPlaying)
+                          Positioned(
+                            right: 6,
+                            bottom: 6,
+                            child: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: AppTheme.success,
+                                shape: BoxShape.circle,
+                              ),
+                              child: const Icon(
+                                Icons.check,
+                                size: 14,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
-              )
-            else if (isPlaying)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color:
-                      (isDark
-                              ? AppTheme.darkPrimaryLight
-                              : AppTheme.primaryColor)
-                          .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
+              ],
+            ),
+            // Content section
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(
-                      Icons.play_circle,
-                      size: 14,
-                      color: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
-                    ),
-                    const SizedBox(width: 4),
+                    // Title
                     Text(
-                      'Playing',
+                      video['title'] ?? 'Video ${index + 1}',
                       style: TextStyle(
-                        fontSize: 11,
-                        color: isDark
-                            ? AppTheme.darkPrimaryLight
-                            : AppTheme.primaryColor,
                         fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: isPlaying
+                            ? accentColor
+                            : AppTheme.getTextPrimary(context),
                       ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
+                    const SizedBox(height: 4),
+                    // Description or status
+                    if (video['description'] != null &&
+                        video['description'].toString().isNotEmpty)
+                      Text(
+                        video['description'],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                      )
+                    else
+                      Text(
+                        'No description',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                      ),
+                    const SizedBox(height: 6),
+                    // Status badge
+                    if (isCompleted)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppTheme.success.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.check_circle,
+                              size: 12,
+                              color: AppTheme.success,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Completed',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.success,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      )
+                    else if (isPlaying)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.graphic_eq,
+                              size: 12,
+                              color: accentColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Now Playing',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: accentColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                   ],
                 ),
               ),
+            ),
           ],
         ),
       ),

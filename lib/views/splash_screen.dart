@@ -59,7 +59,7 @@ class _SplashscreenState extends State<Splashscreen> with SingleTickerProviderSt
         ),
       );
     } catch (e) {
-      print('Navigation error: $e');
+      debugPrint('Navigation error: $e');
       if (mounted) {
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(builder: (_) => const SigninScreen()),

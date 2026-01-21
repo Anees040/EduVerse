@@ -215,13 +215,25 @@ class UploadStatusCard extends StatelessWidget {
                 Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        'You can navigate away. Upload continues in background.',
-                        style: TextStyle(
-                          color: AppTheme.getTextSecondary(context),
-                          fontSize: 11,
-                          fontStyle: FontStyle.italic,
-                        ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.check_circle_outline,
+                            size: 14,
+                            color: AppTheme.success,
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Safe to navigate away',
+                              style: TextStyle(
+                                color: AppTheme.success,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     if (hasMoreTasks)
@@ -242,7 +254,9 @@ class UploadStatusCard extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '+${allTasks.length - 1} more',
+                              allTasks.length > 3
+                                  ? 'View All (${allTasks.length})'
+                                  : '+${allTasks.length - 1} more',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -280,6 +294,8 @@ class UploadTasksBottomSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
+    final screenHeight = MediaQuery.of(context).size.height;
+    final maxHeight = screenHeight * 0.7; // Max 70% of screen height
 
     return ListenableBuilder(
       listenable: BackgroundUploadService(),
@@ -287,7 +303,18 @@ class UploadTasksBottomSheet extends StatelessWidget {
         final service = BackgroundUploadService();
         final tasks = service.uploadTasks;
 
+        // Calculate active uploads count
+        final activeUploads = tasks
+            .where(
+              (t) =>
+                  t.status == UploadStatus.uploading ||
+                  t.status == UploadStatus.processing ||
+                  t.status == UploadStatus.pending,
+            )
+            .length;
+
         return Container(
+          constraints: BoxConstraints(maxHeight: maxHeight),
           decoration: BoxDecoration(
             color: AppTheme.getCardColor(context),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
@@ -305,7 +332,7 @@ class UploadTasksBottomSheet extends StatelessWidget {
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
-              // Title
+              // Title with count badge
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -325,6 +352,33 @@ class UploadTasksBottomSheet extends StatelessWidget {
                         color: AppTheme.getTextPrimary(context),
                       ),
                     ),
+                    if (activeUploads > 0) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (isDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          '$activeUploads active',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
@@ -337,7 +391,7 @@ class UploadTasksBottomSheet extends StatelessWidget {
                 ),
               ),
               const Divider(height: 1),
-              // Tasks list
+              // Tasks list - now scrollable
               if (tasks.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(32),
@@ -359,17 +413,20 @@ class UploadTasksBottomSheet extends StatelessWidget {
                   ),
                 )
               else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: tasks.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final task = tasks[index];
-                    return _buildTaskTile(context, task, isDark);
-                  },
+                Flexible(
+                  child: ListView.separated(
+                    shrinkWrap: true,
+                    padding: EdgeInsets.only(
+                      bottom: MediaQuery.of(context).padding.bottom + 16,
+                    ),
+                    itemCount: tasks.length,
+                    separatorBuilder: (_, __) => const Divider(height: 1),
+                    itemBuilder: (context, index) {
+                      final task = tasks[index];
+                      return _buildTaskTile(context, task, isDark);
+                    },
+                  ),
                 ),
-              SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
             ],
           ),
         );
