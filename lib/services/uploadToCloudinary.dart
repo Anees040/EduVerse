@@ -187,21 +187,19 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
       http.MultipartFile.fromBytes("file", bytes, filename: file.name),
     );
 
-    // Track actual upload progress using a completer
+    // Track upload progress
     double currentProgress = 0.0;
     bool uploadComplete = false;
 
-    // Start realistic progress simulation that tracks actual network activity
-    // This creates smoother progress instead of jumping to 90%
-    Timer? progressTimer;
+    // Calculate estimated time based on file size
+    // Assume ~300KB/s average mobile speed, adjust based on size
+    final estimatedSeconds = (totalSize / (300 * 1024)).clamp(2.0, 60.0);
+    final totalSteps = (estimatedSeconds * 20).round(); // 20 updates per second
+    final progressPerStep = 0.80 / totalSteps; // Upload phase is 0-80%
 
-    // Calculate estimated time based on file size (assume 500KB/s average)
-    final estimatedMs = ((totalSize / (500 * 1024)) * 1000).clamp(
-      3000.0,
-      120000.0,
-    );
-    final progressIncrement =
-        0.85 / (estimatedMs / 50); // 85% for upload, updates every 50ms
+    // Start progress simulation timer
+    Timer? progressTimer;
+    int stepCount = 0;
 
     progressTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
       if (cancellable?.isCancelled ?? false || uploadComplete) {
@@ -209,12 +207,14 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
         return;
       }
 
-      // Smooth progress using easing - slows down as it approaches 85%
-      if (currentProgress < 0.85) {
-        // Progress faster at start, slower near end (easing)
-        final remaining = 0.85 - currentProgress;
-        final increment = progressIncrement * (0.5 + remaining * 0.6);
-        currentProgress = (currentProgress + increment).clamp(0.0, 0.85);
+      stepCount++;
+      if (currentProgress < 0.80) {
+        // Smooth progression with slight randomness for realism
+        final jitter = (stepCount % 5 == 0) ? 0.005 : 0.0;
+        currentProgress = (currentProgress + progressPerStep + jitter).clamp(
+          0.0,
+          0.80,
+        );
         onProgress?.call(currentProgress);
       }
     });
@@ -231,17 +231,17 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
       return null;
     }
 
-    // Now at 85% - processing response (15% remaining)
-    onProgress?.call(0.85);
-    await Future.delayed(const Duration(milliseconds: 100));
+    // Progress 80% -> 85%: Server received file
+    for (double p = 0.80; p <= 0.85; p += 0.01) {
+      await Future.delayed(const Duration(milliseconds: 30));
+      onProgress?.call(p);
+    }
 
     if (cancellable?.isCancelled ?? false) {
       return null;
     }
 
-    onProgress?.call(0.90);
-
-    // Read response with progress updates
+    // Read response with progress updates (85% -> 95%)
     final List<int> responseBytes = [];
     int received = 0;
     final contentLength = response.contentLength ?? 1000;
@@ -254,20 +254,22 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
       responseBytes.addAll(chunk);
       received += chunk.length;
 
-      // Progress from 90% to 98% during response parsing
-      final responseProgress = 0.90 + (received / contentLength) * 0.08;
-      onProgress?.call(responseProgress.clamp(0.90, 0.98));
+      // Progress from 85% to 95% during response reading
+      final responseProgress = 0.85 + (received / contentLength) * 0.10;
+      onProgress?.call(responseProgress.clamp(0.85, 0.95));
     }
 
     final responseBody = utf8.decode(responseBytes);
 
-    // 98% - parsing JSON
+    // 95% -> 98%: Parsing response
+    onProgress?.call(0.96);
+    await Future.delayed(const Duration(milliseconds: 50));
     onProgress?.call(0.98);
 
     if (response.statusCode == 200) {
       final data = jsonDecode(responseBody);
-      // Small delay for visual feedback before 100%
-      await Future.delayed(const Duration(milliseconds: 150));
+      // Final progress to 100%
+      await Future.delayed(const Duration(milliseconds: 100));
       onProgress?.call(1.0); // Complete!
       return data['secure_url'];
     } else {

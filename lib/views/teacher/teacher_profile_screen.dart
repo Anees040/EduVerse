@@ -8,6 +8,7 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/preferences_service.dart';
 import 'package:eduverse/views/signin_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   final String uid;
@@ -56,21 +57,24 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     // Check cache first
     final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
     if (cachedData != null) {
-      setState(() {
-        userName = cachedData['userName'] ?? "Teacher";
-        email = cachedData['email'] ?? "...";
-        joinedDate = cachedData['joinedDate'];
-        totalCourses = cachedData['totalCourses'] ?? 0;
-        totalStudents = cachedData['totalStudents'] ?? 0;
-        averageRating = cachedData['averageRating'] ?? 0.0;
-        reviewCount = cachedData['reviewCount'] ?? 0;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          userName = cachedData['userName'] ?? "Teacher";
+          email = cachedData['email'] ?? "...";
+          joinedDate = cachedData['joinedDate'];
+          totalCourses = cachedData['totalCourses'] ?? 0;
+          totalStudents = cachedData['totalStudents'] ?? 0;
+          averageRating = cachedData['averageRating'] ?? 0.0;
+          reviewCount = cachedData['reviewCount'] ?? 0;
+          isLoading = false;
+        });
+      }
       // Refresh in background
       _refreshProfileInBackground(uid, cacheKey);
       return;
     }
 
+    if (!mounted) return;
     setState(() => isLoading = true);
 
     try {
@@ -99,22 +103,26 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           'reviewCount': ratingStats['reviewCount'] ?? 0,
         });
 
-        setState(() {
-          userName = userData['name'] ?? "Teacher";
-          email = userData['email'] ?? "...";
-          joinedDate = userData['createdAt'];
-          totalCourses = courses.length;
-          totalStudents = uniqueStudents;
-          averageRating = ratingStats['averageRating'] ?? 0.0;
-          reviewCount = ratingStats['reviewCount'] ?? 0;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            userName = userData['name'] ?? "Teacher";
+            email = userData['email'] ?? "...";
+            joinedDate = userData['createdAt'];
+            totalCourses = courses.length;
+            totalStudents = uniqueStudents;
+            averageRating = ratingStats['averageRating'] ?? 0.0;
+            reviewCount = ratingStats['reviewCount'] ?? 0;
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() => isLoading = false);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Failed to load user data: $e")));
+      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to load user data: $e")));
+      }
     }
   }
 
@@ -696,9 +704,10 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     final isDark = AppTheme.isDarkMode(context);
 
     if (isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+      return const Center(
+        child: EngagingLoadingIndicator(
+          message: 'Loading profile...',
+          size: 70,
         ),
       );
     }

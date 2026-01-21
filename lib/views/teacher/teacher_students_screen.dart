@@ -5,6 +5,7 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class TeacherStudentsScreen extends StatefulWidget {
   const TeacherStudentsScreen({super.key});
@@ -51,11 +52,13 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
     );
 
     if (cachedStudents != null && cachedCourseNames != null) {
-      setState(() {
-        students = cachedStudents;
-        courseNames = cachedCourseNames;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          students = cachedStudents;
+          courseNames = cachedCourseNames;
+          isLoading = false;
+        });
+      }
       // Refresh in background
       _refreshDataInBackground(
         teacherId,
@@ -66,6 +69,7 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
     }
 
     try {
+      if (!mounted) return;
       setState(() => isLoading = true);
 
       // First fetch teacher's courses to populate dropdown
@@ -139,10 +143,12 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
           _cacheService.set(cacheKeyStudents, results);
           _cacheService.set(cacheKeyCourseNames, courseNames);
 
-          setState(() {
-            students = results;
-            isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              students = results;
+              isLoading = false;
+            });
+          }
         } else if (kDebugMode) {
           // Debug-only mock so designers can preview the UI
           final sampleCourseId = courseNames.keys.first;
@@ -158,32 +164,38 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
               },
             },
           ];
-          setState(() {
-            students = mock;
-            isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              students = mock;
+              isLoading = false;
+            });
+          }
         } else {
           // Cache results
           _cacheService.set(cacheKeyStudents, fetchedStudents);
           _cacheService.set(cacheKeyCourseNames, courseNames);
 
-          setState(() {
-            students = fetchedStudents;
-            isLoading = false;
-          });
+          if (mounted) {
+            setState(() {
+              students = fetchedStudents;
+              isLoading = false;
+            });
+          }
         }
       } else {
         // Cache results
         _cacheService.set(cacheKeyStudents, fetchedStudents);
         _cacheService.set(cacheKeyCourseNames, courseNames);
 
-        setState(() {
-          students = fetchedStudents;
-          isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            students = fetchedStudents;
+            isLoading = false;
+          });
+        }
       }
     } catch (e) {
-      setState(() => isLoading = false);
+      if (mounted) setState(() => isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -306,11 +318,10 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey[100],
       body: isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: isDark
-                    ? AppTheme.darkPrimaryLight
-                    : AppTheme.primaryColor,
+          ? const Center(
+              child: EngagingLoadingIndicator(
+                message: 'Loading students...',
+                size: 70,
               ),
             )
           : Padding(

@@ -4,6 +4,7 @@ import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/course_card.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/views/student/student_course_detail_screen.dart';
 
 class CoursesScreen extends StatefulWidget {
@@ -244,7 +245,12 @@ class _CoursesScreenState extends State<CoursesScreen>
         ),
       ),
       body: isLoading
-          ? const Center(child: CircularProgressIndicator())
+          ? const Center(
+              child: EngagingLoadingIndicator(
+                message: 'Loading courses...',
+                size: 70,
+              ),
+            )
           : TabBarView(
               controller: _tabController,
               children: [_buildExploreCourses(), _buildEnrolledCourses()],

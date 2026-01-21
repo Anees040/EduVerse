@@ -6,6 +6,7 @@ import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/views/student/student_course_detail_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -178,11 +179,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               stream: _notificationService.getNotificationsStream(_uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(
-                    child: CircularProgressIndicator(
-                      color: isDark
-                          ? AppTheme.darkPrimaryLight
-                          : AppTheme.primaryColor,
+                  return const Center(
+                    child: EngagingLoadingIndicator(
+                      message: 'Loading notifications...',
+                      size: 60,
                     ),
                   );
                 }
@@ -450,9 +450,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
               (type == 'qa_answer' ||
                   type == 'course_update' ||
                   type == 'qa_question')) {
-            // If this is a QA question notification and the current user is a teacher,
-            // open the teacher course manage screen so they can answer the question.
-            if (type == 'qa_question' && _isTeacher == true) {
+            // If this is a QA question notification OR course_update for a teacher,
+            // open the teacher course manage screen.
+            if ((type == 'qa_question' || type == 'course_update') &&
+                _isTeacher == true) {
               try {
                 final courseDetails = await _courseService.getCourseDetails(
                   courseUid: relatedCourseId,

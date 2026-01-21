@@ -8,6 +8,7 @@ import 'package:eduverse/views/student/ai_camera_screen.dart';
 import 'package:eduverse/views/student/ai_chat_screen.dart';
 import 'package:eduverse/views/student/student_course_detail_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class HomeTab extends StatefulWidget {
   final String uid;
@@ -96,13 +97,15 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final cachedEnrolledIds = _cacheService.get<Set<String>>(cacheKeyEnrolled);
 
     if (cachedName != null && cachedCourses != null) {
-      setState(() {
-        userName = cachedName;
-        allCourses = cachedCourses;
-        enrolledCourseIds = cachedEnrolledIds ?? {};
-        isLoading = false;
-      });
-      _startAutoScroll();
+      if (mounted) {
+        setState(() {
+          userName = cachedName;
+          allCourses = cachedCourses;
+          enrolledCourseIds = cachedEnrolledIds ?? {};
+          isLoading = false;
+        });
+        _startAutoScroll();
+      }
       // Refresh in background
       _refreshDataInBackground(
         studentUid,
@@ -206,9 +209,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final isDark = AppTheme.isDarkMode(context);
 
     if (isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+      return const Center(
+        child: EngagingLoadingIndicator(
+          message: 'Loading your dashboard...',
+          size: 70,
         ),
       );
     }
@@ -460,7 +464,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               onTap: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const AIChatScreen(openNew: true)),
+                  MaterialPageRoute(
+                    builder: (context) => const AIChatScreen(openNew: true),
+                  ),
                 );
               },
             ),
@@ -544,9 +550,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
           color: AppTheme.getCardColor(context),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
-            color: isDark
-                ? accentColor.withOpacity(0.3)
-                : Colors.grey.shade200,
+            color: isDark ? accentColor.withOpacity(0.3) : Colors.grey.shade200,
             width: 1.5,
           ),
           boxShadow: [
@@ -577,7 +581,8 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                               height: 95,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => _buildPlaceholderImage(isDark, accentColor),
+                              errorBuilder: (_, __, ___) =>
+                                  _buildPlaceholderImage(isDark, accentColor),
                             )
                           : _buildPlaceholderImage(isDark, accentColor),
                       // Gradient overlay for depth
@@ -603,7 +608,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                   top: 8,
                   right: 8,
                   child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 5,
+                    ),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [accentColor, accentColor.withOpacity(0.8)],
@@ -621,7 +629,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(
-                          isEnrolled ? Icons.play_arrow_rounded : Icons.add_rounded,
+                          isEnrolled
+                              ? Icons.play_arrow_rounded
+                              : Icons.add_rounded,
                           color: Colors.white,
                           size: 14,
                         ),
@@ -645,7 +655,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     bottom: 8,
                     left: 8,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.black.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(12),
@@ -719,7 +732,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                           height: 20,
                           decoration: BoxDecoration(
                             gradient: LinearGradient(
-                              colors: [accentColor, accentColor.withOpacity(0.7)],
+                              colors: [
+                                accentColor,
+                                accentColor.withOpacity(0.7),
+                              ],
                             ),
                             shape: BoxShape.circle,
                           ),
@@ -747,14 +763,20 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                     const SizedBox(height: 8),
                     // Rating or description
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: isDark
                             ? Colors.white.withOpacity(0.08)
                             : accentColor.withOpacity(0.08),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: courseRating != null && courseReviewCount != null && courseReviewCount > 0
+                      child:
+                          courseRating != null &&
+                              courseReviewCount != null &&
+                              courseReviewCount > 0
                           ? Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -792,7 +814,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                                 const SizedBox(width: 4),
                                 Flexible(
                                   child: Text(
-                                    description.isNotEmpty ? description : 'Explore this course',
+                                    description.isNotEmpty
+                                        ? description
+                                        : 'Explore this course',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(

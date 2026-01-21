@@ -8,6 +8,7 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/preferences_service.dart';
 import 'package:eduverse/views/signin_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class ProfileScreen extends StatefulWidget {
   final String uid;
@@ -49,21 +50,24 @@ class _ProfileScreenState extends State<ProfileScreen>
     // Check cache first for instant display
     final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
     if (cachedData != null) {
-      setState(() {
-        userName = cachedData['userName'] ?? "...";
-        email = cachedData['email'] ?? "...";
-        userRole = widget.role;
-        joinedDate = cachedData['joinedDate'];
-        enrolledCourses = cachedData['enrolledCourses'];
-        completedCourses = cachedData['completedCourses'] ?? 0;
-        overallProgress = cachedData['overallProgress'] ?? 0.0;
-        isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          userName = cachedData['userName'] ?? "...";
+          email = cachedData['email'] ?? "...";
+          userRole = widget.role;
+          joinedDate = cachedData['joinedDate'];
+          enrolledCourses = cachedData['enrolledCourses'];
+          completedCourses = cachedData['completedCourses'] ?? 0;
+          overallProgress = cachedData['overallProgress'] ?? 0.0;
+          isLoading = false;
+        });
+      }
       // Refresh in background
       _refreshProfileInBackground(uid, cacheKey);
       return;
     }
 
+    if (!mounted) return;
     setState(() {
       isLoading = true;
     });
@@ -753,9 +757,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     final isDark = AppTheme.isDarkMode(context);
 
     if (isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+      return const Center(
+        child: EngagingLoadingIndicator(
+          message: 'Loading profile...',
+          size: 70,
         ),
       );
     }

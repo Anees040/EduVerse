@@ -10,6 +10,7 @@ import 'package:eduverse/views/student/ai_chat_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/utils/route_transitions.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class TeacherHomeTab extends StatefulWidget {
   final String uid;
@@ -108,14 +109,16 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     );
 
     if (cachedName != null && cachedCourses != null && cachedStudents != null) {
-      setState(() {
-        userName = cachedName;
-        courses = cachedCourses;
-        uniqueStudentCount = cachedStudents;
-        announcements = cachedAnnouncements ?? [];
-        isLoading = false;
-      });
-      _startAutoScroll();
+      if (mounted) {
+        setState(() {
+          userName = cachedName;
+          courses = cachedCourses;
+          uniqueStudentCount = cachedStudents;
+          announcements = cachedAnnouncements ?? [];
+          isLoading = false;
+        });
+        _startAutoScroll();
+      }
       // Refresh in background
       _refreshDataInBackground(
         teacherUid,
@@ -127,6 +130,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       return;
     }
 
+    if (!mounted) return;
     setState(() => isLoading = true);
 
     try {
@@ -272,9 +276,10 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     final isDark = AppTheme.isDarkMode(context);
 
     if (isLoading) {
-      return Center(
-        child: CircularProgressIndicator(
-          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+      return const Center(
+        child: EngagingLoadingIndicator(
+          message: 'Loading your dashboard...',
+          size: 70,
         ),
       );
     }
@@ -813,9 +818,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               onTap: () {
                 Navigator.push(
                   context,
-                  SlideAndFadeRoute(
-                    page: const AIChatScreen(openNew: true),
-                  ),
+                  SlideAndFadeRoute(page: const AIChatScreen(openNew: true)),
                 );
               },
             ),
@@ -1443,10 +1446,11 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
 
                 try {
                   final teacherUid = FirebaseAuth.instance.currentUser!.uid;
-                  
+
                   // Create announcement data for optimistic UI update
                   final newAnnouncement = {
-                    'announcementId': DateTime.now().millisecondsSinceEpoch.toString(),
+                    'announcementId': DateTime.now().millisecondsSinceEpoch
+                        .toString(),
                     'title': title,
                     'message': message,
                     'courseUid': courseUid,
@@ -1454,15 +1458,15 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                     'createdAt': DateTime.now().millisecondsSinceEpoch,
                     'isActive': true,
                   };
-                  
+
                   // Optimistic UI update - add to list immediately with animation
                   setState(() {
                     announcements.insert(0, newAnnouncement);
                   });
-                  
+
                   // Clear cache and save to backend
                   _cacheService.clearPrefix('teacher_announcements_');
-                  
+
                   await _courseService.createAnnouncement(
                     teacherUid: teacherUid,
                     title: title,
@@ -1707,7 +1711,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               final teacherUid = FirebaseAuth.instance.currentUser!.uid;
               final announcementId = announcement['announcementId'];
               final newActiveStatus = !isActive;
-              
+
               // Optimistic UI update
               setState(() {
                 final index = announcements.indexWhere(
@@ -1720,7 +1724,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                   };
                 }
               });
-              
+
               try {
                 await _courseService.toggleAnnouncementActive(
                   teacherUid: teacherUid,
@@ -1774,44 +1778,69 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               Navigator.pop(ctx);
               final teacherUid = FirebaseAuth.instance.currentUser!.uid;
               final announcementId = announcement['announcementId'];
-              
+
               // Store for potential undo
-              final removedAnnouncement = Map<String, dynamic>.from(announcement);
+              final removedAnnouncement = Map<String, dynamic>.from(
+                announcement,
+              );
               final removedIndex = announcements.indexWhere(
                 (a) => a['announcementId'] == announcementId,
               );
-              
+
               // Optimistic UI update - remove immediately
               setState(() {
                 announcements.removeWhere(
                   (a) => a['announcementId'] == announcementId,
                 );
               });
-              
+
               try {
                 await _courseService.deleteAnnouncement(
                   teacherUid: teacherUid,
                   announcementId: announcementId,
                 );
-                
+
                 // Clear cache and update
                 _cacheService.clearPrefix('teacher_announcements_');
                 _cacheService.set(
                   'teacher_announcements_$teacherUid',
                   announcements,
                 );
-                
+
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  final messenger = ScaffoldMessenger.of(context);
+
+                  messenger.showSnackBar(
                     SnackBar(
-                      content: const Text('Announcement deleted'),
+                      content: const Row(
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                          SizedBox(width: 12),
+                          Text('Announcement deleted'),
+                        ],
+                      ),
+                      duration: const Duration(seconds: 4),
+                      behavior: SnackBarBehavior.floating,
+                      margin: const EdgeInsets.all(16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                       action: SnackBarAction(
-                        label: 'Undo',
+                        label: 'UNDO',
+                        textColor: AppTheme.warning,
                         onPressed: () async {
                           // Restore locally
                           setState(() {
-                            if (removedIndex >= 0 && removedIndex <= announcements.length) {
-                              announcements.insert(removedIndex, removedAnnouncement);
+                            if (removedIndex >= 0 &&
+                                removedIndex <= announcements.length) {
+                              announcements.insert(
+                                removedIndex,
+                                removedAnnouncement,
+                              );
                             } else {
                               announcements.insert(0, removedAnnouncement);
                             }
@@ -1823,9 +1852,34 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                               title: removedAnnouncement['title'] ?? '',
                               message: removedAnnouncement['message'] ?? '',
                               courseUid: removedAnnouncement['courseUid'],
-                              priority: removedAnnouncement['priority'] ?? 'normal',
+                              priority:
+                                  removedAnnouncement['priority'] ?? 'normal',
                             );
                             _cacheService.clearPrefix('teacher_announcements_');
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Row(
+                                    children: [
+                                      Icon(
+                                        Icons.restore,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      SizedBox(width: 12),
+                                      Text('Announcement restored'),
+                                    ],
+                                  ),
+                                  backgroundColor: AppTheme.success,
+                                  duration: const Duration(seconds: 2),
+                                  behavior: SnackBarBehavior.floating,
+                                  margin: const EdgeInsets.all(16),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              );
+                            }
                           } catch (_) {}
                         },
                       ),
@@ -1835,7 +1889,8 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               } catch (e) {
                 // Revert on failure
                 setState(() {
-                  if (removedIndex >= 0 && removedIndex <= announcements.length) {
+                  if (removedIndex >= 0 &&
+                      removedIndex <= announcements.length) {
                     announcements.insert(removedIndex, removedAnnouncement);
                   } else {
                     announcements.insert(0, removedAnnouncement);
