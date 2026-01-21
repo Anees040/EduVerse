@@ -6,6 +6,7 @@ import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/utils/route_transitions.dart';
 import 'package:eduverse/views/teacher/add_course_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
+import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
 class TeacherCoursesScreen extends StatefulWidget {
   const TeacherCoursesScreen({super.key});
@@ -262,11 +263,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       body: isLoading
-          ? Center(
-              child: CircularProgressIndicator(
-                color: isDark
-                    ? AppTheme.darkPrimaryLight
-                    : AppTheme.primaryColor,
+          ? const Center(
+              child: EngagingLoadingIndicator(
+                message: 'Loading your courses...',
+                size: 70,
               ),
             )
           : courses.isEmpty

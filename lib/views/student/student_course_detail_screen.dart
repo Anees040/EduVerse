@@ -8,6 +8,7 @@ import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
+import 'package:eduverse/widgets/video_thumbnail_widget.dart';
 import 'package:eduverse/views/student/certificate_screen.dart';
 
 /// Student Course Detail Screen with Video Playlist
@@ -972,6 +973,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     final accentColor = isDark
         ? AppTheme.darkPrimaryLight
         : AppTheme.primaryColor;
+    final videoUrl = video['url'] ?? '';
 
     return InkWell(
       onTap: () => _playVideo(index),
@@ -996,110 +998,19 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Thumbnail section (YouTube-style)
-            Stack(
-              children: [
-                ClipRRect(
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(12),
-                    bottomLeft: Radius.circular(12),
-                  ),
-                  child: Container(
-                    width: 130,
-                    height: 80,
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: isCompleted
-                            ? [
-                                AppTheme.success.withOpacity(0.3),
-                                AppTheme.success.withOpacity(0.5),
-                              ]
-                            : [
-                                accentColor.withOpacity(isDark ? 0.3 : 0.2),
-                                (isDark
-                                        ? AppTheme.darkAccent
-                                        : AppTheme.accentColor)
-                                    .withOpacity(isDark ? 0.4 : 0.3),
-                              ],
-                      ),
-                    ),
-                    child: Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        // Background icon
-                        Icon(
-                          isCompleted
-                              ? Icons.check_circle_outline
-                              : Icons.play_circle_outline,
-                          size: 40,
-                          color: Colors.white.withOpacity(0.3),
-                        ),
-                        // Video number badge
-                        Positioned(
-                          left: 6,
-                          top: 6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 3,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.black54,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              '${index + 1}',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Play overlay when currently playing
-                        if (isPlaying)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.black45,
-                              borderRadius: const BorderRadius.only(
-                                topLeft: Radius.circular(12),
-                                bottomLeft: Radius.circular(12),
-                              ),
-                            ),
-                            child: const Center(
-                              child: Icon(
-                                Icons.graphic_eq,
-                                size: 32,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                        // Completed overlay
-                        if (isCompleted && !isPlaying)
-                          Positioned(
-                            right: 6,
-                            bottom: 6,
-                            child: Container(
-                              padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: AppTheme.success,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.check,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+            // Thumbnail section with actual video thumbnail
+            VideoThumbnailWidget(
+              videoUrl: videoUrl,
+              width: 130,
+              height: 80,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                bottomLeft: Radius.circular(12),
+              ),
+              videoNumber: index + 1,
+              isPlaying: isPlaying,
+              isCompleted: isCompleted,
+              showPlayIcon: !isPlaying,
             ),
             // Content section
             Expanded(
