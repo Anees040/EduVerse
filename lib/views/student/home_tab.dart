@@ -21,6 +21,20 @@ class HomeTab extends StatefulWidget {
     this.onSeeAllCourses,
   });
 
+  // Static cache to persist data across widget rebuilds
+  static String? cachedUserName;
+  static List<Map<String, dynamic>>? cachedAllCourses;
+  static Set<String>? cachedEnrolledCourseIds;
+  static bool hasLoadedOnce = false;
+
+  /// Clear all static caches - call when data changes
+  static void clearCache() {
+    cachedUserName = null;
+    cachedAllCourses = null;
+    cachedEnrolledCourseIds = null;
+    hasLoadedOnce = false;
+  }
+
   @override
   State<HomeTab> createState() => _HomeTabState();
 }
@@ -29,11 +43,12 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   final userService = UserService();
   final _cacheService = CacheService();
   final _courseService = CourseService();
+
   String userName = "...";
 
   List<Map<String, dynamic>> allCourses = [];
   Set<String> enrolledCourseIds = {}; // Track enrolled courses
-  bool isLoading = true;
+  bool _isInitialLoading = true;
   String searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
 
@@ -49,6 +64,18 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
+
+    // Use cached data immediately if available
+    if (HomeTab.hasLoadedOnce && HomeTab.cachedAllCourses != null) {
+      userName = HomeTab.cachedUserName ?? "Student";
+      allCourses = HomeTab.cachedAllCourses!;
+      enrolledCourseIds = HomeTab.cachedEnrolledCourseIds ?? {};
+      _isInitialLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startAutoScroll();
+      });
+    }
+
     _loadAllData();
   }
 
@@ -89,6 +116,20 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final cacheKeyCourses = 'all_courses_home';
     final cacheKeyEnrolled = 'enrolled_course_ids_$studentUid';
 
+    // Use static cache if available
+    if (HomeTab.hasLoadedOnce && HomeTab.cachedAllCourses != null) {
+      if (mounted) {
+        setState(() {
+          userName = HomeTab.cachedUserName ?? "Student";
+          allCourses = HomeTab.cachedAllCourses!;
+          enrolledCourseIds = HomeTab.cachedEnrolledCourseIds ?? {};
+          _isInitialLoading = false;
+        });
+        _startAutoScroll();
+      }
+      return;
+    }
+
     // Check cache first for instant display
     final cachedName = _cacheService.get<String>(cacheKeyName);
     final cachedCourses = _cacheService.get<List<Map<String, dynamic>>>(
@@ -97,12 +138,18 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final cachedEnrolledIds = _cacheService.get<Set<String>>(cacheKeyEnrolled);
 
     if (cachedName != null && cachedCourses != null) {
+      // Update static cache
+      HomeTab.cachedUserName = cachedName;
+      HomeTab.cachedAllCourses = cachedCourses;
+      HomeTab.cachedEnrolledCourseIds = cachedEnrolledIds;
+      HomeTab.hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           userName = cachedName;
           allCourses = cachedCourses;
           enrolledCourseIds = cachedEnrolledIds ?? {};
-          isLoading = false;
+          _isInitialLoading = false;
         });
         _startAutoScroll();
       }
@@ -138,18 +185,24 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       _cacheService.set(cacheKeyCourses, courses);
       _cacheService.set(cacheKeyEnrolled, enrolledIds);
 
+      // Update static cache
+      HomeTab.cachedUserName = name;
+      HomeTab.cachedAllCourses = courses;
+      HomeTab.cachedEnrolledCourseIds = enrolledIds;
+      HomeTab.hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           userName = name;
           allCourses = courses;
           enrolledCourseIds = enrolledIds;
-          isLoading = false;
+          _isInitialLoading = false;
         });
         _startAutoScroll();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => isLoading = false);
+        setState(() => _isInitialLoading = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text("Failed to load data: $e")));
@@ -180,6 +233,12 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       _cacheService.set(cacheKeyCourses, courses);
       _cacheService.set(cacheKeyEnrolled, enrolledIds);
 
+      // Update static cache
+      HomeTab.cachedUserName = name;
+      HomeTab.cachedAllCourses = courses;
+      HomeTab.cachedEnrolledCourseIds = enrolledIds;
+      HomeTab.hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           userName = name;
@@ -208,7 +267,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = AppTheme.isDarkMode(context);
 
-    if (isLoading) {
+    if (_isInitialLoading) {
       return const Center(
         child: EngagingLoadingIndicator(
           message: 'Loading your dashboard...',

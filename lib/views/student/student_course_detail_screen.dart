@@ -4,12 +4,18 @@ import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/bookmark_service.dart';
 import 'package:eduverse/services/cache_service.dart';
+import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/video_thumbnail_widget.dart';
 import 'package:eduverse/views/student/certificate_screen.dart';
+import 'package:eduverse/views/student/courses_screen.dart';
+import 'package:eduverse/views/student/profile_screen.dart';
+import 'package:eduverse/views/student/home_tab.dart';
+import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
+import 'package:eduverse/views/teacher/teacher_home_tab.dart';
 
 /// Student Course Detail Screen with Video Playlist
 class StudentCourseDetailScreen extends StatefulWidget {
@@ -70,7 +76,21 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    // Clear all caches on exit so parent screens refresh with latest progress
+    _clearAllProgressCaches();
     super.dispose();
+  }
+
+  /// Clear all progress-related caches to ensure fresh data on other screens
+  void _clearAllProgressCaches() {
+    _cacheService.clearStudentProgressCache(_studentUid);
+    CoursesScreen.clearCache();
+    ProfileScreen.clearCache();
+    HomeTab.clearCache();
+    // Also clear teacher caches so insights update in real-time
+    TeacherAnalyticsScreen.clearCache();
+    TeacherHomeTab.clearCache();
+    AnalyticsService.clearCache();
   }
 
   void _onScroll() {
@@ -312,7 +332,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       isCompleted: isCompleted,
     );
 
-    // Update local progress
+    // Update local progress when video is completed
     if (isCompleted &&
         (_progress[videoId] == null ||
             _progress[videoId]['isCompleted'] != true)) {
@@ -323,6 +343,9 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         };
         _overallProgress = _calculateLocalProgress();
       });
+
+      // Clear all caches so other screens get fresh data
+      _clearAllProgressCaches();
     }
   }
 
@@ -355,6 +378,9 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         positionSeconds: pos,
         isCompleted: true,
       );
+
+      // Clear all caches so other screens get fresh data
+      _clearAllProgressCaches();
     } catch (_) {
       // ignore save errors here
     }

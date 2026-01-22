@@ -213,13 +213,17 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     Navigator.push(
       context,
       SlideAndFadeRoute(page: const AddCourseScreen()),
-    ).then((_) {
-      // Clear cache to force reload
-      _cacheService.clearPrefix('teacher_');
-      _cachedCourses = null;
-      _cachedStudentCount = null;
-      _hasLoadedOnce = false;
-      _fetchCourses(forceRefresh: true);
+    ).then((result) {
+      // Only refresh if a course was actually added
+      if (result == true) {
+        // Refresh in background without showing loading indicator
+        // since we already have data displayed
+        _refreshCoursesInBackground(
+          FirebaseAuth.instance.currentUser!.uid,
+          'teacher_all_courses_${FirebaseAuth.instance.currentUser!.uid}',
+          'teacher_all_students_${FirebaseAuth.instance.currentUser!.uid}',
+        );
+      }
     });
   }
 
@@ -354,7 +358,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
             ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'create',
-        backgroundColor: isDark ? const Color.fromARGB(255, 114, 239, 221): AppTheme.primaryColor,
+        backgroundColor: isDark
+            ? const Color.fromARGB(255, 114, 239, 221)
+            : AppTheme.primaryColor,
         onPressed: _createNewCourse,
         icon: Icon(Icons.add, color: isDark ? Colors.black : Colors.white),
         label: Text(
