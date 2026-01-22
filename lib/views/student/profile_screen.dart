@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -48,6 +50,9 @@ class _ProfileScreenState extends State<ProfileScreen>
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
+  Timer? _autoRefreshTimer;
+  static const Duration _refreshInterval = Duration(seconds: 10);
+
   // Keep tab alive
   @override
   bool get wantKeepAlive => true;
@@ -72,6 +77,23 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
 
     fetchUserData();
+
+    // Start periodic auto-refresh
+    _autoRefreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (mounted) {
+        fetchUserData(forceRefresh: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    _nameController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 
   Future<void> fetchUserData({bool forceRefresh = false}) async {

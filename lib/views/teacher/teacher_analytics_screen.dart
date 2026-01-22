@@ -69,6 +69,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   int? _selectedStarFilter;
   String? _selectedCourseReviewFilter;
   String _selectedReviewDateFilter = 'all';
+  bool _showFilters = false; // Track filter expansion state
 
   // Keep tab alive
   @override
@@ -654,27 +655,30 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   }
 
   Widget _buildReviewFilters(bool isDark) {
-    // Get unique courses from reviews
-    final courses = <String, String>{};
-    for (final review in _reviews) {
-      final courseId = review['courseId'] as String?;
-      final courseName = review['courseTitle'] as String?;
-      if (courseId != null && courseName != null) {
-        courses[courseId] = courseName;
-      }
-    }
+    // Use course names from analytics data
+    final courses = _courseNames;
+    final hasActiveFilters =
+        _selectedStarFilter != null ||
+        _selectedCourseReviewFilter != null ||
+        _selectedReviewDateFilter != 'all';
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: hasActiveFilters
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+          width: hasActiveFilters ? 2 : 1,
+        ),
         boxShadow: [
           BoxShadow(
             color: isDark
-                ? Colors.black.withOpacity(0.2)
-                : Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+                ? Colors.black.withOpacity(0.1)
+                : Colors.black.withOpacity(0.03),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
@@ -682,167 +686,205 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(
-                Icons.filter_list,
-                size: 18,
-                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Filter Reviews',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                ),
-              ),
-              const Spacer(),
-              if (_selectedStarFilter != null ||
-                  _selectedCourseReviewFilter != null ||
-                  _selectedReviewDateFilter != 'all')
-                TextButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _selectedStarFilter = null;
-                      _selectedCourseReviewFilter = null;
-                      _selectedReviewDateFilter = 'all';
-                    });
-                  },
-                  icon: Icon(
-                    Icons.clear_all,
-                    size: 16,
-                    color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                  ),
-                  label: Text(
-                    'Clear',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isDark
-                          ? AppTheme.darkAccent
-                          : AppTheme.primaryColor,
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Star rating filter
-          Text(
-            'By Rating',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildStarFilterChip(null, 'All', isDark),
-                ...List.generate(
-                  5,
-                  (i) => _buildStarFilterChip(5 - i, '${5 - i} ★', isDark),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // Course filter
-          if (courses.isNotEmpty) ...[
-            Text(
-              'By Course',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-                color: isDark
-                    ? AppTheme.darkTextSecondary
-                    : AppTheme.textSecondary,
-              ),
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
+          // Header - Always visible
+          InkWell(
+            onTap: () => setState(() => _showFilters = !_showFilters),
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  _buildCourseFilterChip(null, 'All Courses', isDark),
-                  ...courses.entries.map(
-                    (e) => _buildCourseFilterChip(e.key, e.value, isDark),
+                  Icon(
+                    Icons.tune,
+                    size: 20,
+                    color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    'Filter Reviews',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                    ),
+                  ),
+                  if (hasActiveFilters) ...[
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color:
+                            (isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Text(
+                        'Active',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const Spacer(),
+                  if (hasActiveFilters)
+                    IconButton(
+                      icon: Icon(
+                        Icons.clear_all,
+                        size: 20,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          _selectedStarFilter = null;
+                          _selectedCourseReviewFilter = null;
+                          _selectedReviewDateFilter = 'all';
+                        });
+                      },
+                      tooltip: 'Clear filters',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  const SizedBox(width: 8),
+                  AnimatedRotation(
+                    turns: _showFilters ? 0.5 : 0,
+                    duration: const Duration(milliseconds: 200),
+                    child: Icon(
+                      Icons.keyboard_arrow_down,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-          ],
-
-          // Date filter
-          Text(
-            'By Time',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-            ),
           ),
-          const SizedBox(height: 8),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildDateFilterChip('all', 'All Time', isDark),
-                _buildDateFilterChip('7d', 'Last 7 Days', isDark),
-                _buildDateFilterChip('30d', 'Last 30 Days', isDark),
-                _buildDateFilterChip('90d', 'Last 3 Months', isDark),
-              ],
+          // Collapsible filter content
+          AnimatedCrossFade(
+            firstChild: const SizedBox.shrink(),
+            secondChild: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Divider(height: 1),
+                  const SizedBox(height: 12),
+                  // Star rating filter
+                  _buildCompactFilterSection('Rating', Icons.star, isDark, [
+                    _buildStarFilterChip(null, 'All', isDark),
+                    ...List.generate(
+                      5,
+                      (i) => _buildStarFilterChip(5 - i, '${5 - i}★', isDark),
+                    ),
+                  ]),
+                  if (courses.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _buildCompactFilterSection('Course', Icons.school, isDark, [
+                      _buildCourseFilterChip(null, 'All', isDark),
+                      ...courses.entries.map(
+                        (e) => _buildCourseFilterChip(e.key, e.value, isDark),
+                      ),
+                    ]),
+                  ],
+                  const SizedBox(height: 12),
+                  _buildCompactFilterSection('Time', Icons.schedule, isDark, [
+                    _buildDateFilterChip('all', 'All', isDark),
+                    _buildDateFilterChip('7d', '7 Days', isDark),
+                    _buildDateFilterChip('30d', '30 Days', isDark),
+                    _buildDateFilterChip('90d', '3 Months', isDark),
+                  ]),
+                ],
+              ),
             ),
+            crossFadeState: _showFilters
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
+            duration: const Duration(milliseconds: 200),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildCompactFilterSection(
+    String title,
+    IconData icon,
+    bool isDark,
+    List<Widget> chips,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              icon,
+              size: 14,
+              color: isDark
+                  ? AppTheme.darkTextSecondary
+                  : AppTheme.textSecondary,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(spacing: 6, runSpacing: 6, children: chips),
+      ],
+    );
+  }
+
   Widget _buildStarFilterChip(int? stars, String label, bool isDark) {
     final isSelected = _selectedStarFilter == stars;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedStarFilter = stars),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => setState(() => _selectedStarFilter = stars),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkWarning : AppTheme.warning)
+              : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
             color: isSelected
-                ? (isDark ? AppTheme.darkWarning : AppTheme.warning)
-                : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected
-                  ? Colors.transparent
-                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-            ),
+                ? Colors.transparent
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected
-                  ? (isDark ? Colors.black : Colors.white)
-                  : (isDark
-                        ? AppTheme.darkTextSecondary
-                        : AppTheme.textSecondary),
-            ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? (isDark ? Colors.black : Colors.white)
+                : (isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary),
           ),
         ),
       ),
@@ -851,35 +893,32 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
 
   Widget _buildCourseFilterChip(String? courseId, String label, bool isDark) {
     final isSelected = _selectedCourseReviewFilter == courseId;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedCourseReviewFilter = courseId),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => setState(() => _selectedCourseReviewFilter = courseId),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
             color: isSelected
-                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected
-                  ? Colors.transparent
-                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-            ),
+                ? Colors.transparent
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
           ),
-          child: Text(
-            label.length > 20 ? '${label.substring(0, 17)}...' : label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected
-                  ? Colors.white
-                  : (isDark
-                        ? AppTheme.darkTextSecondary
-                        : AppTheme.textSecondary),
-            ),
+        ),
+        child: Text(
+          label.length > 25 ? '${label.substring(0, 22)}...' : label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? Colors.white
+                : (isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary),
           ),
         ),
       ),
@@ -888,35 +927,32 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
 
   Widget _buildDateFilterChip(String value, String label, bool isDark) {
     final isSelected = _selectedReviewDateFilter == value;
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: GestureDetector(
-        onTap: () => setState(() => _selectedReviewDateFilter = value),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          decoration: BoxDecoration(
+    return GestureDetector(
+      onTap: () => setState(() => _selectedReviewDateFilter = value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
             color: isSelected
-                ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isSelected
-                  ? Colors.transparent
-                  : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-            ),
+                ? Colors.transparent
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
           ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
-              color: isSelected
-                  ? (isDark ? Colors.black : Colors.white)
-                  : (isDark
-                        ? AppTheme.darkTextSecondary
-                        : AppTheme.textSecondary),
-            ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? (isDark ? Colors.black : Colors.white)
+                : (isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary),
           ),
         ),
       ),

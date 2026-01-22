@@ -638,13 +638,18 @@ class CourseService {
     return Map<String, dynamic>.from(snapshot.value as Map);
   }
 
-  /// Calculate overall course progress percentage
+  /// Calculate overall course progress percentage (only counts public videos for students)
   Future<double> calculateCourseProgress({
     required String studentUid,
     required String courseUid,
   }) async {
-    final videos = await getCourseVideos(courseUid: courseUid);
-    if (videos.isEmpty) return 0.0;
+    // Get ALL videos (public + private) for total count
+    final allVideos = await getCourseVideos(courseUid: courseUid);
+    if (allVideos.isEmpty) return 0.0;
+
+    // Get only public videos (what students can complete)
+    final publicVideos = await getPublicCourseVideos(courseUid: courseUid);
+    if (publicVideos.isEmpty) return 0.0;
 
     final progress = await getCourseProgress(
       studentUid: studentUid,
@@ -653,8 +658,9 @@ class CourseService {
 
     if (progress.isEmpty) return 0.0;
 
+    // Count completed PUBLIC videos only (students can't complete private videos)
     int completedVideos = 0;
-    for (final video in videos) {
+    for (final video in publicVideos) {
       final videoId = video['videoId'];
       if (progress[videoId] != null &&
           progress[videoId]['isCompleted'] == true) {
@@ -662,7 +668,9 @@ class CourseService {
       }
     }
 
-    return completedVideos / videos.length;
+    // Calculate: completed_public_videos / total_all_videos
+    // Example: 2 completed out of 10 total (9 public + 1 private) = 20%
+    return completedVideos / allVideos.length;
   }
 
   Future<List<Map<String, dynamic>>> getAllCourses() async {

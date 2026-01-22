@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -31,8 +32,10 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   static Map<String, dynamic>? _cachedProfile;
   static bool _hasLoadedOnce = false;
 
+  Timer? _autoRefreshTimer;
+  static const _refreshInterval = Duration(seconds: 10);
+
   bool _isInitialLoading = true;
-  bool _isRefreshing = false;
   String userName = "...";
   String email = "...";
   int? joinedDate;
@@ -65,6 +68,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
       _isInitialLoading = false;
     }
     fetchUserData();
+
+    // Start auto-refresh timer
+    _autoRefreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (mounted) {
+        fetchUserData(forceRefresh: true);
+      }
+    });
   }
 
   Future<void> fetchUserData({bool forceRefresh = false}) async {
@@ -116,8 +126,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     if (!mounted) return;
     if (userName == "...") {
       setState(() => _isInitialLoading = true);
-    } else {
-      setState(() => _isRefreshing = true);
     }
 
     try {
@@ -162,7 +170,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
             averageRating = ratingStats['averageRating'] ?? 0.0;
             reviewCount = ratingStats['reviewCount'] ?? 0;
             _isInitialLoading = false;
-            _isRefreshing = false;
           });
         }
       }
@@ -170,7 +177,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
       if (mounted) {
         setState(() {
           _isInitialLoading = false;
-          _isRefreshing = false;
         });
       }
       if (mounted) {
@@ -1045,19 +1051,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
             ),
           ),
         ),
-        // Show subtle refreshing indicator at top
-        if (_isRefreshing)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: LinearProgressIndicator(
-              backgroundColor: Colors.transparent,
-              valueColor: AlwaysStoppedAnimation<Color>(
-                isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-              ),
-            ),
-          ),
+        // Removed visible loading indicator - refresh happens silently in background
       ],
     );
   }
@@ -1656,5 +1650,15 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    _nameController.dispose();
+    _currentPasswordController.dispose();
+    _newPasswordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
   }
 }

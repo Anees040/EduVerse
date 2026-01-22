@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -26,7 +28,6 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   static bool _hasLoadedOnce = false;
 
   bool _isInitialLoading = true;
-  bool _isRefreshing = false;
   List<Map<String, dynamic>> courses = [];
   int uniqueStudentCount = 0;
 
@@ -35,6 +36,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   final TextEditingController _searchController = TextEditingController();
   String _sortBy = 'newest'; // newest, oldest, students, videos, rating
   bool _showFilters = false;
+
+  Timer? _autoRefreshTimer;
+  static const Duration _refreshInterval = Duration(seconds: 15);
 
   // Keep tab alive
   @override
@@ -50,6 +54,13 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       _isInitialLoading = false;
     }
     _fetchCourses();
+
+    // Start periodic auto-refresh
+    _autoRefreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (mounted) {
+        _fetchCourses(forceRefresh: true);
+      }
+    });
   }
 
   Future<void> _fetchCourses({bool forceRefresh = false}) async {
@@ -97,12 +108,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       }
     }
 
-    // Show loading only if no data yet, otherwise show refreshing indicator
+    // Show loading only if no data yet
     if (!mounted) return;
     if (courses.isEmpty) {
       setState(() => _isInitialLoading = true);
-    } else {
-      setState(() => _isRefreshing = true);
     }
 
     try {
@@ -143,14 +152,12 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
           courses = fetchedCourses;
           uniqueStudentCount = studentCount;
           _isInitialLoading = false;
-          _isRefreshing = false;
         });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           _isInitialLoading = false;
-          _isRefreshing = false;
         });
       }
       if (mounted) {
@@ -251,6 +258,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
   }
@@ -341,19 +349,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
                       : AppTheme.primaryColor,
                   child: _buildCoursesList(),
                 ),
-                // Show subtle refreshing indicator at top
-                if (_isRefreshing)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    child: LinearProgressIndicator(
-                      backgroundColor: Colors.transparent,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                      ),
-                    ),
-                  ),
+                // Removed visible loading indicator - refresh happens silently in background
               ],
             ),
       floatingActionButton: FloatingActionButton.extended(
