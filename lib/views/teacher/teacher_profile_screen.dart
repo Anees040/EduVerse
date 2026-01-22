@@ -25,8 +25,14 @@ class TeacherProfileScreen extends StatefulWidget {
 
 class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     with AutomaticKeepAliveClientMixin {
-  bool isLoading = true;
   final _cacheService = CacheService();
+
+  // Static cache to persist across widget rebuilds
+  static Map<String, dynamic>? _cachedProfile;
+  static bool _hasLoadedOnce = false;
+
+  bool _isInitialLoading = true;
+  bool _isRefreshing = false;
   String userName = "...";
   String email = "...";
   int? joinedDate;
@@ -47,35 +53,72 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   @override
   void initState() {
     super.initState();
+    // Use cached data immediately if available
+    if (_hasLoadedOnce && _cachedProfile != null) {
+      userName = _cachedProfile!['userName'] ?? "Teacher";
+      email = _cachedProfile!['email'] ?? "...";
+      joinedDate = _cachedProfile!['joinedDate'];
+      totalCourses = _cachedProfile!['totalCourses'] ?? 0;
+      totalStudents = _cachedProfile!['totalStudents'] ?? 0;
+      averageRating = _cachedProfile!['averageRating'] ?? 0.0;
+      reviewCount = _cachedProfile!['reviewCount'] ?? 0;
+      _isInitialLoading = false;
+    }
     fetchUserData();
   }
 
-  Future<void> fetchUserData() async {
+  Future<void> fetchUserData({bool forceRefresh = false}) async {
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final cacheKey = 'teacher_profile_$uid';
 
-    // Check cache first
-    final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
-    if (cachedData != null) {
+    // Use static cache if available and not forcing refresh
+    if (!forceRefresh && _hasLoadedOnce && _cachedProfile != null) {
       if (mounted) {
         setState(() {
-          userName = cachedData['userName'] ?? "Teacher";
-          email = cachedData['email'] ?? "...";
-          joinedDate = cachedData['joinedDate'];
-          totalCourses = cachedData['totalCourses'] ?? 0;
-          totalStudents = cachedData['totalStudents'] ?? 0;
-          averageRating = cachedData['averageRating'] ?? 0.0;
-          reviewCount = cachedData['reviewCount'] ?? 0;
-          isLoading = false;
+          userName = _cachedProfile!['userName'] ?? "Teacher";
+          email = _cachedProfile!['email'] ?? "...";
+          joinedDate = _cachedProfile!['joinedDate'];
+          totalCourses = _cachedProfile!['totalCourses'] ?? 0;
+          totalStudents = _cachedProfile!['totalStudents'] ?? 0;
+          averageRating = _cachedProfile!['averageRating'] ?? 0.0;
+          reviewCount = _cachedProfile!['reviewCount'] ?? 0;
+          _isInitialLoading = false;
         });
       }
-      // Refresh in background
-      _refreshProfileInBackground(uid, cacheKey);
       return;
     }
 
+    // Check CacheService if static cache is empty
+    if (!forceRefresh) {
+      final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
+      if (cachedData != null) {
+        _cachedProfile = cachedData;
+        _hasLoadedOnce = true;
+        if (mounted) {
+          setState(() {
+            userName = cachedData['userName'] ?? "Teacher";
+            email = cachedData['email'] ?? "...";
+            joinedDate = cachedData['joinedDate'];
+            totalCourses = cachedData['totalCourses'] ?? 0;
+            totalStudents = cachedData['totalStudents'] ?? 0;
+            averageRating = cachedData['averageRating'] ?? 0.0;
+            reviewCount = cachedData['reviewCount'] ?? 0;
+            _isInitialLoading = false;
+          });
+        }
+        // Refresh in background
+        _refreshProfileInBackground(uid, cacheKey);
+        return;
+      }
+    }
+
+    // Show loading only if no data yet
     if (!mounted) return;
-    setState(() => isLoading = true);
+    if (userName == "...") {
+      setState(() => _isInitialLoading = true);
+    } else {
+      setState(() => _isRefreshing = true);
+    }
 
     try {
       // Load all data in parallel
@@ -92,8 +135,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
       final ratingStats = results[3] as Map<String, dynamic>;
 
       if (userData != null) {
-        // Cache the data
-        _cacheService.set(cacheKey, {
+        final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
           'joinedDate': userData['createdAt'],
@@ -101,7 +143,14 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           'totalStudents': uniqueStudents,
           'averageRating': ratingStats['averageRating'] ?? 0.0,
           'reviewCount': ratingStats['reviewCount'] ?? 0,
-        });
+        };
+
+        // Cache the data
+        _cacheService.set(cacheKey, profileData);
+
+        // Update static cache
+        _cachedProfile = profileData;
+        _hasLoadedOnce = true;
 
         if (mounted) {
           setState(() {
@@ -112,12 +161,18 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
             totalStudents = uniqueStudents;
             averageRating = ratingStats['averageRating'] ?? 0.0;
             reviewCount = ratingStats['reviewCount'] ?? 0;
-            isLoading = false;
+            _isInitialLoading = false;
+            _isRefreshing = false;
           });
         }
       }
     } catch (e) {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isInitialLoading = false;
+          _isRefreshing = false;
+        });
+      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -141,7 +196,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
       final ratingStats = results[3] as Map<String, dynamic>;
 
       if (userData != null) {
-        _cacheService.set(cacheKey, {
+        final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
           'joinedDate': userData['createdAt'],
@@ -149,7 +204,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           'totalStudents': uniqueStudents,
           'averageRating': ratingStats['averageRating'] ?? 0.0,
           'reviewCount': ratingStats['reviewCount'] ?? 0,
-        });
+        };
+
+        _cacheService.set(cacheKey, profileData);
+
+        // Update static cache
+        _cachedProfile = profileData;
+        _hasLoadedOnce = true;
 
         if (mounted) {
           setState(() {
@@ -703,7 +764,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = AppTheme.isDarkMode(context);
 
-    if (isLoading) {
+    if (_isInitialLoading && userName == "...") {
       return const Center(
         child: EngagingLoadingIndicator(
           message: 'Loading profile...',
@@ -712,248 +773,292 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
       );
     }
 
-    return Container(
-      color: AppTheme.getBackgroundColor(context),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            // Profile Header Card
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(24),
-              decoration: BoxDecoration(
-                gradient: isDark
-                    ? AppTheme.darkPrimaryGradient
-                    : AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(24),
-                boxShadow: [
-                  BoxShadow(
-                    color:
-                        (isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor)
-                            .withOpacity(0.3),
-                    blurRadius: 15,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
+    return Stack(
+      children: [
+        Container(
+          color: AppTheme.getBackgroundColor(context),
+          child: RefreshIndicator(
+            onRefresh: () => fetchUserData(forceRefresh: true),
+            color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
               child: Column(
                 children: [
-                  // Avatar
+                  // Profile Header Card
                   Container(
-                    padding: const EdgeInsets.all(4),
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 3),
-                    ),
-                    child: CircleAvatar(
-                      radius: 50,
-                      backgroundColor: Colors.white.withOpacity(0.2),
-                      child: Text(
-                        userName.isNotEmpty ? userName[0].toUpperCase() : "?",
-                        style: const TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                      gradient: isDark
+                          ? AppTheme.darkPrimaryGradient
+                          : AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              (isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.3),
+                          blurRadius: 15,
+                          offset: const Offset(0, 8),
                         ),
-                      ),
+                      ],
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    userName,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: const Text(
-                      "TEACHER",
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Colors.white,
-                        letterSpacing: 1,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  OutlinedButton.icon(
-                    onPressed: _showEditProfileDialog,
-                    icon: const Icon(Icons.edit, color: Colors.white, size: 18),
-                    label: const Text(
-                      'Edit Profile',
-                      style: TextStyle(color: Colors.white),
-                    ),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: Colors.white),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // User Details Card
-            Container(
-              decoration: AppTheme.getCardDecoration(context),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                children: [
-                  _buildInfoRow(Icons.email_outlined, "Email", email),
-                  Divider(height: 24, color: AppTheme.getBorderColor(context)),
-                  _buildInfoRow(
-                    Icons.calendar_today_outlined,
-                    "Joined",
-                    joinedDate != null
-                        ? DateTime.fromMillisecondsSinceEpoch(
-                            joinedDate!,
-                          ).toLocal().toString().split(' ')[0]
-                        : "N/A",
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Statistics Card
-            Container(
-              decoration: AppTheme.getCardDecoration(context),
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
-                children: [
-                  _buildStatItem(
-                    "Courses",
-                    totalCourses.toString(),
-                    Icons.book,
-                  ),
-                  Container(
-                    height: 50,
-                    width: 1,
-                    color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
-                  ),
-                  _buildStatItem(
-                    "Students",
-                    totalStudents.toString(),
-                    Icons.people,
-                  ),
-                  Container(
-                    height: 50,
-                    width: 1,
-                    color: isDark ? Colors.grey.shade700 : Colors.grey.shade200,
-                  ),
-                  _buildStatItem(
-                    "Rating",
-                    reviewCount > 0
-                        ? "${averageRating.toStringAsFixed(1)} ($reviewCount)"
-                        : "No reviews",
-                    Icons.star,
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Actions Card
-            Container(
-              decoration: AppTheme.getCardDecoration(context),
-              child: Column(
-                children: [
-                  // Dark Mode Toggle
-                  Consumer<ThemeService>(
-                    builder: (context, themeService, child) {
-                      return ListTile(
-                        leading: Container(
-                          padding: const EdgeInsets.all(8),
+                    child: Column(
+                      children: [
+                        // Avatar
+                        Container(
+                          padding: const EdgeInsets.all(4),
                           decoration: BoxDecoration(
-                            color:
-                                (isDark
-                                        ? AppTheme.darkPrimaryLight
-                                        : AppTheme.primaryColor)
-                                    .withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(10),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 3),
                           ),
-                          child: Icon(
-                            themeService.isDarkMode
-                                ? Icons.dark_mode
-                                : Icons.light_mode,
-                            color: isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor,
-                          ),
-                        ),
-                        title: Text(
-                          "Dark Mode",
-                          style: TextStyle(
-                            fontWeight: FontWeight.w500,
-                            color: AppTheme.getTextPrimary(context),
+                          child: CircleAvatar(
+                            radius: 50,
+                            backgroundColor: Colors.white.withOpacity(0.2),
+                            child: Text(
+                              userName.isNotEmpty
+                                  ? userName[0].toUpperCase()
+                                  : "?",
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
                           ),
                         ),
-                        subtitle: Text(
-                          themeService.isDarkMode ? "On" : "Off",
-                          style: TextStyle(
-                            color: AppTheme.getTextSecondary(context),
-                            fontSize: 12,
+                        const SizedBox(height: 16),
+                        Text(
+                          userName,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
                           ),
                         ),
-                        trailing: Switch(
-                          value: themeService.isDarkMode,
-                          onChanged: (_) => themeService.toggleTheme(),
-                          activeColor: isDark
-                              ? AppTheme.darkAccentColor
-                              : AppTheme.accentColor,
+                        const SizedBox(height: 4),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 6,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: const Text(
+                            "TEACHER",
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.white,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
-                      );
-                    },
+                        const SizedBox(height: 16),
+                        OutlinedButton.icon(
+                          onPressed: _showEditProfileDialog,
+                          icon: const Icon(
+                            Icons.edit,
+                            color: Colors.white,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Edit Profile',
+                            style: TextStyle(color: Colors.white),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            side: const BorderSide(color: Colors.white),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
-                  _buildActionTile(
-                    Icons.lock_outline,
-                    "Change Password",
-                    "Update your security credentials",
-                    _showChangePasswordDialog,
+
+                  const SizedBox(height: 24),
+
+                  // User Details Card
+                  Container(
+                    decoration: AppTheme.getCardDecoration(context),
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        _buildInfoRow(Icons.email_outlined, "Email", email),
+                        Divider(
+                          height: 24,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        _buildInfoRow(
+                          Icons.calendar_today_outlined,
+                          "Joined",
+                          joinedDate != null
+                              ? DateTime.fromMillisecondsSinceEpoch(
+                                  joinedDate!,
+                                ).toLocal().toString().split(' ')[0]
+                              : "N/A",
+                        ),
+                      ],
+                    ),
                   ),
-                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
-                  _buildActionTile(
-                    Icons.help_outline,
-                    "Help & Support",
-                    "Get assistance and FAQs",
-                    _showHelpSupportDialog,
+
+                  const SizedBox(height: 20),
+
+                  // Statistics Card
+                  Container(
+                    decoration: AppTheme.getCardDecoration(context),
+                    padding: const EdgeInsets.all(20),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildStatItem(
+                          "Courses",
+                          totalCourses.toString(),
+                          Icons.book,
+                        ),
+                        Container(
+                          height: 50,
+                          width: 1,
+                          color: isDark
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade200,
+                        ),
+                        _buildStatItem(
+                          "Students",
+                          totalStudents.toString(),
+                          Icons.people,
+                        ),
+                        Container(
+                          height: 50,
+                          width: 1,
+                          color: isDark
+                              ? Colors.grey.shade700
+                              : Colors.grey.shade200,
+                        ),
+                        _buildStatItem(
+                          "Rating",
+                          reviewCount > 0
+                              ? "${averageRating.toStringAsFixed(1)} ($reviewCount)"
+                              : "No reviews",
+                          Icons.star,
+                        ),
+                      ],
+                    ),
                   ),
-                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
-                  _buildActionTile(
-                    Icons.logout,
-                    "Logout",
-                    "Sign out of your account",
-                    () => _showLogoutDialog(context),
-                    isDestructive: true,
+
+                  const SizedBox(height: 20),
+
+                  // Actions Card
+                  Container(
+                    decoration: AppTheme.getCardDecoration(context),
+                    child: Column(
+                      children: [
+                        // Dark Mode Toggle
+                        Consumer<ThemeService>(
+                          builder: (context, themeService, child) {
+                            return ListTile(
+                              leading: Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color:
+                                      (isDark
+                                              ? AppTheme.darkPrimaryLight
+                                              : AppTheme.primaryColor)
+                                          .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(
+                                  themeService.isDarkMode
+                                      ? Icons.dark_mode
+                                      : Icons.light_mode,
+                                  color: isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : AppTheme.primaryColor,
+                                ),
+                              ),
+                              title: Text(
+                                "Dark Mode",
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.getTextPrimary(context),
+                                ),
+                              ),
+                              subtitle: Text(
+                                themeService.isDarkMode ? "On" : "Off",
+                                style: TextStyle(
+                                  color: AppTheme.getTextSecondary(context),
+                                  fontSize: 12,
+                                ),
+                              ),
+                              trailing: Switch(
+                                value: themeService.isDarkMode,
+                                onChanged: (_) => themeService.toggleTheme(),
+                                activeColor: isDark
+                                    ? AppTheme.darkAccentColor
+                                    : AppTheme.accentColor,
+                              ),
+                            );
+                          },
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        _buildActionTile(
+                          Icons.lock_outline,
+                          "Change Password",
+                          "Update your security credentials",
+                          _showChangePasswordDialog,
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        _buildActionTile(
+                          Icons.help_outline,
+                          "Help & Support",
+                          "Get assistance and FAQs",
+                          _showHelpSupportDialog,
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        _buildActionTile(
+                          Icons.logout,
+                          "Logout",
+                          "Sign out of your account",
+                          () => _showLogoutDialog(context),
+                          isDestructive: true,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
-          ],
+          ),
         ),
-      ),
+        // Show subtle refreshing indicator at top
+        if (_isRefreshing)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: LinearProgressIndicator(
+              backgroundColor: Colors.transparent,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
