@@ -137,4 +137,11 @@ class CacheService {
     if (age == null) return true;
     return age > threshold;
   }
+
+  /// Clear ALL caches including static caches from all screens
+  /// IMPORTANT: Call this on logout to prevent data leakage between users
+  void clearAllOnLogout() {
+    // Clear this service's in-memory cache
+    clear();
+  }
 }

@@ -8,7 +8,10 @@ import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/theme_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/preferences_service.dart';
+import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/views/signin_screen.dart';
+import 'package:eduverse/views/student/courses_screen.dart';
+import 'package:eduverse/views/student/home_tab.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
@@ -19,11 +22,13 @@ class ProfileScreen extends StatefulWidget {
 
   // Static cache to persist data across widget rebuilds
   static Map<String, dynamic>? cachedProfileData;
+  static String? cachedUid; // Track which user's data is cached
   static bool hasLoadedOnce = false;
 
   /// Clear static cache from outside - call this when progress changes
   static void clearCache() {
     cachedProfileData = null;
+    cachedUid = null;
     hasLoadedOnce = false;
   }
 
@@ -103,9 +108,11 @@ class _ProfileScreenState extends State<ProfileScreen>
     final cacheKey = 'profile_data_$uid';
 
     // Use static cache if available and not forcing refresh
+    // IMPORTANT: Verify cached data belongs to current user
     if (!forceRefresh &&
         ProfileScreen.hasLoadedOnce &&
-        ProfileScreen.cachedProfileData != null) {
+        ProfileScreen.cachedProfileData != null &&
+        ProfileScreen.cachedUid == uid) {
       if (mounted) {
         setState(() {
           userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
@@ -128,6 +135,7 @@ class _ProfileScreenState extends State<ProfileScreen>
       final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
       if (cachedData != null) {
         ProfileScreen.cachedProfileData = cachedData;
+        ProfileScreen.cachedUid = uid;
         ProfileScreen.hasLoadedOnce = true;
 
         if (mounted) {
@@ -284,6 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
       // Update static cache
       ProfileScreen.cachedProfileData = profileData;
+      ProfileScreen.cachedUid = uid;
       ProfileScreen.hasLoadedOnce = true;
 
       if (mounted) {
@@ -1368,7 +1377,20 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   Future<void> _performLogout() async {
     try {
+      // Clear all static caches to prevent data leakage between users
+      try {
+        ProfileScreen.clearCache();
+        CoursesScreen.clearCache();
+        HomeTab.clearCache();
+        AnalyticsService.clearCache();
+        CacheService().clearAllOnLogout();
+      } catch (cacheError) {
+        debugPrint('Cache clearing error: $cacheError');
+      }
+
       await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
 
       Navigator.pushAndRemoveUntil(
         context,
@@ -1376,6 +1398,7 @@ class _ProfileScreenState extends State<ProfileScreen>
         (route) => false,
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));

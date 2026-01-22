@@ -25,6 +25,7 @@ class HomeTab extends StatefulWidget {
   static String? cachedUserName;
   static List<Map<String, dynamic>>? cachedAllCourses;
   static Set<String>? cachedEnrolledCourseIds;
+  static String? cachedUid;
   static bool hasLoadedOnce = false;
 
   /// Clear all static caches - call when data changes
@@ -32,6 +33,7 @@ class HomeTab extends StatefulWidget {
     cachedUserName = null;
     cachedAllCourses = null;
     cachedEnrolledCourseIds = null;
+    cachedUid = null;
     hasLoadedOnce = false;
   }
 
@@ -65,8 +67,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
 
-    // Use cached data immediately if available
-    if (HomeTab.hasLoadedOnce && HomeTab.cachedAllCourses != null) {
+    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    // Use cached data immediately if available AND belongs to current user
+    if (HomeTab.hasLoadedOnce &&
+        HomeTab.cachedAllCourses != null &&
+        HomeTab.cachedUid == currentUid) {
       userName = HomeTab.cachedUserName ?? "Student";
       allCourses = HomeTab.cachedAllCourses!;
       enrolledCourseIds = HomeTab.cachedEnrolledCourseIds ?? {};
@@ -116,8 +121,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     final cacheKeyCourses = 'all_courses_home';
     final cacheKeyEnrolled = 'enrolled_course_ids_$studentUid';
 
-    // Use static cache if available
-    if (HomeTab.hasLoadedOnce && HomeTab.cachedAllCourses != null) {
+    // Use static cache if available AND belongs to current user
+    if (HomeTab.hasLoadedOnce &&
+        HomeTab.cachedAllCourses != null &&
+        HomeTab.cachedUid == studentUid) {
       if (mounted) {
         setState(() {
           userName = HomeTab.cachedUserName ?? "Student";
@@ -142,6 +149,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       HomeTab.cachedUserName = cachedName;
       HomeTab.cachedAllCourses = cachedCourses;
       HomeTab.cachedEnrolledCourseIds = cachedEnrolledIds;
+      HomeTab.cachedUid = studentUid;
       HomeTab.hasLoadedOnce = true;
 
       if (mounted) {
@@ -189,6 +197,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       HomeTab.cachedUserName = name;
       HomeTab.cachedAllCourses = courses;
       HomeTab.cachedEnrolledCourseIds = enrolledIds;
+      HomeTab.cachedUid = studentUid;
       HomeTab.hasLoadedOnce = true;
 
       if (mounted) {
@@ -237,6 +246,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       HomeTab.cachedUserName = name;
       HomeTab.cachedAllCourses = courses;
       HomeTab.cachedEnrolledCourseIds = enrolledIds;
+      HomeTab.cachedUid = studentUid;
       HomeTab.hasLoadedOnce = true;
 
       if (mounted) {

@@ -1173,7 +1173,12 @@ class CourseService {
 
       final reviews = await getCourseReviews(courseUid: courseUid);
       for (final review in reviews) {
-        allReviews.add({...review, 'courseTitle': courseTitle});
+        allReviews.add({
+          ...review,
+          'courseUid': courseUid,
+          'courseId': courseUid, // Add both for compatibility
+          'courseTitle': courseTitle,
+        });
       }
     }
 

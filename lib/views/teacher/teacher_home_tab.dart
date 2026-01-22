@@ -30,6 +30,7 @@ class TeacherHomeTab extends StatefulWidget {
   static List<Map<String, dynamic>>? cachedCourses;
   static int? cachedStudentCount;
   static List<Map<String, dynamic>>? cachedAnnouncements;
+  static String? cachedUid;
   static bool hasLoadedOnce = false;
 
   /// Clear all static caches - call when data changes
@@ -38,6 +39,7 @@ class TeacherHomeTab extends StatefulWidget {
     cachedCourses = null;
     cachedStudentCount = null;
     cachedAnnouncements = null;
+    cachedUid = null;
     hasLoadedOnce = false;
   }
 
@@ -77,8 +79,11 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
 
-    // Use cached data immediately if available
-    if (TeacherHomeTab.hasLoadedOnce && TeacherHomeTab.cachedCourses != null) {
+    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    // Use cached data immediately if available AND belongs to current teacher
+    if (TeacherHomeTab.hasLoadedOnce &&
+        TeacherHomeTab.cachedCourses != null &&
+        TeacherHomeTab.cachedUid == currentUid) {
       userName = TeacherHomeTab.cachedUserName ?? "Teacher";
       courses = TeacherHomeTab.cachedCourses!;
       uniqueStudentCount = TeacherHomeTab.cachedStudentCount ?? 0;
@@ -128,8 +133,10 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     final cacheKeyStudents = 'teacher_students_$teacherUid';
     final cacheKeyAnnouncements = 'teacher_announcements_$teacherUid';
 
-    // Use static cache if available
-    if (TeacherHomeTab.hasLoadedOnce && TeacherHomeTab.cachedCourses != null) {
+    // Use static cache if available AND belongs to current teacher
+    if (TeacherHomeTab.hasLoadedOnce &&
+        TeacherHomeTab.cachedCourses != null &&
+        TeacherHomeTab.cachedUid == teacherUid) {
       if (mounted) {
         setState(() {
           userName = TeacherHomeTab.cachedUserName ?? "Teacher";
@@ -159,6 +166,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       TeacherHomeTab.cachedCourses = cachedCourses;
       TeacherHomeTab.cachedStudentCount = cachedStudents;
       TeacherHomeTab.cachedAnnouncements = cachedAnnouncements;
+      TeacherHomeTab.cachedUid = teacherUid;
       TeacherHomeTab.hasLoadedOnce = true;
 
       if (mounted) {
@@ -224,6 +232,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       TeacherHomeTab.cachedCourses = fetchedCourses;
       TeacherHomeTab.cachedStudentCount = studentCount;
       TeacherHomeTab.cachedAnnouncements = fetchedAnnouncements;
+      TeacherHomeTab.cachedUid = teacherUid;
       TeacherHomeTab.hasLoadedOnce = true;
 
       if (mounted) {
@@ -291,6 +300,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       TeacherHomeTab.cachedCourses = fetchedCourses;
       TeacherHomeTab.cachedStudentCount = studentCount;
       TeacherHomeTab.cachedAnnouncements = fetchedAnnouncements;
+      TeacherHomeTab.cachedUid = teacherUid;
       TeacherHomeTab.hasLoadedOnce = true;
 
       if (mounted) {
