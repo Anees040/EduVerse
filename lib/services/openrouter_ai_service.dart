@@ -63,8 +63,9 @@ class OpenRouterAiService implements AiService {
         // Expecting OpenAI-like response: choices[0].message.content
         try {
           final content = data['choices']?[0]?['message']?['content'];
-          if (content is String && content.trim().isNotEmpty)
+          if (content is String && content.trim().isNotEmpty) {
             return content.trim();
+          }
         } catch (_) {}
 
         // Fallback: try choices[0].text
@@ -95,8 +96,9 @@ class OpenRouterAiService implements AiService {
       return '❌ OpenRouter API error ${resp.statusCode}';
     } catch (e) {
       final msg = e.toString().toLowerCase();
-      if (msg.contains('timeout'))
+      if (msg.contains('timeout')) {
         return '⏱️ Request timed out. Please try again.';
+      }
       if (msg.contains('socket') || msg.contains('connection')) {
         return '🌐 Network error. Please check your internet connection.';
       }

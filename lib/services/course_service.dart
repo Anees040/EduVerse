@@ -239,8 +239,9 @@ class CourseService {
 
     // Fallback: check teacher's stored reviews that reference this course
     final teacherReviewsSnap = await _db.child('teacher').get();
-    if (!teacherReviewsSnap.exists)
+    if (!teacherReviewsSnap.exists) {
       return {'averageRating': 0.0, 'reviewCount': 0};
+    }
 
     final teachers = teacherReviewsSnap.value as Map<dynamic, dynamic>;
     double total = 0.0;

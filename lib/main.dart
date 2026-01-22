@@ -23,12 +23,12 @@ Future<void> main() async {
     ]);
 
     // Enable Firebase Database persistence for offline support and faster reads
-    // Note: setPersistenceEnabled is not supported on web platform
+    // Note: setPersistenceEnabled and keepSynced are not supported on web platform
     if (!kIsWeb) {
       FirebaseDatabase.instance.setPersistenceEnabled(true);
+      // Keep synced data for faster access
+      FirebaseDatabase.instance.ref().keepSynced(true);
     }
-    // Keep synced data for faster access
-    FirebaseDatabase.instance.ref().keepSynced(true);
   } catch (e) {
     debugPrint('Initialization error: $e');
   }

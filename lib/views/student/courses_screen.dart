@@ -697,8 +697,9 @@ class _CoursesScreenState extends State<CoursesScreen>
                             if (vids is Map) return vids.length;
                             if (vids is List) return vids.length;
                             if (course['videoUrl'] != null ||
-                                course['video'] != null)
+                                course['video'] != null) {
                               return 1;
+                            }
                             return 0;
                           })(),
                           privateVideoCount: (() {
@@ -1507,8 +1508,9 @@ class _CoursesScreenState extends State<CoursesScreen>
                           if (vids is Map) return vids.length;
                           if (vids is List) return vids.length;
                           if (course['videoUrl'] != null ||
-                              course['video'] != null)
+                              course['video'] != null) {
                             return 1;
+                          }
                           return 0;
                         })(),
                         onTap: () => _openCourse(course),
