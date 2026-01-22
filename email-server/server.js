@@ -265,7 +265,7 @@ const server = http.createServer((req, res) => {
         }
 
         // Check if verification is recent (within 15 minutes)
-        const currentTime = Date.now();
+        // Reuse currentTime from above (already declared at line 213)
         const verificationTime = verificationData.timestamp || 0;
         const fifteenMinutes = 15 * 60 * 1000;
 
