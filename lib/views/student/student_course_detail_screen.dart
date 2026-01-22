@@ -350,14 +350,18 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   }
 
   double _calculateLocalProgress() {
-    if (_videos.isEmpty) return 0.0;
+    // Calculate using total videos (public + private) to match card progress
+    final totalVideos = _videos.length + _privateVideoCount;
+    if (totalVideos == 0) return 0.0;
+
     int completed = 0;
     for (final video in _videos) {
       if (_progress[video['videoId']]?['isCompleted'] == true) {
         completed++;
       }
     }
-    return completed / _videos.length;
+    // Divide completed public videos by total all videos (public + private)
+    return completed / totalVideos;
   }
 
   Future<void> _onVideoComplete() async {

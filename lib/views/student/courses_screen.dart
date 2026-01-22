@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -54,6 +56,9 @@ class _CoursesScreenState extends State<CoursesScreen>
   List<Map<String, dynamic>> enrolledCourses = [];
   Map<String, double> courseProgress = {};
 
+  Timer? _autoRefreshTimer;
+  static const Duration _refreshInterval = Duration(seconds: 10);
+
   // Keep tab alive
   @override
   bool get wantKeepAlive => true;
@@ -74,6 +79,14 @@ class _CoursesScreenState extends State<CoursesScreen>
     }
 
     _loadData();
+
+    // Start periodic auto-refresh for enrolled courses progress
+    _autoRefreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (mounted && _tabController.index == 1) {
+        // Only refresh when on enrolled tab
+        _fetchEnrolledCourses();
+      }
+    });
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {
@@ -1693,6 +1706,7 @@ class _CoursesScreenState extends State<CoursesScreen>
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _tabController.dispose();
     _exploreSearchController.dispose();
     _enrolledSearchController.dispose();
