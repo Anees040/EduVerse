@@ -1017,7 +1017,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
                         const SizedBox(height: 8),
                         Text(
                           _selectedFilter != 'all'
-                              ? 'No ${_selectedFilter} questions'
+                              ? 'No $_selectedFilter questions'
                               : 'No questions yet',
                           style: TextStyle(
                             color: Colors.grey.shade500,

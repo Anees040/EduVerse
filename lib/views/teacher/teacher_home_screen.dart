@@ -5,7 +5,7 @@ import 'package:eduverse/views/notifications_screen.dart';
 import 'package:eduverse/views/teacher/teacher_courses_screen.dart';
 import 'package:eduverse/views/teacher/teacher_home_tab.dart';
 import 'package:eduverse/views/teacher/teacher_profile_screen.dart';
-import 'package:eduverse/views/teacher/teacher_students_screen.dart';
+import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/utils/route_transitions.dart';
 
@@ -30,9 +30,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
     });
   }
 
-  void _navigateToStudentsTab() {
+  void _navigateToInsightsTab() {
     setState(() {
-      _selectedIndex = 2; // Students tab index
+      _selectedIndex = 2; // Insights tab index (formerly Students)
     });
   }
 
@@ -44,10 +44,10 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         role: widget.role,
         uid: widget.uid,
         onSeeAllCourses: _navigateToCoursesTab,
-        onSeeAllStudents: _navigateToStudentsTab,
+        onSeeAllStudents: _navigateToInsightsTab,
       ),
       const TeacherCoursesScreen(),
-      const TeacherStudentsScreen(),
+      const TeacherAnalyticsScreen(),
       TeacherProfileScreen(uid: widget.uid, role: widget.role),
     ];
   }
@@ -104,9 +104,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                   onTap: () {
                     Navigator.push(
                       context,
-                      SlideAndFadeRoute(
-                        page: const NotificationsScreen(),
-                      ),
+                      SlideAndFadeRoute(page: const NotificationsScreen()),
                     );
                   },
                   child: Stack(
@@ -192,9 +190,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               label: 'Courses',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.groups_outlined),
-              activeIcon: Icon(Icons.groups),
-              label: 'Students',
+              icon: Icon(Icons.insights_outlined),
+              activeIcon: Icon(Icons.insights),
+              label: 'Insights',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_outline),

@@ -14,21 +14,40 @@ class EduVerseApp extends StatelessWidget {
         return MaterialApp(
           title: 'eduVerse',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme,
-          darkTheme: AppTheme.darkTheme,
+          theme: AppTheme.lightTheme.copyWith(
+            // Ensure no gaps in light theme
+            scaffoldBackgroundColor: AppTheme.backgroundColor,
+            canvasColor: AppTheme.backgroundColor,
+          ),
+          darkTheme: AppTheme.darkTheme.copyWith(
+            // Ensure no gaps in dark theme
+            scaffoldBackgroundColor: AppTheme.darkBackground,
+            canvasColor: AppTheme.darkBackground,
+          ),
           themeMode: themeService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-          // Fix for the 1px white line on the right side
           builder: (context, child) {
+            // Aggressive fix for white line - use LayoutBuilder for accurate sizing
+            final mediaQuery = MediaQuery.of(context);
+            final theme = Theme.of(context);
+
             return MediaQuery(
-              data: MediaQuery.of(context).copyWith(
-                // Remove any padding that might cause misalignment
-                padding: MediaQuery.of(context).padding,
+              data: mediaQuery.copyWith(
+                textScaleFactor: mediaQuery.textScaleFactor.clamp(0.8, 1.3),
               ),
               child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(
-                  scrollbars: false, // Hide scrollbars to prevent white line
+                behavior: _NoOverscrollBehavior(),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    return ColoredBox(
+                      color: theme.scaffoldBackgroundColor,
+                      child: SizedBox(
+                        width: double.infinity,
+                        height: double.infinity,
+                        child: child ?? const SizedBox.shrink(),
+                      ),
+                    );
+                  },
                 ),
-                child: child ?? const SizedBox.shrink(),
               ),
             );
           },
@@ -36,5 +55,31 @@ class EduVerseApp extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+// Custom scroll behavior to prevent scrollbars and overflow indicators
+class _NoOverscrollBehavior extends ScrollBehavior {
+  @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child; // Remove overscroll glow effect
+  }
+
+  @override
+  ScrollPhysics getScrollPhysics(BuildContext context) {
+    return const ClampingScrollPhysics(); // Prevent bouncing that can cause visual gaps
+  }
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return child; // Hide scrollbars completely
   }
 }

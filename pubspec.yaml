@@ -53,6 +53,7 @@ dependencies:
   video_thumbnail: ^0.5.3
   path_provider: ^2.1.2
   cached_network_image: ^3.3.1
+  fl_chart: ^1.1.1
 
 
 dev_dependencies:

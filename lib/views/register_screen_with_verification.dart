@@ -339,9 +339,7 @@ class _RegisterScreenWithVerificationState
       );
       
       // Track resend attempts
-      if (_firstResendTime == null) {
-        _firstResendTime = DateTime.now();
-      }
+      _firstResendTime ??= DateTime.now();
       _resendAttempts++;
       
       setState(() {
