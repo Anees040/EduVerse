@@ -7,7 +7,11 @@ import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/theme_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/preferences_service.dart';
+import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/views/signin_screen.dart';
+import 'package:eduverse/views/teacher/teacher_courses_screen.dart';
+import 'package:eduverse/views/teacher/teacher_home_tab.dart';
+import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
@@ -19,6 +23,12 @@ class TeacherProfileScreen extends StatefulWidget {
     required this.uid,
     required this.role,
   });
+
+  /// Clear static cache - call on logout
+  static void clearCache() {
+    _TeacherProfileScreenState._cachedProfile = null;
+    _TeacherProfileScreenState._hasLoadedOnce = false;
+  }
 
   @override
   State<TeacherProfileScreen> createState() => _TeacherProfileScreenState();
@@ -1284,13 +1294,29 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
 
   Future<void> _performLogout() async {
     try {
+      // Clear ALL static caches to prevent data leakage between users
+      try {
+        TeacherProfileScreen.clearCache();
+        TeacherCoursesScreen.clearCache();
+        TeacherHomeTab.clearCache();
+        TeacherAnalyticsScreen.clearCache();
+        AnalyticsService.clearCache();
+        CacheService().clearAllOnLogout();
+      } catch (cacheError) {
+        debugPrint('Cache clearing error: $cacheError');
+      }
+
       await FirebaseAuth.instance.signOut();
+
+      if (!mounted) return;
+
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const SigninScreen()),
         (route) => false,
       );
     } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));

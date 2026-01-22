@@ -16,6 +16,7 @@ class CoursesScreen extends StatefulWidget {
   static List<Map<String, dynamic>>? cachedUnenrolledCourses;
   static List<Map<String, dynamic>>? cachedEnrolledCourses;
   static Map<String, double>? cachedCourseProgress;
+  static String? cachedUid;
   static bool hasLoadedOnce = false;
 
   /// Clear all static caches - call when progress changes
@@ -23,6 +24,7 @@ class CoursesScreen extends StatefulWidget {
     cachedUnenrolledCourses = null;
     cachedEnrolledCourses = null;
     cachedCourseProgress = null;
+    cachedUid = null;
     hasLoadedOnce = false;
   }
 
@@ -68,10 +70,11 @@ class _CoursesScreenState extends State<CoursesScreen>
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
 
-    // Use cached data immediately if available
+    // Use cached data immediately if available AND belongs to current user
     if (CoursesScreen.hasLoadedOnce &&
         CoursesScreen.cachedUnenrolledCourses != null &&
-        CoursesScreen.cachedEnrolledCourses != null) {
+        CoursesScreen.cachedEnrolledCourses != null &&
+        CoursesScreen.cachedUid == _studentUid) {
       courses = CoursesScreen.cachedUnenrolledCourses!;
       enrolledCourses = CoursesScreen.cachedEnrolledCourses!;
       courseProgress = CoursesScreen.cachedCourseProgress ?? {};
@@ -94,10 +97,11 @@ class _CoursesScreenState extends State<CoursesScreen>
     final cacheKeyEnrolled = 'enrolled_courses_detail_$_studentUid';
     final cacheKeyProgress = 'course_progress_$_studentUid';
 
-    // Use static cache if available and not forcing refresh
+    // Use static cache if available and not forcing refresh AND belongs to current user
     if (!forceRefresh &&
         CoursesScreen.hasLoadedOnce &&
-        CoursesScreen.cachedUnenrolledCourses != null) {
+        CoursesScreen.cachedUnenrolledCourses != null &&
+        CoursesScreen.cachedUid == _studentUid) {
       if (mounted) {
         setState(() {
           courses = CoursesScreen.cachedUnenrolledCourses!;
@@ -126,6 +130,7 @@ class _CoursesScreenState extends State<CoursesScreen>
         CoursesScreen.cachedUnenrolledCourses = cachedUnenrolled;
         CoursesScreen.cachedEnrolledCourses = cachedEnrolled;
         CoursesScreen.cachedCourseProgress = cachedProgress;
+        CoursesScreen.cachedUid = _studentUid;
         CoursesScreen.hasLoadedOnce = true;
 
         if (!mounted) return;
@@ -162,6 +167,7 @@ class _CoursesScreenState extends State<CoursesScreen>
     CoursesScreen.cachedUnenrolledCourses = courses;
     CoursesScreen.cachedEnrolledCourses = enrolledCourses;
     CoursesScreen.cachedCourseProgress = courseProgress;
+    CoursesScreen.cachedUid = _studentUid;
     CoursesScreen.hasLoadedOnce = true;
 
     if (!mounted) return;

@@ -26,15 +26,26 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   final DataPreloaderService _preloaderService = DataPreloaderService();
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
 
+  // GlobalKey to access TeacherAnalyticsScreen state for tab switching
+  final GlobalKey<dynamic> _analyticsKey = GlobalKey();
+
   void _navigateToCoursesTab() {
     setState(() {
       _selectedIndex = 1; // Courses tab index
     });
   }
 
-  void _navigateToInsightsTab() {
+  /// Navigate to Insights tab and switch to Students sub-tab
+  void _navigateToStudentsTab() {
     setState(() {
-      _selectedIndex = 2; // Insights tab index (formerly Students)
+      _selectedIndex = 2; // Insights tab index
+    });
+    // Use post-frame callback to ensure the widget is built
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final currentState = _analyticsKey.currentState;
+      if (currentState != null) {
+        currentState.switchToTab(1); // Students tab is index 1
+      }
     });
   }
 
@@ -50,10 +61,11 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         role: widget.role,
         uid: widget.uid,
         onSeeAllCourses: _navigateToCoursesTab,
-        onSeeAllStudents: _navigateToInsightsTab,
+        onSeeAllStudents:
+            _navigateToStudentsTab, // Now navigates to Students sub-tab
       ),
       const TeacherCoursesScreen(),
-      const TeacherAnalyticsScreen(),
+      TeacherAnalyticsScreen(key: _analyticsKey),
       TeacherProfileScreen(uid: widget.uid, role: widget.role),
     ];
   }

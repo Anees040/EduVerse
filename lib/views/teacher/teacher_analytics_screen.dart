@@ -14,13 +14,16 @@ import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 /// Teacher Analytics Dashboard - The "Insights" Screen
 /// Provides real-time analytics and integrates student management
 class TeacherAnalyticsScreen extends StatefulWidget {
-  const TeacherAnalyticsScreen({super.key});
+  final int initialTabIndex;
+
+  const TeacherAnalyticsScreen({super.key, this.initialTabIndex = 0});
 
   // Static cache to persist across tab switches
   static TeacherAnalytics? cachedAnalytics;
   static List<Map<String, dynamic>>? cachedStudents;
   static Map<String, String>? cachedCourseNames;
   static List<Map<String, dynamic>>? cachedReviews;
+  static String? cachedTeacherId; // Track which teacher's data is cached
   static bool hasLoadedOnce = false;
 
   /// Clear all static caches - call when student activity happens
@@ -29,6 +32,7 @@ class TeacherAnalyticsScreen extends StatefulWidget {
     cachedStudents = null;
     cachedCourseNames = null;
     cachedReviews = null;
+    cachedTeacherId = null;
     hasLoadedOnce = false;
   }
 
@@ -75,9 +79,19 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   @override
   bool get wantKeepAlive => true;
 
+  /// Public method to switch to a specific tab from outside
+  void switchToTab(int tabIndex) {
+    if (mounted && tabIndex >= 0 && tabIndex <= 3) {
+      setState(() {
+        _selectedTabIndex = tabIndex;
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _selectedTabIndex = widget.initialTabIndex;
     _loadData();
     _startAutoRefresh();
   }
@@ -143,6 +157,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       TeacherAnalyticsScreen.cachedAnalytics = analytics;
       TeacherAnalyticsScreen.cachedStudents = students;
       TeacherAnalyticsScreen.cachedCourseNames = courseNames;
+      TeacherAnalyticsScreen.cachedTeacherId = teacherId;
 
       if (mounted) {
         setState(() {
@@ -160,10 +175,14 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   Future<void> _loadData({bool forceRefresh = false}) async {
     if (!mounted) return;
 
+    final teacherId = FirebaseAuth.instance.currentUser!.uid;
+
     // Use cached data if available and not forcing refresh
+    // IMPORTANT: Verify cached data belongs to current teacher
     if (!forceRefresh &&
         TeacherAnalyticsScreen.hasLoadedOnce &&
-        TeacherAnalyticsScreen.cachedAnalytics != null) {
+        TeacherAnalyticsScreen.cachedAnalytics != null &&
+        TeacherAnalyticsScreen.cachedTeacherId == teacherId) {
       setState(() {
         _analytics = TeacherAnalyticsScreen.cachedAnalytics;
         _students = TeacherAnalyticsScreen.cachedStudents ?? [];
@@ -181,8 +200,6 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
     }
 
     try {
-      final teacherId = FirebaseAuth.instance.currentUser!.uid;
-
       // Load analytics data
       final analytics = await _analyticsService.getTeacherAnalytics(
         teacherUid: teacherId,
@@ -208,6 +225,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       TeacherAnalyticsScreen.cachedAnalytics = analytics;
       TeacherAnalyticsScreen.cachedStudents = students;
       TeacherAnalyticsScreen.cachedCourseNames = courseNames;
+      TeacherAnalyticsScreen.cachedTeacherId = teacherId;
       TeacherAnalyticsScreen.hasLoadedOnce = true;
 
       if (mounted) {

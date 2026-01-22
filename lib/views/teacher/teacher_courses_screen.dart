@@ -13,6 +13,14 @@ import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 class TeacherCoursesScreen extends StatefulWidget {
   const TeacherCoursesScreen({super.key});
 
+  /// Clear static cache - call on logout
+  static void clearCache() {
+    _TeacherCoursesScreenState._cachedCourses = null;
+    _TeacherCoursesScreenState._cachedStudentCount = null;
+    _TeacherCoursesScreenState._cachedUid = null;
+    _TeacherCoursesScreenState._hasLoadedOnce = false;
+  }
+
   @override
   State<TeacherCoursesScreen> createState() => _TeacherCoursesScreenState();
 }
@@ -25,6 +33,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   // Static cache to persist across widget rebuilds
   static List<Map<String, dynamic>>? _cachedCourses;
   static int? _cachedStudentCount;
+  static String? _cachedUid;
   static bool _hasLoadedOnce = false;
 
   bool _isInitialLoading = true;
@@ -47,8 +56,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   @override
   void initState() {
     super.initState();
-    // Use cached data immediately if available
-    if (_hasLoadedOnce && _cachedCourses != null) {
+    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    // Use cached data immediately if available AND belongs to current teacher
+    if (_hasLoadedOnce && _cachedCourses != null && _cachedUid == currentUid) {
       courses = _cachedCourses!;
       uniqueStudentCount = _cachedStudentCount ?? 0;
       _isInitialLoading = false;
@@ -68,8 +78,11 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     final cacheKeyCourses = 'teacher_all_courses_$teacherUid';
     final cacheKeyStudents = 'teacher_all_students_$teacherUid';
 
-    // Use static cache if available and not forcing refresh
-    if (!forceRefresh && _hasLoadedOnce && _cachedCourses != null) {
+    // Use static cache if available and not forcing refresh AND belongs to current teacher
+    if (!forceRefresh &&
+        _hasLoadedOnce &&
+        _cachedCourses != null &&
+        _cachedUid == teacherUid) {
       if (mounted) {
         setState(() {
           courses = _cachedCourses!;
@@ -90,6 +103,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       if (cachedCourses != null && cachedStudents != null) {
         _cachedCourses = cachedCourses;
         _cachedStudentCount = cachedStudents;
+        _cachedUid = teacherUid;
         _hasLoadedOnce = true;
         if (mounted) {
           setState(() {
@@ -145,6 +159,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       // Update static cache
       _cachedCourses = fetchedCourses;
       _cachedStudentCount = studentCount;
+      _cachedUid = teacherUid;
       _hasLoadedOnce = true;
 
       if (mounted) {
@@ -203,6 +218,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       // Update static cache
       _cachedCourses = fetchedCourses;
       _cachedStudentCount = studentCount;
+      _cachedUid = teacherUid;
       _hasLoadedOnce = true;
 
       if (mounted) {
