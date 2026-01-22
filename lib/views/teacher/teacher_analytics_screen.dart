@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +16,22 @@ import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 class TeacherAnalyticsScreen extends StatefulWidget {
   const TeacherAnalyticsScreen({super.key});
 
+  // Static cache to persist across tab switches
+  static TeacherAnalytics? cachedAnalytics;
+  static List<Map<String, dynamic>>? cachedStudents;
+  static Map<String, String>? cachedCourseNames;
+  static List<Map<String, dynamic>>? cachedReviews;
+  static bool hasLoadedOnce = false;
+
+  /// Clear all static caches - call when student activity happens
+  static void clearCache() {
+    cachedAnalytics = null;
+    cachedStudents = null;
+    cachedCourseNames = null;
+    cachedReviews = null;
+    hasLoadedOnce = false;
+  }
+
   @override
   State<TeacherAnalyticsScreen> createState() => _TeacherAnalyticsScreenState();
 }
@@ -23,6 +41,10 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   // Services
   final AnalyticsService _analyticsService = AnalyticsService();
   final CourseService _courseService = CourseService();
+
+  // Auto-refresh timer
+  Timer? _autoRefreshTimer;
+  static const Duration _refreshInterval = Duration(seconds: 30);
 
   // State
   String _selectedDateRange = '7d';
@@ -47,13 +69,6 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   int? _selectedStarFilter;
   String? _selectedCourseReviewFilter;
   String _selectedReviewDateFilter = 'all';
-  static List<Map<String, dynamic>>? _cachedReviews;
-
-  // Static cache to persist across tab switches
-  static TeacherAnalytics? _cachedAnalytics;
-  static List<Map<String, dynamic>>? _cachedStudents;
-  static Map<String, String>? _cachedCourseNames;
-  static bool _hasLoadedOnce = false;
 
   // Keep tab alive
   @override
@@ -63,23 +78,95 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
   void initState() {
     super.initState();
     _loadData();
+    _startAutoRefresh();
   }
 
   @override
   void dispose() {
+    _autoRefreshTimer?.cancel();
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _startAutoRefresh() {
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = Timer.periodic(_refreshInterval, (_) {
+      if (mounted) {
+        _silentRefresh();
+      }
+    });
+  }
+
+  /// Silently refresh data in background without showing loading indicators
+  Future<void> _silentRefresh() async {
+    if (!mounted || _isRefreshing) return;
+
+    try {
+      final teacherId = FirebaseAuth.instance.currentUser!.uid;
+
+      // Refresh analytics
+      final analytics = await _analyticsService.getTeacherAnalytics(
+        teacherUid: teacherId,
+        dateRange: _selectedDateRange,
+        forceRefresh: true,
+      );
+
+      // Refresh students
+      final students = await _analyticsService.getEnrolledStudentsWithDetails(
+        teacherUid: teacherId,
+        courseFilter: _selectedCourseFilter,
+        dateFilter: _selectedStudentDateFilter,
+        forceRefresh: true,
+      );
+
+      // Refresh reviews if tab is selected
+      if (_selectedTabIndex == 2) {
+        final reviews = await _courseService.getTeacherAllCourseReviews(
+          teacherUid: teacherId,
+        );
+        if (mounted) {
+          setState(() {
+            _reviews = reviews;
+            TeacherAnalyticsScreen.cachedReviews = reviews;
+          });
+        }
+      }
+
+      // Build course names map
+      final courseNames = <String, String>{};
+      for (final course in analytics.courseAnalytics) {
+        courseNames[course.courseId] = course.courseTitle;
+      }
+
+      // Update caches
+      TeacherAnalyticsScreen.cachedAnalytics = analytics;
+      TeacherAnalyticsScreen.cachedStudents = students;
+      TeacherAnalyticsScreen.cachedCourseNames = courseNames;
+
+      if (mounted) {
+        setState(() {
+          _analytics = analytics;
+          _students = students;
+          _courseNames = courseNames;
+        });
+      }
+    } catch (e) {
+      // Silent fail for auto-refresh
+      debugPrint('Auto-refresh error: $e');
+    }
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {
     if (!mounted) return;
 
     // Use cached data if available and not forcing refresh
-    if (!forceRefresh && _hasLoadedOnce && _cachedAnalytics != null) {
+    if (!forceRefresh &&
+        TeacherAnalyticsScreen.hasLoadedOnce &&
+        TeacherAnalyticsScreen.cachedAnalytics != null) {
       setState(() {
-        _analytics = _cachedAnalytics;
-        _students = _cachedStudents ?? [];
-        _courseNames = _cachedCourseNames ?? {};
+        _analytics = TeacherAnalyticsScreen.cachedAnalytics;
+        _students = TeacherAnalyticsScreen.cachedStudents ?? [];
+        _courseNames = TeacherAnalyticsScreen.cachedCourseNames ?? {};
         _isInitialLoading = false;
       });
       return;
@@ -117,10 +204,10 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       }
 
       // Update static cache
-      _cachedAnalytics = analytics;
-      _cachedStudents = students;
-      _cachedCourseNames = courseNames;
-      _hasLoadedOnce = true;
+      TeacherAnalyticsScreen.cachedAnalytics = analytics;
+      TeacherAnalyticsScreen.cachedStudents = students;
+      TeacherAnalyticsScreen.cachedCourseNames = courseNames;
+      TeacherAnalyticsScreen.hasLoadedOnce = true;
 
       if (mounted) {
         setState(() {
@@ -149,7 +236,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       courseFilter: _selectedCourseFilter,
       dateFilter: _selectedStudentDateFilter,
     );
-    _cachedStudents = students;
+    TeacherAnalyticsScreen.cachedStudents = students;
     if (mounted) {
       setState(() => _students = students);
     }
@@ -297,7 +384,13 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
                 final isSelected = _selectedTabIndex == index;
                 return Expanded(
                   child: GestureDetector(
-                    onTap: () => setState(() => _selectedTabIndex = index),
+                    onTap: () {
+                      setState(() => _selectedTabIndex = index);
+                      // Auto-refresh reviews when tab is selected
+                      if (index == 2) {
+                        _refreshReviews();
+                      }
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 200),
                       padding: const EdgeInsets.symmetric(vertical: 10),
@@ -430,10 +523,13 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
 
   Widget _buildReviewsTab(bool isDark) {
     // Load reviews when tab is selected
-    if (_reviews.isEmpty && !_isLoadingReviews && _cachedReviews == null) {
+    if (_reviews.isEmpty &&
+        !_isLoadingReviews &&
+        TeacherAnalyticsScreen.cachedReviews == null) {
       _loadReviews();
-    } else if (_cachedReviews != null && _reviews.isEmpty) {
-      _reviews = _cachedReviews!;
+    } else if (TeacherAnalyticsScreen.cachedReviews != null &&
+        _reviews.isEmpty) {
+      _reviews = TeacherAnalyticsScreen.cachedReviews!;
     }
 
     return SingleChildScrollView(
@@ -471,7 +567,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       if (mounted) {
         setState(() {
           _reviews = reviews;
-          _cachedReviews = reviews;
+          TeacherAnalyticsScreen.cachedReviews = reviews;
           _isLoadingReviews = false;
         });
       }
@@ -479,6 +575,25 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       if (mounted) {
         setState(() => _isLoadingReviews = false);
       }
+    }
+  }
+
+  /// Refresh reviews silently in background
+  Future<void> _refreshReviews() async {
+    try {
+      final teacherId = FirebaseAuth.instance.currentUser!.uid;
+      final reviews = await _courseService.getTeacherAllCourseReviews(
+        teacherUid: teacherId,
+      );
+
+      if (mounted) {
+        setState(() {
+          _reviews = reviews;
+          TeacherAnalyticsScreen.cachedReviews = reviews;
+        });
+      }
+    } catch (_) {
+      // Silent fail
     }
   }
 

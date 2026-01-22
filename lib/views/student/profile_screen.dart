@@ -15,14 +15,25 @@ class ProfileScreen extends StatefulWidget {
   final String role;
   const ProfileScreen({super.key, required this.uid, required this.role});
 
+  // Static cache to persist data across widget rebuilds
+  static Map<String, dynamic>? cachedProfileData;
+  static bool hasLoadedOnce = false;
+
+  /// Clear static cache from outside - call this when progress changes
+  static void clearCache() {
+    cachedProfileData = null;
+    hasLoadedOnce = false;
+  }
+
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen>
     with AutomaticKeepAliveClientMixin {
-  bool isLoading = true;
   final _cacheService = CacheService();
+
+  bool _isInitialLoading = true;
 
   String userName = "...";
   String userRole = "student";
@@ -41,36 +52,85 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   bool get wantKeepAlive => true;
 
-  Future<void> fetchUserData() async {
+  @override
+  void initState() {
+    super.initState();
+
+    // Use cached data immediately if available
+    if (ProfileScreen.hasLoadedOnce &&
+        ProfileScreen.cachedProfileData != null) {
+      userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
+      email = ProfileScreen.cachedProfileData!['email'] ?? "...";
+      userRole = widget.role;
+      joinedDate = ProfileScreen.cachedProfileData!['joinedDate'];
+      enrolledCourses = ProfileScreen.cachedProfileData!['enrolledCourses'];
+      completedCourses =
+          ProfileScreen.cachedProfileData!['completedCourses'] ?? 0;
+      overallProgress =
+          ProfileScreen.cachedProfileData!['overallProgress'] ?? 0.0;
+      _isInitialLoading = false;
+    }
+
+    fetchUserData();
+  }
+
+  Future<void> fetchUserData({bool forceRefresh = false}) async {
     if (!mounted) return;
 
     final uid = FirebaseAuth.instance.currentUser!.uid;
     final cacheKey = 'profile_data_$uid';
 
-    // Check cache first for instant display
-    final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
-    if (cachedData != null) {
+    // Use static cache if available and not forcing refresh
+    if (!forceRefresh &&
+        ProfileScreen.hasLoadedOnce &&
+        ProfileScreen.cachedProfileData != null) {
       if (mounted) {
         setState(() {
-          userName = cachedData['userName'] ?? "...";
-          email = cachedData['email'] ?? "...";
+          userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
+          email = ProfileScreen.cachedProfileData!['email'] ?? "...";
           userRole = widget.role;
-          joinedDate = cachedData['joinedDate'];
-          enrolledCourses = cachedData['enrolledCourses'];
-          completedCourses = cachedData['completedCourses'] ?? 0;
-          overallProgress = cachedData['overallProgress'] ?? 0.0;
-          isLoading = false;
+          joinedDate = ProfileScreen.cachedProfileData!['joinedDate'];
+          enrolledCourses = ProfileScreen.cachedProfileData!['enrolledCourses'];
+          completedCourses =
+              ProfileScreen.cachedProfileData!['completedCourses'] ?? 0;
+          overallProgress =
+              ProfileScreen.cachedProfileData!['overallProgress'] ?? 0.0;
+          _isInitialLoading = false;
         });
       }
-      // Refresh in background
-      _refreshProfileInBackground(uid, cacheKey);
       return;
     }
 
+    // Check cache first for instant display
+    if (!forceRefresh) {
+      final cachedData = _cacheService.get<Map<String, dynamic>>(cacheKey);
+      if (cachedData != null) {
+        ProfileScreen.cachedProfileData = cachedData;
+        ProfileScreen.hasLoadedOnce = true;
+
+        if (mounted) {
+          setState(() {
+            userName = cachedData['userName'] ?? "...";
+            email = cachedData['email'] ?? "...";
+            userRole = widget.role;
+            joinedDate = cachedData['joinedDate'];
+            enrolledCourses = cachedData['enrolledCourses'];
+            completedCourses = cachedData['completedCourses'] ?? 0;
+            overallProgress = cachedData['overallProgress'] ?? 0.0;
+            _isInitialLoading = false;
+          });
+        }
+        // Refresh in background
+        _refreshProfileInBackground(uid, cacheKey);
+        return;
+      }
+    }
+
+    // Show loading only if no data yet
     if (!mounted) return;
-    setState(() {
-      isLoading = true;
-    });
+    if (userName == "...") {
+      setState(() => _isInitialLoading = true);
+    }
 
     try {
       final userData = await UserService().getUser(uid: uid, role: widget.role);
@@ -115,14 +175,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         if (!mounted) return;
 
         // Cache the data
-        _cacheService.set(cacheKey, {
+        final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
           'joinedDate': userData['createdAt'],
           'enrolledCourses': enrolledCoursesList.length,
           'completedCourses': completed,
           'overallProgress': avgProgress,
-        });
+        };
+
+        _cacheService.set(cacheKey, profileData);
+
+        // Update static cache
+        ProfileScreen.cachedProfileData = profileData;
+        ProfileScreen.hasLoadedOnce = true;
 
         setState(() {
           userName = userData['name'] ?? "...";
@@ -132,13 +198,14 @@ class _ProfileScreenState extends State<ProfileScreen>
           enrolledCourses = enrolledCoursesList.length;
           completedCourses = completed;
           overallProgress = avgProgress;
-
-          isLoading = false;
+          _isInitialLoading = false;
         });
       }
     } catch (e) {
       if (!mounted) return;
-      setState(() => isLoading = false);
+      setState(() {
+        _isInitialLoading = false;
+      });
 
       ScaffoldMessenger.of(
         context,
@@ -182,14 +249,20 @@ class _ProfileScreenState extends State<ProfileScreen>
           ? totalProgress / enrolledCoursesList.length
           : 0.0;
 
-      _cacheService.set(cacheKey, {
+      final profileData = {
         'userName': userData['name'],
         'email': userData['email'],
         'joinedDate': userData['createdAt'],
         'enrolledCourses': enrolledCoursesList.length,
         'completedCourses': completed,
         'overallProgress': avgProgress,
-      });
+      };
+
+      _cacheService.set(cacheKey, profileData);
+
+      // Update static cache
+      ProfileScreen.cachedProfileData = profileData;
+      ProfileScreen.hasLoadedOnce = true;
 
       if (mounted) {
         setState(() {
@@ -204,12 +277,6 @@ class _ProfileScreenState extends State<ProfileScreen>
     } catch (_) {
       // Silent fail for background refresh
     }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    fetchUserData();
   }
 
   void _showEditProfileDialog() {
@@ -756,7 +823,7 @@ class _ProfileScreenState extends State<ProfileScreen>
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = AppTheme.isDarkMode(context);
 
-    if (isLoading) {
+    if (_isInitialLoading) {
       return const Center(
         child: EngagingLoadingIndicator(
           message: 'Loading profile...',

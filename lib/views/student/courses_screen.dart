@@ -10,6 +10,20 @@ import 'package:eduverse/views/student/student_course_detail_screen.dart';
 class CoursesScreen extends StatefulWidget {
   const CoursesScreen({super.key});
 
+  // Static cache to persist data across widget rebuilds
+  static List<Map<String, dynamic>>? cachedUnenrolledCourses;
+  static List<Map<String, dynamic>>? cachedEnrolledCourses;
+  static Map<String, double>? cachedCourseProgress;
+  static bool hasLoadedOnce = false;
+
+  /// Clear all static caches - call when progress changes
+  static void clearCache() {
+    cachedUnenrolledCourses = null;
+    cachedEnrolledCourses = null;
+    cachedCourseProgress = null;
+    hasLoadedOnce = false;
+  }
+
   @override
   State<CoursesScreen> createState() => _CoursesScreenState();
 }
@@ -35,7 +49,7 @@ class _CoursesScreenState extends State<CoursesScreen>
   // Filter options for enrolled tab
   String _enrolledFilterBy = 'all'; // all, recent, progress, completed
 
-  bool isLoading = true;
+  bool _isInitialLoading = true;
   List<Map<String, dynamic>> courses = [];
   List<Map<String, dynamic>> enrolledCourses = [];
   Map<String, double> courseProgress = {};
@@ -48,46 +62,82 @@ class _CoursesScreenState extends State<CoursesScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    // Use cached data immediately if available
+    if (CoursesScreen.hasLoadedOnce &&
+        CoursesScreen.cachedUnenrolledCourses != null &&
+        CoursesScreen.cachedEnrolledCourses != null) {
+      courses = CoursesScreen.cachedUnenrolledCourses!;
+      enrolledCourses = CoursesScreen.cachedEnrolledCourses!;
+      courseProgress = CoursesScreen.cachedCourseProgress ?? {};
+      _isInitialLoading = false;
+    }
+
     _loadData();
   }
 
-  Future<void> _loadData() async {
+  Future<void> _loadData({bool forceRefresh = false}) async {
     final cacheKeyUnenrolled = 'unenrolled_courses_$_studentUid';
     final cacheKeyEnrolled = 'enrolled_courses_detail_$_studentUid';
     final cacheKeyProgress = 'course_progress_$_studentUid';
 
-    // Check cache first for instant display
-    final cachedUnenrolled = _cacheService.get<List<Map<String, dynamic>>>(
-      cacheKeyUnenrolled,
-    );
-    final cachedEnrolled = _cacheService.get<List<Map<String, dynamic>>>(
-      cacheKeyEnrolled,
-    );
-    final cachedProgress = _cacheService.get<Map<String, double>>(
-      cacheKeyProgress,
-    );
-
-    if (cachedUnenrolled != null &&
-        cachedEnrolled != null &&
-        cachedProgress != null) {
-      if (!mounted) return;
-      setState(() {
-        courses = cachedUnenrolled;
-        enrolledCourses = cachedEnrolled;
-        courseProgress = cachedProgress;
-        isLoading = false;
-      });
-      // Refresh in background
-      _refreshDataInBackground(
-        cacheKeyUnenrolled,
-        cacheKeyEnrolled,
-        cacheKeyProgress,
-      );
+    // Use static cache if available and not forcing refresh
+    if (!forceRefresh &&
+        CoursesScreen.hasLoadedOnce &&
+        CoursesScreen.cachedUnenrolledCourses != null) {
+      if (mounted) {
+        setState(() {
+          courses = CoursesScreen.cachedUnenrolledCourses!;
+          enrolledCourses = CoursesScreen.cachedEnrolledCourses ?? [];
+          courseProgress = CoursesScreen.cachedCourseProgress ?? {};
+          _isInitialLoading = false;
+        });
+      }
       return;
     }
 
+    // Check CacheService if static cache is empty
+    if (!forceRefresh) {
+      final cachedUnenrolled = _cacheService.get<List<Map<String, dynamic>>>(
+        cacheKeyUnenrolled,
+      );
+      final cachedEnrolled = _cacheService.get<List<Map<String, dynamic>>>(
+        cacheKeyEnrolled,
+      );
+      final cachedProgress = _cacheService.get<Map<String, double>>(
+        cacheKeyProgress,
+      );
+
+      if (cachedUnenrolled != null && cachedEnrolled != null) {
+        // Update static cache
+        CoursesScreen.cachedUnenrolledCourses = cachedUnenrolled;
+        CoursesScreen.cachedEnrolledCourses = cachedEnrolled;
+        CoursesScreen.cachedCourseProgress = cachedProgress;
+        CoursesScreen.hasLoadedOnce = true;
+
+        if (!mounted) return;
+        setState(() {
+          courses = cachedUnenrolled;
+          enrolledCourses = cachedEnrolled;
+          courseProgress = cachedProgress ?? {};
+          _isInitialLoading = false;
+        });
+        // Refresh in background
+        _refreshDataInBackground(
+          cacheKeyUnenrolled,
+          cacheKeyEnrolled,
+          cacheKeyProgress,
+        );
+        return;
+      }
+    }
+
+    // Show loading only if no data yet
     if (!mounted) return;
-    setState(() => isLoading = true);
+    if (courses.isEmpty) {
+      setState(() => _isInitialLoading = true);
+    }
+
     await Future.wait([_fetchUnenrolledCourses(), _fetchEnrolledCourses()]);
 
     // Cache the results
@@ -95,8 +145,16 @@ class _CoursesScreenState extends State<CoursesScreen>
     _cacheService.set(cacheKeyEnrolled, enrolledCourses);
     _cacheService.set(cacheKeyProgress, courseProgress);
 
+    // Update static cache
+    CoursesScreen.cachedUnenrolledCourses = courses;
+    CoursesScreen.cachedEnrolledCourses = enrolledCourses;
+    CoursesScreen.cachedCourseProgress = courseProgress;
+    CoursesScreen.hasLoadedOnce = true;
+
     if (!mounted) return;
-    setState(() => isLoading = false);
+    setState(() {
+      _isInitialLoading = false;
+    });
   }
 
   Future<void> _refreshDataInBackground(
@@ -109,6 +167,11 @@ class _CoursesScreenState extends State<CoursesScreen>
       _cacheService.set(cacheKeyUnenrolled, courses);
       _cacheService.set(cacheKeyEnrolled, enrolledCourses);
       _cacheService.set(cacheKeyProgress, courseProgress);
+
+      // Update static cache
+      CoursesScreen.cachedUnenrolledCourses = courses;
+      CoursesScreen.cachedEnrolledCourses = enrolledCourses;
+      CoursesScreen.cachedCourseProgress = courseProgress;
     } catch (_) {
       // Silent fail for background refresh
     }
@@ -145,7 +208,13 @@ class _CoursesScreenState extends State<CoursesScreen>
         ),
       );
 
-      await _loadData();
+      // Clear static cache to force fresh load
+      CoursesScreen.cachedUnenrolledCourses = null;
+      CoursesScreen.cachedEnrolledCourses = null;
+      CoursesScreen.cachedCourseProgress = null;
+      CoursesScreen.hasLoadedOnce = false;
+
+      await _loadData(forceRefresh: true);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -165,7 +234,20 @@ class _CoursesScreenState extends State<CoursesScreen>
           createdAt: course['createdAt'],
         ),
       ),
-    ).then((_) => _loadData()); // Refresh on return
+    ).then((_) {
+      // Clear static cache to force fresh progress data
+      CoursesScreen.cachedEnrolledCourses = null;
+      CoursesScreen.cachedCourseProgress = null;
+      CoursesScreen.hasLoadedOnce = false;
+
+      // Also clear CacheService
+      final cacheKeyEnrolled = 'enrolled_courses_detail_$_studentUid';
+      final cacheKeyProgress = 'course_progress_$_studentUid';
+      _cacheService.remove(cacheKeyEnrolled);
+      _cacheService.remove(cacheKeyProgress);
+
+      _loadData(forceRefresh: true);
+    });
   }
 
   @override
@@ -244,7 +326,7 @@ class _CoursesScreenState extends State<CoursesScreen>
           ],
         ),
       ),
-      body: isLoading
+      body: _isInitialLoading
           ? const Center(
               child: EngagingLoadingIndicator(
                 message: 'Loading courses...',

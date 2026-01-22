@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/notification_service.dart';
+import 'package:eduverse/services/data_preloader_service.dart';
 import 'package:eduverse/views/notifications_screen.dart';
 import 'package:eduverse/views/student/courses_screen.dart';
 import 'package:eduverse/views/student/home_tab.dart';
@@ -20,11 +21,16 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   late List<Widget> _screens;
   final NotificationService _notificationService = NotificationService();
+  final DataPreloaderService _preloaderService = DataPreloaderService();
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
 
   @override
   void initState() {
     super.initState();
+
+    // Start preloading all data in parallel immediately
+    _preloaderService.preloadStudentData(uid: widget.uid, role: widget.role);
+
     _screens = [
       HomeTab(
         role: widget.role,
@@ -187,7 +193,8 @@ class _HomeScreenState extends State<HomeScreen> {
           );
         },
       ),
-      body: _screens[_selectedIndex],
+      // Use IndexedStack to keep all screens alive and avoid reloading
+      body: IndexedStack(index: _selectedIndex, children: _screens),
     );
   }
 }

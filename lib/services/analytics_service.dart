@@ -13,6 +13,13 @@ class AnalyticsService {
   static DateTime? _lastFetchTime;
   static const _cacheDuration = Duration(minutes: 5);
 
+  /// Clear all analytics caches - call when student activity happens
+  static void clearCache() {
+    _cachedAnalytics = null;
+    _cachedStudents = null;
+    _lastFetchTime = null;
+  }
+
   /// Get comprehensive analytics data for a teacher (with caching)
   Future<TeacherAnalytics> getTeacherAnalytics({
     required String teacherUid,

@@ -25,6 +25,22 @@ class TeacherHomeTab extends StatefulWidget {
     this.onSeeAllStudents,
   });
 
+  // Static cache to persist data across widget rebuilds
+  static String? cachedUserName;
+  static List<Map<String, dynamic>>? cachedCourses;
+  static int? cachedStudentCount;
+  static List<Map<String, dynamic>>? cachedAnnouncements;
+  static bool hasLoadedOnce = false;
+
+  /// Clear all static caches - call when data changes
+  static void clearCache() {
+    cachedUserName = null;
+    cachedCourses = null;
+    cachedStudentCount = null;
+    cachedAnnouncements = null;
+    hasLoadedOnce = false;
+  }
+
   @override
   State<TeacherHomeTab> createState() => _TeacherHomeTabState();
 }
@@ -34,9 +50,10 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   final userService = UserService();
   final _cacheService = CacheService();
   final _courseService = CourseService();
+
   List<Map<String, dynamic>> recentSubmissions = [];
   List<Map<String, dynamic>> announcements = [];
-  bool isLoading = true;
+  bool _isInitialLoading = true;
   String userName = "...";
   List<Map<String, dynamic>> courses = [];
   int uniqueStudentCount = 0;
@@ -59,6 +76,19 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   void initState() {
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
+
+    // Use cached data immediately if available
+    if (TeacherHomeTab.hasLoadedOnce && TeacherHomeTab.cachedCourses != null) {
+      userName = TeacherHomeTab.cachedUserName ?? "Teacher";
+      courses = TeacherHomeTab.cachedCourses!;
+      uniqueStudentCount = TeacherHomeTab.cachedStudentCount ?? 0;
+      announcements = TeacherHomeTab.cachedAnnouncements ?? [];
+      _isInitialLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _startAutoScroll();
+      });
+    }
+
     _loadAllData();
   }
 
@@ -98,6 +128,21 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     final cacheKeyStudents = 'teacher_students_$teacherUid';
     final cacheKeyAnnouncements = 'teacher_announcements_$teacherUid';
 
+    // Use static cache if available
+    if (TeacherHomeTab.hasLoadedOnce && TeacherHomeTab.cachedCourses != null) {
+      if (mounted) {
+        setState(() {
+          userName = TeacherHomeTab.cachedUserName ?? "Teacher";
+          courses = TeacherHomeTab.cachedCourses!;
+          uniqueStudentCount = TeacherHomeTab.cachedStudentCount ?? 0;
+          announcements = TeacherHomeTab.cachedAnnouncements ?? [];
+          _isInitialLoading = false;
+        });
+        _startAutoScroll();
+      }
+      return;
+    }
+
     // Check cache first
     final cachedName = _cacheService.get<String>(cacheKeyName);
     final cachedCourses = _cacheService.get<List<Map<String, dynamic>>>(
@@ -109,13 +154,20 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     );
 
     if (cachedName != null && cachedCourses != null && cachedStudents != null) {
+      // Update static cache
+      TeacherHomeTab.cachedUserName = cachedName;
+      TeacherHomeTab.cachedCourses = cachedCourses;
+      TeacherHomeTab.cachedStudentCount = cachedStudents;
+      TeacherHomeTab.cachedAnnouncements = cachedAnnouncements;
+      TeacherHomeTab.hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           userName = cachedName;
           courses = cachedCourses;
           uniqueStudentCount = cachedStudents;
           announcements = cachedAnnouncements ?? [];
-          isLoading = false;
+          _isInitialLoading = false;
         });
         _startAutoScroll();
       }
@@ -131,7 +183,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     }
 
     if (!mounted) return;
-    setState(() => isLoading = true);
+    setState(() => _isInitialLoading = true);
 
     try {
       final results = await Future.wait([
@@ -167,19 +219,26 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       _cacheService.set(cacheKeyStudents, studentCount);
       _cacheService.set(cacheKeyAnnouncements, fetchedAnnouncements);
 
+      // Update static cache
+      TeacherHomeTab.cachedUserName = name;
+      TeacherHomeTab.cachedCourses = fetchedCourses;
+      TeacherHomeTab.cachedStudentCount = studentCount;
+      TeacherHomeTab.cachedAnnouncements = fetchedAnnouncements;
+      TeacherHomeTab.hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           userName = name;
           courses = fetchedCourses;
           uniqueStudentCount = studentCount;
           announcements = fetchedAnnouncements;
-          isLoading = false;
+          _isInitialLoading = false;
         });
         _startAutoScroll();
       }
     } catch (e) {
       if (mounted) {
-        setState(() => isLoading = false);
+        setState(() => _isInitialLoading = false);
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Failed to load data: $e')));
@@ -226,6 +285,13 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       _cacheService.set(cacheKeyCourses, fetchedCourses);
       _cacheService.set(cacheKeyStudents, studentCount);
       _cacheService.set(cacheKeyAnnouncements, fetchedAnnouncements);
+
+      // Update static cache
+      TeacherHomeTab.cachedUserName = name;
+      TeacherHomeTab.cachedCourses = fetchedCourses;
+      TeacherHomeTab.cachedStudentCount = studentCount;
+      TeacherHomeTab.cachedAnnouncements = fetchedAnnouncements;
+      TeacherHomeTab.hasLoadedOnce = true;
 
       if (mounted) {
         setState(() {
@@ -275,7 +341,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     super.build(context); // Required for AutomaticKeepAliveClientMixin
     final isDark = AppTheme.isDarkMode(context);
 
-    if (isLoading) {
+    if (_isInitialLoading) {
       return const Center(
         child: EngagingLoadingIndicator(
           message: 'Loading your dashboard...',
