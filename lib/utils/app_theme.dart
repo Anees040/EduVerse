@@ -65,8 +65,8 @@ class AppTheme {
   static const Color darkBackgroundColor = darkBackground;
   static const Color darkSurfaceColor = darkSurface;
   static const Color darkCardColor = darkCard;
-  static const Color darkTextPrimary_old = darkTextPrimary;
-  static const Color darkTextSecondary_old = darkTextSecondary;
+  static const Color darkTextPrimaryOld = darkTextPrimary;
+  static const Color darkTextSecondaryOld = darkTextSecondary;
   static const Color darkBorderColor = darkBorder;
   static const Color darkAccentColor = darkAccent;
 

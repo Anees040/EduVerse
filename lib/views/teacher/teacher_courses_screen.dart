@@ -19,7 +19,14 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     with AutomaticKeepAliveClientMixin {
   final CourseService _courseService = CourseService();
   final CacheService _cacheService = CacheService();
-  bool isLoading = true;
+
+  // Static cache to persist across widget rebuilds
+  static List<Map<String, dynamic>>? _cachedCourses;
+  static int? _cachedStudentCount;
+  static bool _hasLoadedOnce = false;
+
+  bool _isInitialLoading = true;
+  bool _isRefreshing = false;
   List<Map<String, dynamic>> courses = [];
   int uniqueStudentCount = 0;
 
@@ -36,39 +43,67 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   @override
   void initState() {
     super.initState();
+    // Use cached data immediately if available
+    if (_hasLoadedOnce && _cachedCourses != null) {
+      courses = _cachedCourses!;
+      uniqueStudentCount = _cachedStudentCount ?? 0;
+      _isInitialLoading = false;
+    }
     _fetchCourses();
   }
 
-  Future<void> _fetchCourses() async {
+  Future<void> _fetchCourses({bool forceRefresh = false}) async {
     final teacherUid = FirebaseAuth.instance.currentUser!.uid;
     final cacheKeyCourses = 'teacher_all_courses_$teacherUid';
     final cacheKeyStudents = 'teacher_all_students_$teacherUid';
 
-    // Check cache first
-    final cachedCourses = _cacheService.get<List<Map<String, dynamic>>>(
-      cacheKeyCourses,
-    );
-    final cachedStudents = _cacheService.get<int>(cacheKeyStudents);
-
-    if (cachedCourses != null && cachedStudents != null) {
+    // Use static cache if available and not forcing refresh
+    if (!forceRefresh && _hasLoadedOnce && _cachedCourses != null) {
       if (mounted) {
         setState(() {
-          courses = cachedCourses;
-          uniqueStudentCount = cachedStudents;
-          isLoading = false;
+          courses = _cachedCourses!;
+          uniqueStudentCount = _cachedStudentCount ?? 0;
+          _isInitialLoading = false;
         });
       }
-      // Refresh in background
-      _refreshCoursesInBackground(
-        teacherUid,
-        cacheKeyCourses,
-        cacheKeyStudents,
-      );
       return;
     }
 
+    // Check CacheService if static cache is empty
+    if (!forceRefresh) {
+      final cachedCourses = _cacheService.get<List<Map<String, dynamic>>>(
+        cacheKeyCourses,
+      );
+      final cachedStudents = _cacheService.get<int>(cacheKeyStudents);
+
+      if (cachedCourses != null && cachedStudents != null) {
+        _cachedCourses = cachedCourses;
+        _cachedStudentCount = cachedStudents;
+        _hasLoadedOnce = true;
+        if (mounted) {
+          setState(() {
+            courses = cachedCourses;
+            uniqueStudentCount = cachedStudents;
+            _isInitialLoading = false;
+          });
+        }
+        // Refresh in background
+        _refreshCoursesInBackground(
+          teacherUid,
+          cacheKeyCourses,
+          cacheKeyStudents,
+        );
+        return;
+      }
+    }
+
+    // Show loading only if no data yet, otherwise show refreshing indicator
     if (!mounted) return;
-    setState(() => isLoading = true);
+    if (courses.isEmpty) {
+      setState(() => _isInitialLoading = true);
+    } else {
+      setState(() => _isRefreshing = true);
+    }
 
     try {
       final results = await Future.wait([
@@ -98,15 +133,26 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       _cacheService.set(cacheKeyCourses, fetchedCourses);
       _cacheService.set(cacheKeyStudents, studentCount);
 
+      // Update static cache
+      _cachedCourses = fetchedCourses;
+      _cachedStudentCount = studentCount;
+      _hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           courses = fetchedCourses;
           uniqueStudentCount = studentCount;
-          isLoading = false;
+          _isInitialLoading = false;
+          _isRefreshing = false;
         });
       }
     } catch (e) {
-      if (mounted) setState(() => isLoading = false);
+      if (mounted) {
+        setState(() {
+          _isInitialLoading = false;
+          _isRefreshing = false;
+        });
+      }
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -147,6 +193,11 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       _cacheService.set(cacheKeyCourses, fetchedCourses);
       _cacheService.set(cacheKeyStudents, studentCount);
 
+      // Update static cache
+      _cachedCourses = fetchedCourses;
+      _cachedStudentCount = studentCount;
+      _hasLoadedOnce = true;
+
       if (mounted) {
         setState(() {
           courses = fetchedCourses;
@@ -165,7 +216,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     ).then((_) {
       // Clear cache to force reload
       _cacheService.clearPrefix('teacher_');
-      _fetchCourses();
+      _cachedCourses = null;
+      _cachedStudentCount = null;
+      _hasLoadedOnce = false;
+      _fetchCourses(forceRefresh: true);
     });
   }
 
@@ -182,9 +236,12 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
         ),
       ),
     ).then((_) {
-      // Clear cache to force reload
-      _cacheService.clearPrefix('teacher_');
-      _fetchCourses();
+      // Refresh in background, don't clear cache to avoid loading flash
+      _refreshCoursesInBackground(
+        FirebaseAuth.instance.currentUser!.uid,
+        'teacher_all_courses_${FirebaseAuth.instance.currentUser!.uid}',
+        'teacher_all_students_${FirebaseAuth.instance.currentUser!.uid}',
+      );
     });
   }
 
@@ -262,7 +319,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     final isDark = AppTheme.isDarkMode(context);
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
-      body: isLoading
+      body: _isInitialLoading && courses.isEmpty
           ? const Center(
               child: EngagingLoadingIndicator(
                 message: 'Loading your courses...',
@@ -271,46 +328,42 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
             )
           : courses.isEmpty
           ? _buildEmptyState()
-          : RefreshIndicator(
-              onRefresh: _fetchCourses,
-              color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
-              child: _buildCoursesList(),
+          : Stack(
+              children: [
+                RefreshIndicator(
+                  onRefresh: () => _fetchCourses(forceRefresh: true),
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
+                  child: _buildCoursesList(),
+                ),
+                // Show subtle refreshing indicator at top
+                if (_isRefreshing)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    child: LinearProgressIndicator(
+                      backgroundColor: Colors.transparent,
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-      floatingActionButton: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // View all reviews FAB
-          if (courses.isNotEmpty)
-            FloatingActionButton(
-              heroTag: 'reviews',
-              mini: true,
-              backgroundColor: isDark
-                  ? AppTheme.darkAccent
-                  : AppTheme.accentColor,
-              onPressed: () => _showAllReviewsDialog(context),
-              child: const Icon(
-                Icons.rate_review,
-                color: Colors.white,
-                size: 20,
-              ),
-            ),
-          const SizedBox(height: 12),
-          FloatingActionButton.extended(
-            heroTag: 'create',
-            backgroundColor: isDark
-                ? AppTheme.darkPrimaryLight
-                : AppTheme.primaryColor,
-            onPressed: _createNewCourse,
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text(
-              'Create Course',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'create',
+        backgroundColor: isDark ? const Color.fromARGB(255, 114, 239, 221): AppTheme.primaryColor,
+        onPressed: _createNewCourse,
+        icon: Icon(Icons.add, color: isDark ? Colors.black : Colors.white),
+        label: Text(
+          'Create Course',
+          style: TextStyle(
+            color: isDark ? Colors.black : Colors.white,
+            fontWeight: FontWeight.bold,
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1018,250 +1071,123 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
 
               return ListView.builder(
                 itemCount: reviews.length,
-                itemBuilder: (ctx, index) =>
-                    _buildReviewCard(reviews[index], isDark),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Close',
-              style: TextStyle(
-                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+                itemBuilder: (ctx, index) {
+                  final review = reviews[index];
+                  final rating = (review['rating'] ?? 0.0) as double;
+                  final studentName = review['studentName'] ?? 'Student';
+                  final reviewText = review['reviewText'] ?? '';
+                  final createdAt = review['createdAt'] != null
+                      ? DateTime.fromMillisecondsSinceEpoch(
+                          review['createdAt'],
+                        ).toLocal()
+                      : null;
 
-  void _showAllReviewsDialog(BuildContext context) async {
-    final isDark = AppTheme.isDarkMode(context);
-    final teacherUid = FirebaseAuth.instance.currentUser!.uid;
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: (isDark ? AppTheme.darkWarning : AppTheme.warning)
-                    .withOpacity(0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.reviews,
-                color: isDark ? AppTheme.darkWarning : AppTheme.warning,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'All Course Reviews',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-              ),
-            ),
-          ],
-        ),
-        content: SizedBox(
-          width: MediaQuery.of(context).size.width * 0.85,
-          height: MediaQuery.of(context).size.height * 0.6,
-          child: FutureBuilder<List<Map<String, dynamic>>>(
-            future: _courseService.getTeacherAllCourseReviews(
-              teacherUid: teacherUid,
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              final reviews = snapshot.data ?? [];
-
-              if (reviews.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.rate_review_outlined,
-                        size: 48,
+                  return Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.darkElevated
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
                         color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : Colors.grey,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'No reviews yet',
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.darkTextSecondary
-                              : Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Reviews from students will appear here',
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.darkTextTertiary
-                              : Colors.grey.shade400,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }
-
-              return ListView.builder(
-                itemCount: reviews.length,
-                itemBuilder: (ctx, index) => _buildReviewCard(
-                  reviews[index],
-                  isDark,
-                  showCourseTitle: true,
-                ),
-              );
-            },
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Close',
-              style: TextStyle(
-                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildReviewCard(
-    Map<String, dynamic> review,
-    bool isDark, {
-    bool showCourseTitle = false,
-  }) {
-    final rating = (review['rating'] ?? 0.0) as double;
-    final studentName = review['studentName'] ?? 'Student';
-    final reviewText = review['reviewText'] ?? '';
-    final createdAt = review['createdAt'] != null
-        ? DateTime.fromMillisecondsSinceEpoch(review['createdAt']).toLocal()
-        : null;
-    final courseTitle = review['courseTitle'];
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header: name, rating, date
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: isDark
-                    ? AppTheme.darkAccent
-                    : AppTheme.primaryColor,
-                child: Text(
-                  studentName[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      studentName,
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        color: isDark
-                            ? AppTheme.darkTextPrimary
-                            : AppTheme.textPrimary,
-                        fontSize: 13,
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade200,
                       ),
                     ),
-                    if (showCourseTitle && courseTitle != null)
-                      Text(
-                        courseTitle,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? AppTheme.darkAccent
-                              : AppTheme.primaryColor,
-                          fontWeight: FontWeight.w500,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 16,
+                              backgroundColor: isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                              child: Text(
+                                studentName[0].toUpperCase(),
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                studentName,
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: isDark
+                                      ? AppTheme.darkTextPrimary
+                                      : AppTheme.textPrimary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(
+                                5,
+                                (i) => Icon(
+                                  i < rating.round()
+                                      ? Icons.star_rounded
+                                      : Icons.star_outline_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? AppTheme.darkWarning
+                                      : AppTheme.warning,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                  ],
-                ),
-              ),
-              // Rating stars
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: List.generate(
-                  5,
-                  (index) => Icon(
-                    index < rating.round()
-                        ? Icons.star_rounded
-                        : Icons.star_outline_rounded,
-                    size: 14,
-                    color: isDark ? AppTheme.darkWarning : AppTheme.warning,
-                  ),
-                ),
-              ),
-            ],
+                        if (reviewText.isNotEmpty) ...[
+                          const SizedBox(height: 10),
+                          Text(
+                            reviewText,
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.textSecondary,
+                              fontSize: 12,
+                              height: 1.4,
+                            ),
+                          ),
+                        ],
+                        if (createdAt != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${createdAt.day}/${createdAt.month}/${createdAt.year}',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: isDark
+                                  ? AppTheme.darkTextTertiary
+                                  : Colors.grey,
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
           ),
-          if (reviewText.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            Text(
-              reviewText,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Close',
               style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextSecondary
-                    : AppTheme.textSecondary,
-                fontSize: 12,
-                height: 1.4,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
               ),
             ),
-          ],
-          if (createdAt != null) ...[
-            const SizedBox(height: 8),
-            Text(
-              '${createdAt.day}/${createdAt.month}/${createdAt.year}',
-              style: TextStyle(
-                fontSize: 10,
-                color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
-              ),
-            ),
-          ],
+          ),
         ],
       ),
     );

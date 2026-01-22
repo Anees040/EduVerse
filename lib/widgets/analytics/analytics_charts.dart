@@ -367,7 +367,7 @@ class WeeklyActivityChart extends StatelessWidget {
   }
 }
 
-/// Course Completion Bar Chart
+/// Course Completion Bar Chart - Horizontal layout with names inside bars
 class CourseCompletionChart extends StatelessWidget {
   final List<Map<String, dynamic>> data;
 
@@ -418,135 +418,111 @@ class CourseCompletionChart extends StatelessWidget {
                   : AppTheme.textSecondary,
             ),
           ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 180,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: 100,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) =>
-                        isDark ? AppTheme.darkElevated : Colors.grey.shade800,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final courseData = data[group.x.toInt()];
-                      return BarTooltipItem(
-                        '${courseData['courseName']}\n${rod.toY.toInt()}% completed',
-                        const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      );
-                    },
+          const SizedBox(height: 16),
+          if (data.isEmpty)
+            SizedBox(
+              height: 100,
+              child: Center(
+                child: Text(
+                  'No course data',
+                  style: TextStyle(
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary,
                   ),
                 ),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 35,
-                      interval: 25,
-                      getTitlesWidget: (value, meta) {
-                        return Text(
-                          '${value.toInt()}%',
-                          style: TextStyle(
-                            fontSize: 10,
-                            color: isDark
-                                ? AppTheme.darkTextTertiary
-                                : Colors.grey.shade500,
-                          ),
-                        );
-                      },
+              ),
+            )
+          else
+            // Horizontal bar layout with course names inside
+            ...data.asMap().entries.map((entry) {
+              final courseData = entry.value;
+              final rate = (courseData['completionRate'] as double).clamp(
+                0.0,
+                1.0,
+              );
+              final percentage = (rate * 100).clamp(0.0, 100.0);
+              final courseName =
+                  courseData['courseName'] as String? ?? 'Unknown';
+
+              // Color based on completion rate
+              Color barColor;
+              if (rate >= 0.75) {
+                barColor = isDark ? AppTheme.darkSuccess : AppTheme.success;
+              } else if (rate >= 0.5) {
+                barColor = isDark ? AppTheme.darkAccent : AppTheme.accentColor;
+              } else {
+                barColor = isDark ? AppTheme.darkWarning : AppTheme.warning;
+              }
+
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Course name above bar
+                    Text(
+                      courseName,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 30,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index >= 0 && index < data.length) {
-                          return Padding(
-                            padding: const EdgeInsets.only(top: 8),
+                    const SizedBox(height: 6),
+                    // Progress bar with percentage
+                    Stack(
+                      children: [
+                        // Background bar
+                        Container(
+                          height: 28,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppTheme.darkBorder.withOpacity(0.3)
+                                : Colors.grey.shade200,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                        // Progress bar
+                        FractionallySizedBox(
+                          widthFactor: rate,
+                          child: Container(
+                            height: 28,
+                            decoration: BoxDecoration(
+                              color: barColor,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                        ),
+                        // Percentage text - always at the end
+                        Positioned(
+                          right: 8,
+                          top: 0,
+                          bottom: 0,
+                          child: Center(
                             child: Text(
-                              data[index]['shortName'] as String,
+                              '${percentage.toInt()}%',
                               style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w500,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
                                 color: isDark
-                                    ? AppTheme.darkTextSecondary
-                                    : Colors.grey.shade600,
+                                    ? AppTheme.darkTextPrimary
+                                    : AppTheme.textPrimary,
                               ),
                             ),
-                          );
-                        }
-                        return const SizedBox.shrink();
-                      },
+                          ),
+                        ),
+                      ],
                     ),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
+                  ],
                 ),
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 25,
-                  getDrawingHorizontalLine: (value) {
-                    return FlLine(
-                      color: isDark
-                          ? AppTheme.darkBorder.withOpacity(0.3)
-                          : Colors.grey.shade200,
-                      strokeWidth: 1,
-                    );
-                  },
-                ),
-                barGroups: data.asMap().entries.map((entry) {
-                  final rate = entry.value['completionRate'] as double;
-                  final percentage = rate * 100;
-
-                  // Color based on completion rate
-                  Color barColor;
-                  if (rate >= 0.75) {
-                    barColor = isDark ? AppTheme.darkSuccess : AppTheme.success;
-                  } else if (rate >= 0.5) {
-                    barColor = isDark
-                        ? AppTheme.darkAccent
-                        : AppTheme.accentColor;
-                  } else {
-                    barColor = isDark ? AppTheme.darkWarning : AppTheme.warning;
-                  }
-
-                  return BarChartGroupData(
-                    x: entry.key,
-                    barRods: [
-                      BarChartRodData(
-                        toY: percentage,
-                        width: 40,
-                        borderRadius: const BorderRadius.vertical(
-                          top: Radius.circular(6),
-                        ),
-                        color: barColor,
-                        backDrawRodData: BackgroundBarChartRodData(
-                          show: true,
-                          toY: 100,
-                          color: isDark
-                              ? AppTheme.darkBorder.withOpacity(0.3)
-                              : Colors.grey.shade200,
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ),
-            ),
-          ),
+              );
+            }),
         ],
       ),
     );
