@@ -1,9 +1,89 @@
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/notification_service.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 
 class CourseService {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
   final NotificationService _notificationService = NotificationService();
+
+  /// Create a new course with full metadata (Course Setup Wizard)
+  /// Returns the courseUid on success, throws on failure
+  Future<String> createCourseWithMetadata({
+    required String teacherUid,
+    required String title,
+    String? subtitle,
+    required String description,
+    required String imageUrl,
+    String? previewVideoUrl,
+    required String category,
+    required String difficulty,
+    required bool isFree,
+    required double price,
+    double? discountedPrice,
+  }) async {
+    final DatabaseReference teacherCourseRef = _db
+        .child("teacher")
+        .child(teacherUid)
+        .child("courses")
+        .push();
+
+    final String courseUid = teacherCourseRef.key!;
+    final DatabaseReference courseRef = _db.child("courses").child(courseUid);
+
+    final int timestamp = DateTime.now().millisecondsSinceEpoch;
+
+    final Map<String, dynamic> courseData = {
+      "courseUid": courseUid,
+      "teacherUid": teacherUid,
+      "title": title,
+      if (subtitle != null && subtitle.isNotEmpty) "subtitle": subtitle,
+      "description": description,
+      "imageUrl": imageUrl,
+      if (previewVideoUrl != null && previewVideoUrl.isNotEmpty)
+        "previewVideoUrl": previewVideoUrl,
+      "category": category,
+      "difficulty": difficulty,
+      "isFree": isFree,
+      "price": isFree ? 0.0 : price,
+      if (!isFree && discountedPrice != null && discountedPrice > 0)
+        "discountedPrice": discountedPrice,
+      "createdAt": timestamp,
+      "isPublished": true,
+    };
+
+    // Save to teacher's courses node
+    await teacherCourseRef.set(courseData);
+
+    // Save to global courses node
+    await courseRef.set(courseData);
+
+    // Notify all students about new course
+    try {
+      final teacherSnapshot = await _db
+          .child("teacher")
+          .child(teacherUid)
+          .get();
+      String teacherName = "Instructor";
+      if (teacherSnapshot.exists && teacherSnapshot.value != null) {
+        final teacherData = Map<String, dynamic>.from(
+          teacherSnapshot.value as Map,
+        );
+        teacherName = teacherData['name'] ?? "Instructor";
+      }
+
+      await _notificationService.notifyAllStudentsOfNewCourse(
+        teacherName: teacherName,
+        courseName: title,
+        courseId: courseUid,
+        teacherUid: teacherUid,
+      );
+    } catch (e) {
+      // Log but don't fail course creation
+      debugPrint('Failed to send notifications: $e');
+    }
+
+    return courseUid;
+  }
 
   /// Get teacher courses with enrolled count per course
   Future<List<Map<String, dynamic>>> getTeacherCourses({
