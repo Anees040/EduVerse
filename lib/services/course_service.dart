@@ -120,7 +120,8 @@ class CourseService {
           videoCount = vids.length;
         }
       } else if (courseData['videoUrl'] != null ||
-          courseData['video'] != null) {
+          courseData['video'] != null ||
+          courseData['previewVideoUrl'] != null) {
         videoCount = 1;
       }
       courses.add({
@@ -425,12 +426,35 @@ class CourseService {
         .set(videoData);
   }
 
-  /// Get all videos for a course
+  /// Get all videos for a course (includes preview video as first item if exists)
   Future<List<Map<String, dynamic>>> getCourseVideos({
     required String courseUid,
     String? teacherUid,
+    bool includePreviewVideo = true,
   }) async {
-    // First try from /courses path
+    List<Map<String, dynamic>> videos = [];
+
+    // First, check for preview video at course level
+    if (includePreviewVideo) {
+      final courseSnap = await _db.child("courses").child(courseUid).get();
+      if (courseSnap.exists) {
+        final courseData = Map<String, dynamic>.from(courseSnap.value as Map);
+        if (courseData['previewVideoUrl'] != null &&
+            (courseData['previewVideoUrl'] as String).isNotEmpty) {
+          videos.add({
+            "videoId": "preview",
+            "url": courseData['previewVideoUrl'],
+            "title": "Course Preview",
+            "description": "Introduction to the course",
+            "order": -1, // Preview always first
+            "isPreview": true,
+            "isPublic": true,
+          });
+        }
+      }
+    }
+
+    // Then fetch regular videos
     var snapshot = await _db
         .child("courses")
         .child(courseUid)
@@ -499,29 +523,26 @@ class CourseService {
       if (courseSnap.exists) {
         final data = Map<String, dynamic>.from(courseSnap.value as Map);
         if (data['videoUrl'] != null) {
-          return [
-            {
-              "videoId": "main",
-              "url": data['videoUrl'],
-              "title": data['title'] ?? "Course Video",
-              "description": "",
-              "order": 0,
-            },
-          ];
+          videos.add({
+            "videoId": "main",
+            "url": data['videoUrl'],
+            "title": data['title'] ?? "Course Video",
+            "description": "",
+            "order": 0,
+          });
         }
       }
-      return [];
+      return videos;
     }
 
     final Map<dynamic, dynamic> videosData =
         snapshot.value as Map<dynamic, dynamic>;
-    final List<Map<String, dynamic>> videos = [];
 
     videosData.forEach((key, value) {
       videos.add({"videoId": key, ...Map<String, dynamic>.from(value)});
     });
 
-    // Sort by order
+    // Sort by order (preview video with order -1 will be first)
     videos.sort((a, b) => (a['order'] ?? 0).compareTo(b['order'] ?? 0));
     return videos;
   }
@@ -816,8 +837,9 @@ class CourseService {
               videoCount = vidsVal.length;
             }
           } else if (courseData['videoUrl'] != null ||
-              courseData['video'] != null) {
-            // Legacy single video fields
+              courseData['video'] != null ||
+              courseData['previewVideoUrl'] != null) {
+            // Legacy single video fields or preview video from wizard
             videoCount = 1;
             publicVideoCount = 1;
           } else {

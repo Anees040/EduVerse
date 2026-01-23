@@ -434,8 +434,16 @@ class AnalyticsService {
       '11pm',
     ];
 
-    // Realistic watch pattern - peaks at morning and evening
-    // Pattern varies based on date range to show different distributions
+    // If no students enrolled, return empty activity
+    if (totalStudents == 0) {
+      return List.generate(24, (i) {
+        return {'hour': i, 'label': hourLabels[i], 'viewers': 0};
+      });
+    }
+
+    // Note: Watch time data is estimated based on enrollment patterns
+    // since real watch time tracking is not yet implemented.
+    // These are projected activity patterns, not real measurements.
     List<int> basePattern;
 
     switch (dateRange) {

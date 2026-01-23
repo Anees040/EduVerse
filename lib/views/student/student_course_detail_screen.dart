@@ -16,6 +16,7 @@ import 'package:eduverse/views/student/profile_screen.dart';
 import 'package:eduverse/views/student/home_tab.dart';
 import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
 import 'package:eduverse/views/teacher/teacher_home_tab.dart';
+import 'package:eduverse/widgets/teacher_public_profile_widget.dart';
 
 /// Student Course Detail Screen with Video Playlist
 class StudentCourseDetailScreen extends StatefulWidget {
@@ -449,6 +450,10 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
 
                     // Course description
                     SliverToBoxAdapter(child: _buildDescription()),
+
+                    // Meet Your Instructor section
+                    if (_teacherUid != null)
+                      SliverToBoxAdapter(child: _buildInstructorSection()),
 
                     // Q&A Section
                     SliverToBoxAdapter(
@@ -1195,6 +1200,89 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildInstructorSection() {
+    final isDark = AppTheme.isDarkMode(context);
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.all(16),
+      decoration: AppTheme.getCardDecoration(context),
+      child: InkWell(
+        onTap: () {
+          if (_teacherUid != null) {
+            TeacherPublicProfileWidget.showProfile(
+              context: context,
+              teacherUid: _teacherUid!,
+            );
+          }
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [
+                          AppTheme.darkAccent.withOpacity(0.2),
+                          AppTheme.darkPrimaryLight.withOpacity(0.1),
+                        ]
+                      : [
+                          AppTheme.primaryColor.withOpacity(0.1),
+                          AppTheme.accentColor.withOpacity(0.05),
+                        ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.school,
+                size: 28,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Meet Your Instructor',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: AppTheme.getTextPrimary(context),
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Learn about their background & expertise',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
+                Icons.arrow_forward_ios,
+                size: 16,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
