@@ -128,4 +128,53 @@ class UserService {
       debugPrint('Failed to send notifications: $e');
     }
   }
+
+  /// Update teacher profile with onboarding data
+  Future<void> updateTeacherProfile({
+    required String uid,
+    required Map<String, dynamic> data,
+  }) async {
+    await _db.child("teacher").child(uid).update(data);
+  }
+
+  /// Check if teacher profile is complete
+  Future<bool> isTeacherProfileComplete({required String uid}) async {
+    final snapshot = await _db
+        .child("teacher")
+        .child(uid)
+        .child("profileCompleted")
+        .get();
+    return snapshot.exists && snapshot.value == true;
+  }
+
+  /// Get teacher public profile for students to view
+  Future<Map<String, dynamic>?> getTeacherPublicProfile({
+    required String uid,
+  }) async {
+    final snapshot = await _db.child("teacher").child(uid).get();
+
+    if (!snapshot.exists || snapshot.value == null) {
+      return null;
+    }
+
+    final data = Map<String, dynamic>.from(snapshot.value as Map);
+
+    // Return only public fields
+    return {
+      'name': data['name'],
+      'headline': data['headline'],
+      'bio': data['bio'],
+      'yearsOfExperience': data['yearsOfExperience'],
+      'subjectExpertise': data['subjectExpertise'],
+      'education': data['education'],
+      'institution': data['institution'],
+      'certifications': data['certifications'],
+      'achievements': data['achievements'],
+      'linkedin': data['linkedin'],
+      'website': data['website'],
+      'profilePicture': data['profilePicture'],
+      'credentialsList': data['credentialsList'],
+      // Don't expose email or other sensitive data
+    };
+  }
 }

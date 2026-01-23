@@ -424,491 +424,505 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final dialogIsDark = AppTheme.isDarkMode(context);
+      builder: (dialogContext) {
+        // Cache isDark outside StatefulBuilder to prevent rebuilds
+        final dialogIsDark = AppTheme.isDarkMode(context);
 
-          void validateTitle(String value) {
-            if (hasAttemptedSubmit || titleError != null) {
-              setDialogState(() {
-                titleError = value.trim().isEmpty
-                    ? 'Video title is required'
-                    : null;
-              });
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            void validateTitle(String value) {
+              // Only validate if already showing error or after submit attempt
+              final newError = value.trim().isEmpty
+                  ? 'Video title is required'
+                  : null;
+              if ((hasAttemptedSubmit || titleError != null) &&
+                  newError != titleError) {
+                setDialogState(() {
+                  titleError = newError;
+                });
+              }
             }
-          }
 
-          return AlertDialog(
-            backgroundColor: dialogIsDark ? AppTheme.darkCard : Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-            ),
-            title: Row(
-              children: [
-                Icon(
-                  Icons.video_file,
-                  color: dialogIsDark
-                      ? AppTheme.darkPrimaryLight
-                      : AppTheme.primaryColor,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    isUploading ? 'Uploading...' : 'Add Single Video',
-                    style: TextStyle(
-                      color: dialogIsDark
-                          ? AppTheme.darkTextPrimary
-                          : Colors.black87,
-                    ),
-                  ),
-                ),
-                if (isUploading)
-                  Tooltip(
-                    message: 'Continue upload in background',
-                    child: IconButton(
-                      onPressed: () {
-                        if (selectedVideo != null) {
-                          BackgroundUploadService().startUpload(
-                            courseUid: widget.courseUid,
-                            courseTitle: widget.courseTitle,
-                            videoTitle: titleController.text,
-                            videoDescription: descriptionController.text,
-                            videoFile: selectedVideo!,
-                          );
-                        }
-                        cancellableUpload?.cancel();
-                        Navigator.pop(dialogContext);
-                      },
-                      icon: Icon(
-                        Icons.check_circle_outline,
-                        color: AppTheme.success,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
+            return AlertDialog(
+              backgroundColor: dialogIsDark ? AppTheme.darkCard : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: Row(
                 children: [
-                  if (!isUploading) ...[
-                    // Title field
-                    TextField(
-                      controller: titleController,
-                      onChanged: validateTitle,
+                  Icon(
+                    Icons.video_file,
+                    color: dialogIsDark
+                        ? AppTheme.darkPrimaryLight
+                        : AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      isUploading ? 'Uploading...' : 'Add Single Video',
                       style: TextStyle(
                         color: dialogIsDark
                             ? AppTheme.darkTextPrimary
                             : Colors.black87,
                       ),
-                      decoration: InputDecoration(
-                        labelText: 'Video Title *',
-                        labelStyle: TextStyle(
-                          color: titleError != null
-                              ? (dialogIsDark ? AppTheme.darkError : Colors.red)
-                              : (dialogIsDark
-                                    ? AppTheme.darkTextSecondary
-                                    : Colors.grey.shade600),
+                    ),
+                  ),
+                  if (isUploading)
+                    Tooltip(
+                      message: 'Continue upload in background',
+                      child: IconButton(
+                        onPressed: () {
+                          if (selectedVideo != null) {
+                            BackgroundUploadService().startUpload(
+                              courseUid: widget.courseUid,
+                              courseTitle: widget.courseTitle,
+                              videoTitle: titleController.text,
+                              videoDescription: descriptionController.text,
+                              videoFile: selectedVideo!,
+                            );
+                          }
+                          cancellableUpload?.cancel();
+                          Navigator.pop(dialogContext);
+                        },
+                        icon: Icon(
+                          Icons.check_circle_outline,
+                          color: AppTheme.success,
+                          size: 24,
                         ),
-                        errorText: titleError,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                ],
+              ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (!isUploading) ...[
+                      // Title field
+                      TextField(
+                        controller: titleController,
+                        onChanged: validateTitle,
+                        style: TextStyle(
+                          color: dialogIsDark
+                              ? AppTheme.darkTextPrimary
+                              : Colors.black87,
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
+                        decoration: InputDecoration(
+                          labelText: 'Video Title *',
+                          labelStyle: TextStyle(
                             color: titleError != null
                                 ? (dialogIsDark
                                       ? AppTheme.darkError
                                       : Colors.red)
                                 : (dialogIsDark
-                                      ? AppTheme.darkBorderColor
-                                      : Colors.grey.shade300),
+                                      ? AppTheme.darkTextSecondary
+                                      : Colors.grey.shade600),
                           ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
+                          errorText: titleError,
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: titleError != null
+                                  ? (dialogIsDark
+                                        ? AppTheme.darkError
+                                        : Colors.red)
+                                  : (dialogIsDark
+                                        ? AppTheme.darkBorderColor
+                                        : Colors.grey.shade300),
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: titleError != null
+                                  ? (dialogIsDark
+                                        ? AppTheme.darkError
+                                        : Colors.red)
+                                  : (dialogIsDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor),
+                              width: 2,
+                            ),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.title,
                             color: titleError != null
                                 ? (dialogIsDark
                                       ? AppTheme.darkError
                                       : Colors.red)
                                 : (dialogIsDark
-                                      ? AppTheme.darkPrimaryLight
-                                      : AppTheme.primaryColor),
-                            width: 2,
+                                      ? AppTheme.darkTextSecondary
+                                      : Colors.grey),
                           ),
+                          filled: dialogIsDark,
+                          fillColor: dialogIsDark ? AppTheme.darkSurface : null,
                         ),
-                        prefixIcon: Icon(
-                          Icons.title,
-                          color: titleError != null
-                              ? (dialogIsDark ? AppTheme.darkError : Colors.red)
-                              : (dialogIsDark
-                                    ? AppTheme.darkTextSecondary
-                                    : Colors.grey),
-                        ),
-                        filled: dialogIsDark,
-                        fillColor: dialogIsDark ? AppTheme.darkSurface : null,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Description field
-                    TextField(
-                      controller: descriptionController,
-                      maxLines: 2,
-                      style: TextStyle(
-                        color: dialogIsDark
-                            ? AppTheme.darkTextPrimary
-                            : Colors.black87,
-                      ),
-                      decoration: InputDecoration(
-                        labelText: 'Description (optional)',
-                        labelStyle: TextStyle(
+                      const SizedBox(height: 16),
+                      // Description field
+                      TextField(
+                        controller: descriptionController,
+                        maxLines: 2,
+                        style: TextStyle(
                           color: dialogIsDark
-                              ? AppTheme.darkTextSecondary
-                              : Colors.grey.shade600,
+                              ? AppTheme.darkTextPrimary
+                              : Colors.black87,
                         ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
+                        decoration: InputDecoration(
+                          labelText: 'Description (optional)',
+                          labelStyle: TextStyle(
                             color: dialogIsDark
-                                ? AppTheme.darkBorderColor
-                                : Colors.grey.shade300,
+                                ? AppTheme.darkTextSecondary
+                                : Colors.grey.shade600,
                           ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: dialogIsDark
+                                  ? AppTheme.darkBorderColor
+                                  : Colors.grey.shade300,
+                            ),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(
+                              color: dialogIsDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor,
+                              width: 2,
+                            ),
+                          ),
+                          prefixIcon: Icon(
+                            Icons.description,
                             color: dialogIsDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor,
-                            width: 2,
+                                ? AppTheme.darkTextSecondary
+                                : Colors.grey,
                           ),
+                          filled: dialogIsDark,
+                          fillColor: dialogIsDark ? AppTheme.darkSurface : null,
                         ),
-                        prefixIcon: Icon(
-                          Icons.description,
-                          color: dialogIsDark
-                              ? AppTheme.darkTextSecondary
-                              : Colors.grey,
-                        ),
-                        filled: dialogIsDark,
-                        fillColor: dialogIsDark ? AppTheme.darkSurface : null,
                       ),
-                    ),
-                    const SizedBox(height: 16),
-                    // Video selection
-                    GestureDetector(
-                      onTap: () async {
-                        final video = await _picker.pickVideo(
-                          source: ImageSource.gallery,
-                        );
-                        if (video != null) {
-                          setDialogState(() {
-                            selectedVideo = video;
-                            videoError = null;
-                          });
-                        }
-                      },
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: videoError != null
-                                ? (dialogIsDark
-                                      ? AppTheme.darkError
-                                      : Colors.red)
-                                : selectedVideo != null
-                                ? AppTheme.success
-                                : (dialogIsDark
-                                      ? AppTheme.darkBorderColor
-                                      : Colors.grey.shade300),
-                            width: 2,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          color: selectedVideo != null
-                              ? AppTheme.success.withOpacity(
-                                  dialogIsDark ? 0.2 : 0.1,
-                                )
-                              : (dialogIsDark
-                                    ? AppTheme.darkSurface
-                                    : Colors.grey.shade50),
-                        ),
-                        child: Column(
-                          children: [
-                            Icon(
-                              selectedVideo != null
-                                  ? Icons.check_circle
-                                  : Icons.video_call,
-                              size: 40,
-                              color: selectedVideo != null
+                      const SizedBox(height: 16),
+                      // Video selection
+                      GestureDetector(
+                        onTap: () async {
+                          final video = await _picker.pickVideo(
+                            source: ImageSource.gallery,
+                          );
+                          if (video != null) {
+                            setDialogState(() {
+                              selectedVideo = video;
+                              videoError = null;
+                            });
+                          }
+                        },
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: videoError != null
+                                  ? (dialogIsDark
+                                        ? AppTheme.darkError
+                                        : Colors.red)
+                                  : selectedVideo != null
                                   ? AppTheme.success
                                   : (dialogIsDark
-                                        ? AppTheme.darkTextSecondary
-                                        : Colors.grey),
+                                        ? AppTheme.darkBorderColor
+                                        : Colors.grey.shade300),
+                              width: 2,
                             ),
-                            const SizedBox(height: 8),
-                            Text(
-                              selectedVideo != null
-                                  ? 'Video selected ✓'
-                                  : 'Tap to select video',
-                              style: TextStyle(
+                            borderRadius: BorderRadius.circular(12),
+                            color: selectedVideo != null
+                                ? AppTheme.success.withOpacity(
+                                    dialogIsDark ? 0.2 : 0.1,
+                                  )
+                                : (dialogIsDark
+                                      ? AppTheme.darkSurface
+                                      : Colors.grey.shade50),
+                          ),
+                          child: Column(
+                            children: [
+                              Icon(
+                                selectedVideo != null
+                                    ? Icons.check_circle
+                                    : Icons.video_call,
+                                size: 40,
                                 color: selectedVideo != null
                                     ? AppTheme.success
                                     : (dialogIsDark
                                           ? AppTheme.darkTextSecondary
-                                          : Colors.grey.shade600),
-                                fontWeight: selectedVideo != null
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
+                                          : Colors.grey),
                               ),
-                            ),
-                            if (selectedVideo != null)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 4),
-                                child: Text(
-                                  selectedVideo!.name,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: dialogIsDark
-                                        ? AppTheme.darkTextSecondary
-                                        : Colors.grey.shade500,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
+                              const SizedBox(height: 8),
+                              Text(
+                                selectedVideo != null
+                                    ? 'Video selected ✓'
+                                    : 'Tap to select video',
+                                style: TextStyle(
+                                  color: selectedVideo != null
+                                      ? AppTheme.success
+                                      : (dialogIsDark
+                                            ? AppTheme.darkTextSecondary
+                                            : Colors.grey.shade600),
+                                  fontWeight: selectedVideo != null
+                                      ? FontWeight.bold
+                                      : FontWeight.normal,
                                 ),
                               ),
-                          ],
+                              if (selectedVideo != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    selectedVideo!.name,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: dialogIsDark
+                                          ? AppTheme.darkTextSecondary
+                                          : Colors.grey.shade500,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                       ),
-                    ),
-                    if (videoError != null)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, left: 12),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.error_outline,
-                              size: 14,
-                              color: dialogIsDark
-                                  ? AppTheme.darkError
-                                  : Colors.red,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              videoError!,
-                              style: TextStyle(
+                      if (videoError != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8, left: 12),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline,
+                                size: 14,
                                 color: dialogIsDark
                                     ? AppTheme.darkError
                                     : Colors.red,
-                                fontSize: 12,
                               ),
-                            ),
-                          ],
-                        ),
-                      ),
-                  ],
-                  // Upload progress
-                  if (isUploading) ...[
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: LinearProgressIndicator(
-                        value: uploadProgress,
-                        backgroundColor: dialogIsDark
-                            ? AppTheme.darkBorder
-                            : Colors.grey.shade200,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          dialogIsDark
-                              ? AppTheme.darkAccent
-                              : AppTheme.primaryColor,
-                        ),
-                        minHeight: 10,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          uploadProgress < 0.85
-                              ? 'Uploading...'
-                              : uploadProgress < 0.98
-                              ? 'Processing...'
-                              : 'Finalizing...',
-                          style: TextStyle(
-                            color: dialogIsDark
-                                ? AppTheme.darkTextSecondary
-                                : Colors.grey.shade600,
-                            fontSize: 13,
+                              const SizedBox(width: 4),
+                              Text(
+                                videoError!,
+                                style: TextStyle(
+                                  color: dialogIsDark
+                                      ? AppTheme.darkError
+                                      : Colors.red,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        Text(
-                          '${(uploadProgress * 100).toInt()}%',
-                          style: TextStyle(
-                            color: dialogIsDark
-                                ? AppTheme.darkAccent
-                                : AppTheme.primaryColor,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color:
-                            (dialogIsDark
-                                    ? AppTheme.darkAccent
-                                    : AppTheme.primaryColor)
-                                .withOpacity(0.1),
+                    ],
+                    // Upload progress
+                    if (isUploading) ...[
+                      const SizedBox(height: 8),
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.lightbulb_outline,
-                            size: 18,
-                            color: dialogIsDark
+                        child: LinearProgressIndicator(
+                          value: uploadProgress,
+                          backgroundColor: dialogIsDark
+                              ? AppTheme.darkBorder
+                              : Colors.grey.shade200,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            dialogIsDark
                                 ? AppTheme.darkAccent
                                 : AppTheme.primaryColor,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'Tap the ✓ icon to safely continue in background',
-                              style: TextStyle(
-                                color: dialogIsDark
-                                    ? AppTheme.darkTextSecondary
-                                    : Colors.grey.shade700,
-                                fontSize: 12,
-                              ),
+                          minHeight: 10,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            uploadProgress < 0.85
+                                ? 'Uploading...'
+                                : uploadProgress < 0.98
+                                ? 'Processing...'
+                                : 'Finalizing...',
+                            style: TextStyle(
+                              color: dialogIsDark
+                                  ? AppTheme.darkTextSecondary
+                                  : Colors.grey.shade600,
+                              fontSize: 13,
+                            ),
+                          ),
+                          Text(
+                            '${(uploadProgress * 100).toInt()}%',
+                            style: TextStyle(
+                              color: dialogIsDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 14,
                             ),
                           ),
                         ],
                       ),
-                    ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color:
+                              (dialogIsDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.lightbulb_outline,
+                              size: 18,
+                              color: dialogIsDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Tap the ✓ icon to safely continue in background',
+                                style: TextStyle(
+                                  color: dialogIsDark
+                                      ? AppTheme.darkTextSecondary
+                                      : Colors.grey.shade700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  if (isUploading) {
-                    cancellableUpload?.cancel();
-                  }
-                  Navigator.pop(dialogContext);
-                },
-                child: Text(
-                  isUploading ? 'Cancel Upload' : 'Cancel',
-                  style: TextStyle(
-                    color: isUploading
-                        ? Colors.red
-                        : (dialogIsDark
-                              ? AppTheme.darkTextSecondary
-                              : Colors.grey.shade600),
-                  ),
                 ),
               ),
-              if (!isUploading)
-                ElevatedButton.icon(
-                  onPressed: () async {
-                    setDialogState(() => hasAttemptedSubmit = true);
-
-                    bool isValid = true;
-                    if (titleController.text.trim().isEmpty) {
-                      setDialogState(
-                        () => titleError = 'Video title is required',
-                      );
-                      isValid = false;
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    if (isUploading) {
+                      cancellableUpload?.cancel();
                     }
-                    if (selectedVideo == null) {
-                      setDialogState(
-                        () => videoError = 'Please select a video',
-                      );
-                      isValid = false;
-                    }
+                    Navigator.pop(dialogContext);
+                  },
+                  child: Text(
+                    isUploading ? 'Cancel Upload' : 'Cancel',
+                    style: TextStyle(
+                      color: isUploading
+                          ? Colors.red
+                          : (dialogIsDark
+                                ? AppTheme.darkTextSecondary
+                                : Colors.grey.shade600),
+                    ),
+                  ),
+                ),
+                if (!isUploading)
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      setDialogState(() => hasAttemptedSubmit = true);
 
-                    if (!isValid) return;
-
-                    setDialogState(() {
-                      isUploading = true;
-                      uploadProgress = 0.0;
-                    });
-
-                    cancellableUpload = CancellableUpload();
-
-                    try {
-                      final videoUrl =
-                          await uploadToCloudinaryWithSimulatedProgress(
-                            selectedVideo!,
-                            onProgress: (progress) {
-                              setDialogState(() => uploadProgress = progress);
-                            },
-                            cancellable: cancellableUpload,
-                          );
-
-                      if (cancellableUpload?.isCancelled ?? false) return;
-
-                      if (videoUrl != null) {
-                        await _courseService.addVideoToCourse(
-                          teacherUid: FirebaseAuth.instance.currentUser!.uid,
-                          courseUid: widget.courseUid,
-                          videoUrl: videoUrl,
-                          videoTitle: titleController.text,
-                          videoDescription: descriptionController.text,
+                      bool isValid = true;
+                      if (titleController.text.trim().isEmpty) {
+                        setDialogState(
+                          () => titleError = 'Video title is required',
                         );
+                        isValid = false;
+                      }
+                      if (selectedVideo == null) {
+                        setDialogState(
+                          () => videoError = 'Please select a video',
+                        );
+                        isValid = false;
+                      }
 
-                        if (mounted) {
-                          Navigator.pop(dialogContext);
-                          _loadVideos();
-                          _sendVideoUploadNotifications(
-                            titleController.text,
-                            1,
+                      if (!isValid) return;
+
+                      setDialogState(() {
+                        isUploading = true;
+                        uploadProgress = 0.0;
+                      });
+
+                      cancellableUpload = CancellableUpload();
+
+                      try {
+                        final videoUrl =
+                            await uploadToCloudinaryWithSimulatedProgress(
+                              selectedVideo!,
+                              onProgress: (progress) {
+                                setDialogState(() => uploadProgress = progress);
+                              },
+                              cancellable: cancellableUpload,
+                            );
+
+                        if (cancellableUpload?.isCancelled ?? false) return;
+
+                        if (videoUrl != null) {
+                          await _courseService.addVideoToCourse(
+                            teacherUid: FirebaseAuth.instance.currentUser!.uid,
+                            courseUid: widget.courseUid,
+                            videoUrl: videoUrl,
+                            videoTitle: titleController.text,
+                            videoDescription: descriptionController.text,
                           );
+
+                          if (mounted) {
+                            Navigator.pop(dialogContext);
+                            _loadVideos();
+                            _sendVideoUploadNotifications(
+                              titleController.text,
+                              1,
+                            );
+                            ScaffoldMessenger.of(this.context).showSnackBar(
+                              SnackBar(
+                                content: const Text(
+                                  'Video added successfully!',
+                                ),
+                                backgroundColor: AppTheme.success,
+                              ),
+                            );
+                          }
+                        } else {
+                          throw Exception('Failed to upload video');
+                        }
+                      } catch (e) {
+                        if (cancellableUpload?.isCancelled ?? false) return;
+                        if (mounted) {
                           ScaffoldMessenger.of(this.context).showSnackBar(
                             SnackBar(
-                              content: const Text('Video added successfully!'),
-                              backgroundColor: AppTheme.success,
+                              content: Text('Error uploading video: $e'),
                             ),
                           );
                         }
-                      } else {
-                        throw Exception('Failed to upload video');
+                        setDialogState(() => isUploading = false);
                       }
-                    } catch (e) {
-                      if (cancellableUpload?.isCancelled ?? false) return;
-                      if (mounted) {
-                        ScaffoldMessenger.of(this.context).showSnackBar(
-                          SnackBar(content: Text('Error uploading video: $e')),
-                        );
-                      }
-                      setDialogState(() => isUploading = false);
-                    }
-                  },
-                  icon: const Icon(Icons.cloud_upload, size: 18),
-                  label: const Text('Upload'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: dialogIsDark
-                        ? AppTheme.darkAccent
-                        : AppTheme.primaryColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                    },
+                    icon: const Icon(Icons.cloud_upload, size: 18),
+                    label: const Text('Upload'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: dialogIsDark
+                          ? AppTheme.darkAccent
+                          : AppTheme.primaryColor,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          );
-        },
-      ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 
@@ -1840,11 +1854,15 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddVideoDialog,
-        backgroundColor: isDark
-            ? AppTheme.darkPrimaryLight
-            : AppTheme.primaryColor,
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: const Text('Add Video', style: TextStyle(color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
+        icon: Icon(Icons.add, color: isDark ? Colors.black : Colors.white),
+        label: Text(
+          'Add Video',
+          style: TextStyle(
+            color: isDark ? Colors.black : Colors.white,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       ),
     );
   }

@@ -12,6 +12,7 @@ import 'package:eduverse/views/signin_screen.dart';
 import 'package:eduverse/views/teacher/teacher_courses_screen.dart';
 import 'package:eduverse/views/teacher/teacher_home_tab.dart';
 import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
+import 'package:eduverse/views/teacher/teacher_onboarding_wizard.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
@@ -81,14 +82,17 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
 
     // Start auto-refresh timer
     _autoRefreshTimer = Timer.periodic(_refreshInterval, (_) {
-      if (mounted) {
+      if (mounted && FirebaseAuth.instance.currentUser != null) {
         fetchUserData(forceRefresh: true);
       }
     });
   }
 
   Future<void> fetchUserData({bool forceRefresh = false}) async {
-    final uid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return; // User logged out
+
+    final uid = currentUser.uid;
     final cacheKey = 'teacher_profile_$uid';
 
     // Use static cache if available and not forcing refresh
@@ -975,6 +979,25 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                     decoration: AppTheme.getCardDecoration(context),
                     child: Column(
                       children: [
+                        // Complete Teacher Profile
+                        _buildActionTile(
+                          Icons.person_add,
+                          "Complete Teacher Profile",
+                          "Add credentials, bio & achievements",
+                          () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const TeacherOnboardingWizard(),
+                              ),
+                            );
+                          },
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
                         // Dark Mode Toggle
                         Consumer<ThemeService>(
                           builder: (context, themeService, child) {

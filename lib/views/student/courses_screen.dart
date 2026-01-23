@@ -7,6 +7,7 @@ import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/course_card.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
+import 'package:eduverse/widgets/teacher_public_profile_widget.dart';
 import 'package:eduverse/views/student/student_course_detail_screen.dart';
 
 class CoursesScreen extends StatefulWidget {
@@ -49,6 +50,7 @@ class _CoursesScreenState extends State<CoursesScreen>
 
   // Filter options for explore tab
   String _exploreFilterBy = 'all'; // all, recent, rating, videos
+  String _pricingFilter = 'all'; // all, free, paid
 
   // Filter options for enrolled tab
   String _enrolledFilterBy = 'all'; // all, recent, progress, completed
@@ -235,6 +237,45 @@ class _CoursesScreenState extends State<CoursesScreen>
 
       await _loadData(forceRefresh: true);
     } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Failed to enroll: $e")));
+    }
+  }
+
+  /// Enroll in course and immediately navigate to it
+  Future<void> _enrollAndOpenCourse(Map<String, dynamic> course) async {
+    try {
+      await _courseService.enrollInCourse(
+        courseUid: course['courseUid'],
+        studentUid: _studentUid,
+      );
+
+      // Clear static cache
+      CoursesScreen.cachedUnenrolledCourses = null;
+      CoursesScreen.cachedEnrolledCourses = null;
+      CoursesScreen.cachedCourseProgress = null;
+      CoursesScreen.hasLoadedOnce = false;
+
+      if (!mounted) return;
+
+      // Navigate to course detail screen
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => StudentCourseDetailScreen(
+            courseUid: course['courseUid'],
+            courseTitle: course['title'],
+            imageUrl: course['imageUrl'] ?? '',
+            description: course['description'] ?? '',
+            createdAt: course['createdAt'],
+          ),
+        ),
+      ).then((_) {
+        _loadData(forceRefresh: true);
+      });
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Failed to enroll: $e")));
@@ -587,14 +628,76 @@ class _CoursesScreenState extends State<CoursesScreen>
     );
   }
 
+  Widget _buildPricingFilterChip(
+    String label,
+    String value,
+    bool isSelected,
+    bool isDark,
+    VoidCallback onTap,
+  ) {
+    Color chipColor;
+    if (value == 'free') {
+      chipColor = isDark ? AppTheme.darkSuccess : AppTheme.success;
+    } else if (value == 'paid') {
+      chipColor = isDark ? AppTheme.darkPrimary : AppTheme.primaryColor;
+    } else {
+      chipColor = isDark ? AppTheme.darkAccent : AppTheme.accentColor;
+    }
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? chipColor
+              : (isDark ? AppTheme.darkSurface : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? chipColor
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected
+                ? Colors.white
+                : (isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildExploreCourses() {
     final isDark = AppTheme.isDarkMode(context);
     // Filter and sort courses
     var filteredCourses = _filterExploreCoursesByQuery(courses);
     filteredCourses = _sortExploreCourses(filteredCourses);
 
+    // Apply pricing filter
+    if (_pricingFilter == 'free') {
+      filteredCourses = filteredCourses.where((course) {
+        return course['isFree'] == true ||
+            course['price'] == null ||
+            course['price'] == 0;
+      }).toList();
+    } else if (_pricingFilter == 'paid') {
+      filteredCourses = filteredCourses.where((course) {
+        return course['isFree'] == false &&
+            course['price'] != null &&
+            course['price'] > 0;
+      }).toList();
+    }
+
     return RefreshIndicator(
-      onRefresh: _loadData,
+      onRefresh: () => _loadData(forceRefresh: true),
       child: Column(
         children: [
           // Search Bar
@@ -708,6 +811,44 @@ class _CoursesScreenState extends State<CoursesScreen>
                       setState(() => _exploreFilterBy = 'videos');
                     },
                   ),
+                  const SizedBox(width: 16),
+                  // Divider
+                  Container(
+                    height: 24,
+                    width: 1,
+                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                  ),
+                  const SizedBox(width: 16),
+                  // Pricing filters
+                  _buildPricingFilterChip(
+                    '💰 All',
+                    'all',
+                    _pricingFilter == 'all',
+                    isDark,
+                    () {
+                      setState(() => _pricingFilter = 'all');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPricingFilterChip(
+                    '🆓 Free',
+                    'free',
+                    _pricingFilter == 'free',
+                    isDark,
+                    () {
+                      setState(() => _pricingFilter = 'free');
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _buildPricingFilterChip(
+                    '💎 Paid',
+                    'paid',
+                    _pricingFilter == 'paid',
+                    isDark,
+                    () {
+                      setState(() => _pricingFilter = 'paid');
+                    },
+                  ),
                 ],
               ),
             ),
@@ -808,6 +949,11 @@ class _CoursesScreenState extends State<CoursesScreen>
                             if (pv is int) return pv;
                             return 0;
                           })(),
+                          isFree: course['isFree'] ?? true,
+                          price: (course['price'] as num?)?.toDouble(),
+                          discountedPrice: (course['discountedPrice'] as num?)
+                              ?.toDouble(),
+                          category: course['category'],
                           onTap: () => _showEnrollDialog(course),
                           onEnroll: () => _showEnrollDialog(course),
                         );
@@ -829,6 +975,13 @@ class _CoursesScreenState extends State<CoursesScreen>
               : 0.0);
     final reviewCount =
         course['courseReviewCount'] ?? course['reviewCount'] ?? 0;
+
+    // Check if course is paid
+    final isFree = course['isFree'] ?? true;
+    final price = (course['price'] as num?)?.toDouble() ?? 0.0;
+    final discountedPrice = (course['discountedPrice'] as num?)?.toDouble();
+    final hasDiscount = discountedPrice != null && discountedPrice < price;
+    final finalPrice = hasDiscount ? discountedPrice : price;
 
     showDialog(
       context: context,
@@ -926,26 +1079,62 @@ class _CoursesScreenState extends State<CoursesScreen>
 
                 // Instructor name
                 if (course['teacherName'] != null)
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.person_outline,
-                        size: 14,
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.textSecondary,
+                  GestureDetector(
+                    onTap: () {
+                      if (course['teacherUid'] != null) {
+                        Navigator.pop(ctx); // Close dialog first
+                        TeacherPublicProfileWidget.showProfile(
+                          context: context,
+                          teacherUid: course['teacherUid'],
+                          teacherName: course['teacherName'],
+                        );
+                      }
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        course['teacherName'],
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: isDark
-                              ? AppTheme.darkTextSecondary
-                              : AppTheme.textSecondary,
-                        ),
+                      decoration: BoxDecoration(
+                        color:
+                            (isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ],
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person_outline,
+                            size: 14,
+                            color: isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            course['teacherName'],
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.arrow_forward_ios,
+                            size: 10,
+                            color: isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
                 const SizedBox(height: 8),
 
@@ -1066,9 +1255,168 @@ class _CoursesScreenState extends State<CoursesScreen>
                   ),
                 ],
 
+                // Pricing section for paid courses
+                if (!isFree) ...[
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: isDark
+                            ? [
+                                AppTheme.darkAccent.withOpacity(0.2),
+                                AppTheme.darkPrimaryLight.withOpacity(0.1),
+                              ]
+                            : [
+                                AppTheme.primaryColor.withOpacity(0.1),
+                                AppTheme.accentColor.withOpacity(0.05),
+                              ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppTheme.darkAccent.withOpacity(0.3)
+                            : AppTheme.primaryColor.withOpacity(0.2),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(
+                              Icons.receipt_long,
+                              size: 18,
+                              color: isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Order Summary',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: AppTheme.getTextPrimary(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Course Price',
+                              style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              '\$${price.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                color: hasDiscount
+                                    ? AppTheme.getTextSecondary(context)
+                                    : AppTheme.getTextPrimary(context),
+                                fontSize: 13,
+                                decoration: hasDiscount
+                                    ? TextDecoration.lineThrough
+                                    : null,
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (hasDiscount) ...[
+                          const SizedBox(height: 6),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    'Discount',
+                                    style: TextStyle(
+                                      color: isDark
+                                          ? AppTheme.darkSuccess
+                                          : AppTheme.success,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color:
+                                          (isDark
+                                                  ? AppTheme.darkSuccess
+                                                  : AppTheme.success)
+                                              .withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      '-${((price - discountedPrice) / price * 100).round()}%',
+                                      style: TextStyle(
+                                        color: isDark
+                                            ? AppTheme.darkSuccess
+                                            : AppTheme.success,
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              Text(
+                                '-\$${(price - discountedPrice).toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkSuccess
+                                      : AppTheme.success,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                        const Divider(height: 20),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              'Total',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 15,
+                                color: AppTheme.getTextPrimary(context),
+                              ),
+                            ),
+                            Text(
+                              '\$${finalPrice.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 16),
                 Text(
-                  'Would you like to enroll in this course?',
+                  isFree
+                      ? 'Would you like to enroll in this course?'
+                      : 'Ready to unlock this premium course?',
                   style: TextStyle(
                     fontWeight: FontWeight.w500,
                     color: AppTheme.getTextPrimary(context),
@@ -1089,10 +1437,14 @@ class _CoursesScreenState extends State<CoursesScreen>
           ElevatedButton.icon(
             onPressed: () {
               Navigator.pop(ctx);
-              _enrollInCourse(course['courseUid']);
+              if (isFree) {
+                _enrollInCourse(course['courseUid']);
+              } else {
+                _showMockPaymentFlow(course, finalPrice);
+              }
             },
-            icon: const Icon(Icons.check),
-            label: const Text('Enroll Now'),
+            icon: Icon(isFree ? Icons.check : Icons.payment),
+            label: Text(isFree ? 'Enroll Now' : 'Proceed to Payment'),
             style: ElevatedButton.styleFrom(
               backgroundColor: isDark
                   ? AppTheme.darkAccent
@@ -1108,6 +1460,562 @@ class _CoursesScreenState extends State<CoursesScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showMockPaymentFlow(Map<String, dynamic> course, double amount) {
+    final isDark = AppTheme.isDarkMode(context);
+    String selectedPaymentMethod = 'card';
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) => Container(
+          height: MediaQuery.of(context).size.height * 0.75,
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(
+            children: [
+              // Handle bar
+              Container(
+                margin: const EdgeInsets.only(top: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+
+              // Header
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color:
+                            (isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.payment,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Complete Payment',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 18,
+                              color: AppTheme.getTextPrimary(context),
+                            ),
+                          ),
+                          Text(
+                            'Secure mock payment',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      icon: Icon(
+                        Icons.close,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Divider(
+                color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+              ),
+
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Course summary
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: isDark
+                              ? AppTheme.darkElevated
+                              : Colors.grey.shade50,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                course['imageUrl'] ?? '',
+                                width: 60,
+                                height: 60,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 60,
+                                  height: 60,
+                                  color:
+                                      (isDark
+                                              ? AppTheme.darkPrimaryLight
+                                              : AppTheme.primaryColor)
+                                          .withOpacity(0.1),
+                                  child: Icon(
+                                    Icons.school,
+                                    color: AppTheme.getTextSecondary(context),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    course['title'] ?? 'Untitled',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: AppTheme.getTextPrimary(context),
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    'by ${course['teacherName'] ?? 'Instructor'}',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: AppTheme.getTextSecondary(context),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              '\$${amount.toStringAsFixed(2)}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                                color: isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Payment methods
+                      Text(
+                        'Payment Method',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: AppTheme.getTextPrimary(context),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+
+                      // Card option
+                      _buildPaymentMethodTile(
+                        icon: Icons.credit_card,
+                        title: 'Credit / Debit Card',
+                        subtitle: '**** **** **** 4242',
+                        isSelected: selectedPaymentMethod == 'card',
+                        isDark: isDark,
+                        onTap: () =>
+                            setModalState(() => selectedPaymentMethod = 'card'),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // PayPal option
+                      _buildPaymentMethodTile(
+                        icon: Icons.account_balance_wallet,
+                        title: 'PayPal',
+                        subtitle: 'user@email.com',
+                        isSelected: selectedPaymentMethod == 'paypal',
+                        isDark: isDark,
+                        onTap: () => setModalState(
+                          () => selectedPaymentMethod = 'paypal',
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+
+                      // Apple Pay option
+                      _buildPaymentMethodTile(
+                        icon: Icons.apple,
+                        title: 'Apple Pay',
+                        subtitle: 'Quick checkout',
+                        isSelected: selectedPaymentMethod == 'apple',
+                        isDark: isDark,
+                        onTap: () => setModalState(
+                          () => selectedPaymentMethod = 'apple',
+                        ),
+                      ),
+
+                      const SizedBox(height: 24),
+
+                      // Security note
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color:
+                              (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                                  .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color:
+                                (isDark
+                                        ? AppTheme.darkSuccess
+                                        : AppTheme.success)
+                                    .withOpacity(0.2),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.shield_outlined,
+                              size: 20,
+                              color: isDark
+                                  ? AppTheme.darkSuccess
+                                  : AppTheme.success,
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'This is a mock payment for demonstration purposes. No real charges will be made.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? AppTheme.darkSuccess
+                                      : AppTheme.success,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Bottom action
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.getCardColor(context),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, -5),
+                    ),
+                  ],
+                ),
+                child: SafeArea(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(ctx);
+                        _processPayment(course, amount);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        elevation: 4,
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.lock_outline, size: 18),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Pay \$${amount.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPaymentMethodTile({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required bool isSelected,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1)
+              : isDark
+              ? AppTheme.darkElevated
+              : Colors.grey.shade50,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isSelected
+                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                : isDark
+                ? AppTheme.darkBorder
+                : Colors.grey.shade200,
+            width: isSelected ? 2 : 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                icon,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.getTextPrimary(context),
+                    ),
+                  ),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Radio<bool>(
+              value: true,
+              groupValue: isSelected,
+              onChanged: (_) => onTap(),
+              activeColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _processPayment(Map<String, dynamic> course, double amount) {
+    final isDark = AppTheme.isDarkMode(context);
+
+    // Show processing dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => WillPopScope(
+        onWillPop: () async => false,
+        child: AlertDialog(
+          backgroundColor: AppTheme.getCardColor(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const SizedBox(height: 20),
+              SizedBox(
+                width: 60,
+                height: 60,
+                child: CircularProgressIndicator(
+                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  strokeWidth: 3,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Processing Payment...',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.getTextPrimary(context),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Please wait while we process your payment',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppTheme.getTextSecondary(context),
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    // Simulate payment processing
+    Future.delayed(const Duration(seconds: 2), () {
+      Navigator.pop(context); // Close processing dialog
+      _showPaymentSuccessDialog(course, amount);
+    });
+  }
+
+  void _showPaymentSuccessDialog(Map<String, dynamic> course, double amount) {
+    final isDark = AppTheme.isDarkMode(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.getCardColor(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                    .withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.check_circle,
+                size: 56,
+                color: isDark ? AppTheme.darkSuccess : AppTheme.success,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'Payment Successful!',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 20,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'You have been enrolled in\n"${course['title']}"',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.getTextSecondary(context),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.receipt_long,
+                    size: 16,
+                    color: AppTheme.getTextSecondary(context),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Amount Paid: \$${amount.toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.getTextPrimary(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(ctx);
+                  await _enrollAndOpenCourse(course);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Start Learning',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -1418,7 +2326,7 @@ class _CoursesScreenState extends State<CoursesScreen>
     filteredCourses = _sortEnrolledCourses(filteredCourses);
 
     return RefreshIndicator(
-      onRefresh: _loadData,
+      onRefresh: () => _loadData(forceRefresh: true),
       child: Column(
         children: [
           // Search Bar for enrolled courses
@@ -1614,6 +2522,11 @@ class _CoursesScreenState extends State<CoursesScreen>
                           }
                           return 0;
                         })(),
+                        isFree: course['isFree'] ?? true,
+                        price: (course['price'] as num?)?.toDouble(),
+                        discountedPrice: (course['discountedPrice'] as num?)
+                            ?.toDouble(),
+                        category: course['category'],
                         onTap: () => _openCourse(course),
                       );
                     },

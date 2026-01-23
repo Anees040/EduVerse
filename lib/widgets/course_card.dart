@@ -16,6 +16,12 @@ class CourseCard extends StatelessWidget {
   final int? enrolledCount;
   final int? videoCount;
   final int? privateVideoCount; // Number of private videos
+  // Pricing fields
+  final bool isFree;
+  final double? price;
+  final double? discountedPrice;
+  final String? category;
+  final String? difficulty;
   final VoidCallback? onTap;
   final VoidCallback? onEnroll;
 
@@ -35,6 +41,11 @@ class CourseCard extends StatelessWidget {
     this.enrolledCount,
     this.videoCount,
     this.privateVideoCount,
+    this.isFree = true,
+    this.price,
+    this.discountedPrice,
+    this.category,
+    this.difficulty,
     this.onTap,
     this.onEnroll,
   });
@@ -120,8 +131,32 @@ class CourseCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                // Date chip moved below image to improve card balance (see bottom of card)
-                // Top-right small enroll/continue badge removed to keep single primary action button
+                // Price badge (top-left)
+                Positioned(top: 8, left: 8, child: _buildPriceBadge(isDark)),
+                // Category badge (top-right) for teacher view
+                if (isTeacherView && category != null)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        category!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
               ],
             ),
             Padding(
@@ -513,6 +548,91 @@ class CourseCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPriceBadge(bool isDark) {
+    if (isFree) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [AppTheme.darkSuccess, AppTheme.darkSuccess.withOpacity(0.8)]
+                : [AppTheme.success, AppTheme.success.withOpacity(0.8)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                  .withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Text(
+          'FREE',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    }
+
+    // Paid course
+    final hasDiscount =
+        discountedPrice != null && discountedPrice! < (price ?? 0);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [AppTheme.darkPrimary, AppTheme.darkAccent]
+              : [AppTheme.primaryColor, AppTheme.primaryLight],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                .withOpacity(0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasDiscount) ...[
+            Text(
+              '\$${price!.toStringAsFixed(0)}',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Colors.white.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            hasDiscount
+                ? '\$${discountedPrice!.toStringAsFixed(0)}'
+                : '\$${(price ?? 0).toStringAsFixed(0)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

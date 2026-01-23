@@ -175,15 +175,23 @@ class NotificationService {
       return;
     }
 
+    // Get all teacher UIDs to exclude them from student notifications
+    final teachersSnapshot = await db.child('teacher').get();
+    final Set<String> teacherUids = {};
+    if (teachersSnapshot.exists && teachersSnapshot.value != null) {
+      final teachers = Map<String, dynamic>.from(teachersSnapshot.value as Map);
+      teacherUids.addAll(teachers.keys);
+    }
+
     final students = Map<String, dynamic>.from(studentsSnapshot.value as Map);
     debugPrint(
       'Notifying ${students.length} students about new course: $courseName',
     );
 
-    // Send notification to each student (excluding the teacher)
+    // Send notification to each student (excluding all teachers)
     for (final studentUid in students.keys) {
-      // Skip if this is the teacher's own UID (teacher might also be a student)
-      if (studentUid == teacherUid) continue;
+      // Skip if this user is a teacher (might have accounts in both nodes)
+      if (teacherUids.contains(studentUid)) continue;
       try {
         await sendNotification(
           toUid: studentUid,

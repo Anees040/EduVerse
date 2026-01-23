@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1543,6 +1542,7 @@ class _CreateCourseWizardState extends State<CreateCourseWizard>
       maxLines: maxLines,
       maxLength: maxLength,
       validator: validator,
+      autovalidateMode: AutovalidateMode.onUserInteraction,
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 15),

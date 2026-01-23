@@ -370,9 +370,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
             ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'create',
-        backgroundColor: isDark
-            ? const Color.fromARGB(255, 114, 239, 221)
-            : AppTheme.primaryColor,
+        backgroundColor: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
         onPressed: _createNewCourse,
         icon: Icon(Icons.add, color: isDark ? Colors.black : Colors.white),
         label: Text(
@@ -786,6 +784,10 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     final enrolledCount = course['enrolledCount'] ?? 0;
     final rating = (course['averageRating'] ?? 0.0) as double;
     final reviewCount = (course['reviewCount'] ?? 0) as int;
+    final isFree = course['isFree'] ?? true;
+    final price = (course['price'] as num?)?.toDouble() ?? 0.0;
+    final discountedPrice = (course['discountedPrice'] as num?)?.toDouble();
+    final category = course['category'] as String?;
 
     return GestureDetector(
       onTap: () => _openCourseManagement(course),
@@ -809,22 +811,61 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(16),
-              ),
-              child: AspectRatio(
-                aspectRatio: 16 / 9,
-                child: (course['imageUrl'] as String? ?? '').isNotEmpty
-                    ? Image.network(
-                        course['imageUrl'],
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) =>
-                            _buildPlaceholderImage(isDark),
-                      )
-                    : _buildPlaceholderImage(isDark),
-              ),
+            // Image with price badge
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: (course['imageUrl'] as String? ?? '').isNotEmpty
+                        ? Image.network(
+                            course['imageUrl'],
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) =>
+                                _buildPlaceholderImage(isDark),
+                          )
+                        : _buildPlaceholderImage(isDark),
+                  ),
+                ),
+                // Price badge (top-left)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: _buildPriceBadge(
+                    isDark,
+                    isFree,
+                    price,
+                    discountedPrice,
+                  ),
+                ),
+                // Category badge (top-right)
+                if (category != null && category.isNotEmpty)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        category,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
 
             // Content
@@ -973,6 +1014,95 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPriceBadge(
+    bool isDark,
+    bool isFree,
+    double price,
+    double? discountedPrice,
+  ) {
+    if (isFree) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: isDark
+                ? [AppTheme.darkSuccess, AppTheme.darkSuccess.withOpacity(0.8)]
+                : [AppTheme.success, AppTheme.success.withOpacity(0.8)],
+          ),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                  .withOpacity(0.3),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: const Text(
+          'FREE',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+      );
+    }
+
+    // Paid course
+    final hasDiscount = discountedPrice != null && discountedPrice < price;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [AppTheme.darkPrimary, AppTheme.darkAccent]
+              : [AppTheme.primaryColor, AppTheme.primaryLight],
+        ),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                .withOpacity(0.3),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasDiscount) ...[
+            Text(
+              '\$${price.toStringAsFixed(0)}',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.7),
+                fontSize: 10,
+                fontWeight: FontWeight.w500,
+                decoration: TextDecoration.lineThrough,
+                decorationColor: Colors.white.withOpacity(0.7),
+              ),
+            ),
+            const SizedBox(width: 4),
+          ],
+          Text(
+            hasDiscount
+                ? '\$${discountedPrice.toStringAsFixed(0)}'
+                : '\$${price.toStringAsFixed(0)}',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }
