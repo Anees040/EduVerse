@@ -67,7 +67,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
 
-    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final currentUid = currentUser.uid;
     // Use cached data immediately if available AND belongs to current user
     if (HomeTab.hasLoadedOnce &&
         HomeTab.cachedAllCourses != null &&
@@ -116,7 +118,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
   /// Load all data in parallel for faster loading
   Future<void> _loadAllData() async {
-    final studentUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final studentUid = currentUser.uid;
     final cacheKeyName = 'user_name_${widget.uid}';
     final cacheKeyCourses = 'all_courses_home';
     final cacheKeyEnrolled = 'enrolled_course_ids_$studentUid';

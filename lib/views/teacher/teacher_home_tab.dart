@@ -79,7 +79,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     super.initState();
     _pageController = PageController(viewportFraction: 0.88, initialPage: 0);
 
-    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final currentUid = currentUser.uid;
     // Use cached data immediately if available AND belongs to current teacher
     if (TeacherHomeTab.hasLoadedOnce &&
         TeacherHomeTab.cachedCourses != null &&
@@ -127,7 +129,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
 
   /// Load all data in parallel with caching
   Future<void> _loadAllData() async {
-    final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final teacherUid = currentUser.uid;
     final cacheKeyName = 'teacher_name_${widget.uid}';
     final cacheKeyCourses = 'teacher_courses_$teacherUid';
     final cacheKeyStudents = 'teacher_students_$teacherUid';
@@ -1521,7 +1525,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                 Navigator.pop(ctx);
 
                 try {
-                  final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+                  final currentUser = FirebaseAuth.instance.currentUser;
+                  if (currentUser == null) return;
+                  final teacherUid = currentUser.uid;
 
                   // Create announcement data for optimistic UI update
                   final newAnnouncement = {
@@ -1784,7 +1790,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           TextButton.icon(
             onPressed: () async {
               Navigator.pop(ctx);
-              final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+              final currentUser = FirebaseAuth.instance.currentUser;
+              if (currentUser == null) return;
+              final teacherUid = currentUser.uid;
               final announcementId = announcement['announcementId'];
               final newActiveStatus = !isActive;
 
@@ -1852,7 +1860,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           TextButton.icon(
             onPressed: () async {
               Navigator.pop(ctx);
-              final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+              final currentUser = FirebaseAuth.instance.currentUser;
+              if (currentUser == null) return;
+              final teacherUid = currentUser.uid;
               final announcementId = announcement['announcementId'];
 
               // Store for potential undo

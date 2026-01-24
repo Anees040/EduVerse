@@ -49,6 +49,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   bool _isInitialLoading = true;
   String userName = "...";
   String email = "...";
+  String? profilePicture;
   int? joinedDate;
   int totalCourses = 0;
   int totalStudents = 0;
@@ -71,6 +72,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     if (_hasLoadedOnce && _cachedProfile != null) {
       userName = _cachedProfile!['userName'] ?? "Teacher";
       email = _cachedProfile!['email'] ?? "...";
+      profilePicture = _cachedProfile!['profilePicture'];
       joinedDate = _cachedProfile!['joinedDate'];
       totalCourses = _cachedProfile!['totalCourses'] ?? 0;
       totalStudents = _cachedProfile!['totalStudents'] ?? 0;
@@ -101,6 +103,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         setState(() {
           userName = _cachedProfile!['userName'] ?? "Teacher";
           email = _cachedProfile!['email'] ?? "...";
+          profilePicture = _cachedProfile!['profilePicture'];
           joinedDate = _cachedProfile!['joinedDate'];
           totalCourses = _cachedProfile!['totalCourses'] ?? 0;
           totalStudents = _cachedProfile!['totalStudents'] ?? 0;
@@ -122,6 +125,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           setState(() {
             userName = cachedData['userName'] ?? "Teacher";
             email = cachedData['email'] ?? "...";
+            profilePicture = cachedData['profilePicture'];
             joinedDate = cachedData['joinedDate'];
             totalCourses = cachedData['totalCourses'] ?? 0;
             totalStudents = cachedData['totalStudents'] ?? 0;
@@ -160,6 +164,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
+          'profilePicture': userData['profilePicture'],
           'joinedDate': userData['createdAt'],
           'totalCourses': courses.length,
           'totalStudents': uniqueStudents,
@@ -178,6 +183,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           setState(() {
             userName = userData['name'] ?? "Teacher";
             email = userData['email'] ?? "...";
+            profilePicture = userData['profilePicture'];
             joinedDate = userData['createdAt'];
             totalCourses = courses.length;
             totalStudents = uniqueStudents;
@@ -219,6 +225,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
+          'profilePicture': userData['profilePicture'],
           'joinedDate': userData['createdAt'],
           'totalCourses': courses.length,
           'totalStudents': uniqueStudents,
@@ -236,6 +243,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           setState(() {
             userName = userData['name'] ?? "Teacher";
             email = userData['email'] ?? "...";
+            profilePicture = userData['profilePicture'];
             joinedDate = userData['createdAt'];
             totalCourses = courses.length;
             totalStudents = uniqueStudents;
@@ -838,16 +846,21 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                           child: CircleAvatar(
                             radius: 50,
                             backgroundColor: Colors.white.withOpacity(0.2),
-                            child: Text(
-                              userName.isNotEmpty
-                                  ? userName[0].toUpperCase()
-                                  : "?",
-                              style: const TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            ),
+                            backgroundImage: profilePicture != null && profilePicture!.isNotEmpty
+                                ? NetworkImage(profilePicture!)
+                                : null,
+                            child: profilePicture == null || profilePicture!.isEmpty
+                                ? Text(
+                                    userName.isNotEmpty
+                                        ? userName[0].toUpperCase()
+                                        : "?",
+                                    style: const TextStyle(
+                                      fontSize: 40,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -984,14 +997,22 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                           Icons.person_add,
                           "Complete Teacher Profile",
                           "Add credentials, bio & achievements",
-                          () {
-                            Navigator.push(
+                          () async {
+                            await Navigator.push(
                               context,
                               MaterialPageRoute(
                                 builder: (context) =>
-                                    const TeacherOnboardingWizard(),
+                                    TeacherOnboardingWizard(
+                                      isFirstTime: false,
+                                      onComplete: () {
+                                        // Force refresh profile data after onboarding
+                                        fetchUserData(forceRefresh: true);
+                                      },
+                                    ),
                               ),
                             );
+                            // Also refresh when returning from wizard
+                            fetchUserData(forceRefresh: true);
                           },
                         ),
                         Divider(

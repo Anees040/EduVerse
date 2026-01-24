@@ -1,5 +1,12 @@
 {
   "rules": {
+    "admin": {
+      ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
     "student": {
       ".read": "auth != null",
       "$uid": {

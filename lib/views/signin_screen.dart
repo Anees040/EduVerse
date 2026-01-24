@@ -4,6 +4,8 @@ import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/views/student/home_screen.dart';
 import 'package:eduverse/views/register_screen_with_verification.dart';
 import 'package:eduverse/views/teacher/teacher_home_screen.dart';
+import 'package:eduverse/features/admin/screens/admin_dashboard_screen.dart';
+import 'package:eduverse/features/admin/services/admin_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -1140,7 +1142,23 @@ class _SigninScreenState extends State<SigninScreen> {
 
                                 if (!mounted) return;
 
-                                if (isStudent) {
+                                // Check if user is an admin
+                                final adminService = AdminService();
+                                final isAdmin = await adminService.isUserAdmin(
+                                  uid,
+                                );
+
+                                if (!mounted) return;
+
+                                if (isAdmin) {
+                                  Navigator.pushReplacement(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          const AdminDashboardScreen(),
+                                    ),
+                                  );
+                                } else if (isStudent) {
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(

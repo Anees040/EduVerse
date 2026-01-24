@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:eduverse/views/eduverse_app.dart';
 import 'package:eduverse/firebase_options.dart';
 import 'package:eduverse/services/theme_service.dart';
+import 'package:eduverse/features/admin/providers/admin_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 Future<void> main() async {
@@ -32,10 +33,13 @@ Future<void> main() async {
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
-  // Run the app with ThemeService provider
+  // Run the app with providers
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => ThemeService(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ThemeService()),
+        ChangeNotifierProvider(create: (_) => AdminProvider()),
+      ],
       child: const EduVerseApp(),
     ),
   );

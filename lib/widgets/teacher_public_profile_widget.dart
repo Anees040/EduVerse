@@ -223,12 +223,34 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
     final expertise = _profile!['subjectExpertise'];
     final education = _profile!['education'];
     final institution = _profile!['institution'];
-    final certifications = _profile!['certifications'];
-    final achievements = _profile!['achievements'];
+    // Handle certifications - ensure it's a String
+    final rawCertifications = _profile!['certifications'];
+    final certifications = rawCertifications is String
+        ? rawCertifications
+        : null;
+    // Handle achievements - ensure it's a String
+    final rawAchievements = _profile!['achievements'];
+    final achievements = rawAchievements is String ? rawAchievements : null;
     final linkedin = _profile!['linkedin'];
     final website = _profile!['website'];
     final profilePicture = _profile!['profilePicture'];
-    final credentials = _profile!['credentialsList'] as List?;
+
+    // Handle credentialsList that might be stored as List or Map
+    List<Map<String, dynamic>>? credentials;
+    final rawCredentials = _profile!['credentialsList'];
+    if (rawCredentials != null) {
+      if (rawCredentials is List) {
+        credentials = rawCredentials
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      } else if (rawCredentials is Map) {
+        credentials = rawCredentials.values
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e))
+            .toList();
+      }
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -471,56 +493,146 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                 ),
           ],
 
-          // Credentials list
+          // Credentials list with certificate images
           if (credentials != null && credentials.isNotEmpty) ...[
             const SizedBox(height: 24),
-            _buildSectionHeader('Credentials', Icons.badge),
+            _buildSectionHeader('Verified Credentials', Icons.verified_user),
             const SizedBox(height: 12),
             ...credentials.map(
-              (cred) => Container(
-                margin: const EdgeInsets.only(bottom: 8),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: widget.isDark
-                      ? AppTheme.darkElevated
-                      : Colors.grey.shade50,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.workspace_premium,
-                      size: 20,
-                      color: widget.isDark
-                          ? AppTheme.darkWarning
-                          : AppTheme.warning,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            cred['title'] ?? '',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppTheme.getTextPrimary(context),
-                            ),
-                          ),
-                          if (cred['issuer'] != null &&
-                              cred['issuer'].isNotEmpty)
-                            Text(
-                              cred['issuer'],
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: AppTheme.getTextSecondary(context),
+              (cred) => GestureDetector(
+                onTap: cred['imageUrl'] != null
+                    ? () => _showCertificateImage(
+                        context,
+                        cred['imageUrl'],
+                        cred['title'] ?? 'Certificate',
+                      )
+                    : null,
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: widget.isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: cred['imageUrl'] != null
+                        ? Border.all(
+                            color: widget.isDark
+                                ? AppTheme.darkSuccess.withOpacity(0.3)
+                                : AppTheme.success.withOpacity(0.3),
+                            width: 1,
+                          )
+                        : null,
+                  ),
+                  child: Row(
+                    children: [
+                      // Certificate thumbnail or icon
+                      cred['imageUrl'] != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: Image.network(
+                                cred['imageUrl'],
+                                width: 50,
+                                height: 50,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => Container(
+                                  width: 50,
+                                  height: 50,
+                                  decoration: BoxDecoration(
+                                    color:
+                                        (widget.isDark
+                                                ? AppTheme.darkWarning
+                                                : AppTheme.warning)
+                                            .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Icon(
+                                    Icons.workspace_premium,
+                                    size: 24,
+                                    color: widget.isDark
+                                        ? AppTheme.darkWarning
+                                        : AppTheme.warning,
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color:
+                                    (widget.isDark
+                                            ? AppTheme.darkWarning
+                                            : AppTheme.warning)
+                                        .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.workspace_premium,
+                                size: 24,
+                                color: widget.isDark
+                                    ? AppTheme.darkWarning
+                                    : AppTheme.warning,
                               ),
                             ),
-                        ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              cred['title'] ?? '',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: AppTheme.getTextPrimary(context),
+                              ),
+                            ),
+                            if (cred['issuer'] != null &&
+                                cred['issuer'].toString().isNotEmpty)
+                              Text(
+                                cred['issuer'].toString(),
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.getTextSecondary(context),
+                                ),
+                              ),
+                            if (cred['imageUrl'] != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.verified,
+                                      size: 14,
+                                      color: widget.isDark
+                                          ? AppTheme.darkSuccess
+                                          : AppTheme.success,
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Tap to view certificate',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: widget.isDark
+                                            ? AppTheme.darkSuccess
+                                            : AppTheme.success,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
+                      if (cred['imageUrl'] != null)
+                        Icon(
+                          Icons.chevron_right,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -718,6 +830,129 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
         content: Text('$label URL copied to clipboard'),
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2),
+      ),
+    );
+  }
+
+  /// Show full-screen certificate image viewer
+  void _showCertificateImage(
+    BuildContext context,
+    String imageUrl,
+    String title,
+  ) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(16),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.verified,
+                    color: widget.isDark
+                        ? AppTheme.darkSuccess
+                        : AppTheme.success,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: AppTheme.getTextPrimary(context),
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    icon: Icon(
+                      Icons.close,
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Certificate image
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.6,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+              ),
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  bottom: Radius.circular(16),
+                ),
+                child: InteractiveViewer(
+                  minScale: 0.5,
+                  maxScale: 3.0,
+                  child: Image.network(
+                    imageUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return Container(
+                        height: 300,
+                        color: widget.isDark
+                            ? AppTheme.darkElevated
+                            : Colors.grey.shade100,
+                        child: Center(
+                          child: CircularProgressIndicator(
+                            value: loadingProgress.expectedTotalBytes != null
+                                ? loadingProgress.cumulativeBytesLoaded /
+                                      loadingProgress.expectedTotalBytes!
+                                : null,
+                          ),
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => Container(
+                      height: 200,
+                      color: widget.isDark
+                          ? AppTheme.darkElevated
+                          : Colors.grey.shade100,
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.broken_image,
+                            size: 48,
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Could not load certificate image',
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

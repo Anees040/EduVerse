@@ -51,7 +51,8 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
   final _educationController = TextEditingController();
   final _institutionController = TextEditingController();
   final _certificationsController = TextEditingController();
-  final List<Map<String, String>> _credentials = [];
+  final List<Map<String, dynamic>> _credentials =
+      []; // Changed to dynamic to support image URLs
 
   // Controllers for Step 3: Achievements & Links
   final _achievementsController = TextEditingController();
@@ -403,7 +404,15 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
                 ),
                 onPressed: _previousStep,
               )
-            : null,
+            : (!widget.isFirstTime
+                  ? IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: AppTheme.getTextPrimary(context),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                    )
+                  : null),
         title: Text(
           widget.isFirstTime ? 'Complete Your Profile' : 'Edit Profile',
           style: TextStyle(
@@ -829,9 +838,10 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
 
   Widget _buildCredentialTile(
     int index,
-    Map<String, String> credential,
+    Map<String, dynamic> credential,
     bool isDark,
   ) {
+    final imageUrl = credential['imageUrl']?.toString();
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -844,38 +854,87 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
       ),
       child: Row(
         children: [
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                  .withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.badge,
-              size: 20,
-              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-            ),
-          ),
+          // Show certificate image thumbnail if available
+          imageUrl != null
+              ? ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Image.network(
+                    imageUrl,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      width: 44,
+                      height: 44,
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color:
+                            (isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.badge,
+                        size: 20,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                  ),
+                )
+              : Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color:
+                        (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                            .withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    Icons.badge,
+                    size: 20,
+                    color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  ),
+                ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  credential['title'] ?? '',
+                  credential['title']?.toString() ?? '',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
                     color: AppTheme.getTextPrimary(context),
                   ),
                 ),
                 Text(
-                  credential['issuer'] ?? '',
+                  credential['issuer']?.toString() ?? '',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppTheme.getTextSecondary(context),
                   ),
                 ),
+                if (imageUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Row(
+                      children: [
+                        Icon(Icons.verified, size: 12, color: AppTheme.success),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Certificate attached',
+                          style: TextStyle(
+                            fontSize: 10,
+                            color: AppTheme.success,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),
@@ -895,66 +954,233 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
   void _showAddCredentialDialog(bool isDark) {
     final titleController = TextEditingController();
     final issuerController = TextEditingController();
+    Uint8List? credentialImageBytes;
+    String? uploadedCredentialUrl;
+    bool isUploading = false;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.getCardColor(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text(
-          'Add Credential',
-          style: TextStyle(color: AppTheme.getTextPrimary(context)),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: titleController,
-              decoration: _buildInputDecoration(
-                hint: 'Credential Title',
-                icon: Icons.badge,
-                isDark: isDark,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (builderContext, setDialogState) => AlertDialog(
+          backgroundColor: AppTheme.getCardColor(builderContext),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            'Add Credential',
+            style: TextStyle(color: AppTheme.getTextPrimary(builderContext)),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: titleController,
+                  decoration: _buildInputDecoration(
+                    hint: 'Credential Title (e.g., AWS Certified)',
+                    icon: Icons.badge,
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: issuerController,
+                  decoration: _buildInputDecoration(
+                    hint: 'Issuing Organization (e.g., Amazon)',
+                    icon: Icons.business,
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Certificate image upload section
+                Text(
+                  'Certificate Image (Optional)',
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                    color: AppTheme.getTextSecondary(builderContext),
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Image preview or upload button
+                GestureDetector(
+                  onTap: isUploading
+                      ? null
+                      : () async {
+                          final picker = ImagePicker();
+                          final picked = await picker.pickImage(
+                            source: ImageSource.gallery,
+                            maxWidth: 1200,
+                            maxHeight: 1200,
+                            imageQuality: 85,
+                          );
+                          if (picked != null) {
+                            final bytes = await picked.readAsBytes();
+                            setDialogState(() {
+                              credentialImageBytes = bytes;
+                            });
+
+                            // Auto-upload using XFile
+                            setDialogState(() => isUploading = true);
+                            try {
+                              final url = await uploadToCloudinaryFromXFile(
+                                picked,
+                              );
+                              setDialogState(() {
+                                uploadedCredentialUrl = url;
+                                isUploading = false;
+                              });
+                            } catch (e) {
+                              setDialogState(() => isUploading = false);
+                              if (builderContext.mounted) {
+                                ScaffoldMessenger.of(
+                                  builderContext,
+                                ).showSnackBar(
+                                  SnackBar(content: Text('Upload failed: $e')),
+                                );
+                              }
+                            }
+                          }
+                        },
+                  child: Container(
+                    width: double.infinity,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.darkElevated
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                        style: BorderStyle.solid,
+                      ),
+                    ),
+                    child: credentialImageBytes != null
+                        ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.memory(
+                                  credentialImageBytes!,
+                                  width: double.infinity,
+                                  height: 120,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              if (isUploading)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              if (uploadedCredentialUrl != null)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.success,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 32,
+                                color: AppTheme.getTextSecondary(
+                                  builderContext,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap to add certificate image',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.getTextSecondary(
+                                    builderContext,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                'Builds trust with students',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.getTextSecondary(
+                                    builderContext,
+                                  ).withOpacity(0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(builderContext),
+                ),
               ),
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: issuerController,
-              decoration: _buildInputDecoration(
-                hint: 'Issuing Organization',
-                icon: Icons.business,
-                isDark: isDark,
+            ElevatedButton(
+              onPressed: isUploading
+                  ? null
+                  : () {
+                      if (titleController.text.isNotEmpty) {
+                        setState(() {
+                          _credentials.add({
+                            'title': titleController.text.trim(),
+                            'issuer': issuerController.text.trim(),
+                            'imageUrl': uploadedCredentialUrl,
+                          });
+                        });
+                        Navigator.pop(dialogContext);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
               ),
+              child: isUploading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text('Add'),
             ),
           ],
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppTheme.getTextSecondary(context)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (titleController.text.isNotEmpty) {
-                setState(() {
-                  _credentials.add({
-                    'title': titleController.text.trim(),
-                    'issuer': issuerController.text.trim(),
-                  });
-                });
-                Navigator.pop(ctx);
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark
-                  ? AppTheme.darkAccent
-                  : AppTheme.primaryColor,
-            ),
-            child: const Text('Add'),
-          ),
-        ],
       ),
     );
   }
