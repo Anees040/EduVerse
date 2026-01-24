@@ -3,6 +3,7 @@ import 'package:eduverse/services/course_service.dart';
 
 /// Real-time Analytics Service for Teacher Insights
 /// Provides actual data from Firebase for the analytics dashboard
+/// OPTIMIZED: Uses batch fetching to reduce load time
 class AnalyticsService {
   final CourseService _courseService = CourseService();
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
@@ -11,7 +12,9 @@ class AnalyticsService {
   static TeacherAnalytics? _cachedAnalytics;
   static List<Map<String, dynamic>>? _cachedStudents;
   static DateTime? _lastFetchTime;
-  static const _cacheDuration = Duration(minutes: 5);
+  static const _cacheDuration = Duration(
+    minutes: 2,
+  ); // Reduced for faster updates
 
   /// Clear all analytics caches - call when student activity happens
   static void clearCache() {
@@ -21,6 +24,7 @@ class AnalyticsService {
   }
 
   /// Get comprehensive analytics data for a teacher (with caching)
+  /// OPTIMIZED: Fetches all student data in one batch instead of per-student
   Future<TeacherAnalytics> getTeacherAnalytics({
     required String teacherUid,
     String dateRange = '7d',
@@ -43,7 +47,39 @@ class AnalyticsService {
       return TeacherAnalytics.empty();
     }
 
-    // Collect all unique students and their data
+    // Collect all unique student UIDs first for batch fetching
+    final Set<String> allStudentUids = {};
+    for (final course in courses) {
+      final enrolledStudents =
+          course['enrolledStudents'] as Map<dynamic, dynamic>?;
+      if (enrolledStudents != null) {
+        for (final uid in enrolledStudents.keys) {
+          allStudentUids.add(uid.toString());
+        }
+      }
+    }
+
+    // OPTIMIZED: Batch fetch all student progress data in parallel
+    final Map<String, Map<String, dynamic>> studentProgressCache = {};
+    if (allStudentUids.isNotEmpty) {
+      final futures = allStudentUids.map((uid) async {
+        try {
+          final snap = await _db
+              .child('student')
+              .child(uid)
+              .child('enrolledCourses')
+              .get();
+          if (snap.exists && snap.value != null) {
+            studentProgressCache[uid] = Map<String, dynamic>.from(
+              snap.value as Map,
+            );
+          }
+        } catch (_) {}
+      });
+      await Future.wait(futures);
+    }
+
+    // Now process courses using cached data (no more individual fetches)
     final Map<String, StudentAnalytics> studentAnalyticsMap = {};
     final List<CourseAnalytics> courseAnalyticsList = [];
 
@@ -91,21 +127,18 @@ class AnalyticsService {
             }
           }
 
-          // Fetch actual progress from student's enrolled courses
+          // OPTIMIZED: Use cached progress data instead of individual fetch
           double progress = 0.0;
-          try {
-            final progressSnap = await _db
-                .child('student')
-                .child(studentUid)
-                .child('enrolledCourses')
-                .child(courseId)
-                .child('videoProgress')
-                .get();
-
-            if (progressSnap.exists &&
-                progressSnap.value != null &&
+          final cachedStudentData = studentProgressCache[studentUid];
+          if (cachedStudentData != null &&
+              cachedStudentData[courseId] != null) {
+            final courseData =
+                cachedStudentData[courseId] as Map<dynamic, dynamic>?;
+            if (courseData != null &&
+                courseData['videoProgress'] != null &&
                 videoCount > 0) {
-              final progressData = progressSnap.value as Map<dynamic, dynamic>;
+              final progressData =
+                  courseData['videoProgress'] as Map<dynamic, dynamic>;
               int completedVideos = 0;
               for (final videoProgress in progressData.values) {
                 if (videoProgress is Map &&
@@ -115,14 +148,13 @@ class AnalyticsService {
               }
               progress = (completedVideos / videoCount).clamp(0.0, 1.0);
             }
-          } catch (_) {
-            // Fallback to enrollment data if available
-            if (enrollmentData is Map && enrollmentData['progress'] != null) {
-              progress = (enrollmentData['progress'] as num).toDouble().clamp(
-                0.0,
-                1.0,
-              );
-            }
+          } else if (enrollmentData is Map &&
+              enrollmentData['progress'] != null) {
+            // Fallback to enrollment data
+            progress = (enrollmentData['progress'] as num).toDouble().clamp(
+              0.0,
+              1.0,
+            );
           }
 
           // Ensure progress never exceeds 100%
@@ -233,6 +265,7 @@ class AnalyticsService {
   }
 
   /// Get enrolled students with detailed info for a teacher (with caching)
+  /// OPTIMIZED: Uses batch fetching for all student progress data
   Future<List<Map<String, dynamic>>> getEnrolledStudentsWithDetails({
     required String teacherUid,
     String? courseFilter,
@@ -262,7 +295,33 @@ class AnalyticsService {
       courseMap[course['courseUid'] as String] = course;
     }
 
-    // Enhance student data with progress info
+    // OPTIMIZED: Batch fetch all student progress data in parallel
+    final Map<String, Map<String, dynamic>> studentProgressCache = {};
+    final studentUids = students
+        .map((s) => s['uid'] as String?)
+        .where((uid) => uid != null)
+        .cast<String>()
+        .toList();
+
+    if (studentUids.isNotEmpty) {
+      final futures = studentUids.map((uid) async {
+        try {
+          final snap = await _db
+              .child('student')
+              .child(uid)
+              .child('enrolledCourses')
+              .get();
+          if (snap.exists && snap.value != null) {
+            studentProgressCache[uid] = Map<String, dynamic>.from(
+              snap.value as Map,
+            );
+          }
+        } catch (_) {}
+      });
+      await Future.wait(futures);
+    }
+
+    // Enhance student data with progress info using cached data
     for (final student in students) {
       final studentUid = student['uid'] as String?;
       final enrolledCourses =
@@ -274,27 +333,26 @@ class AnalyticsService {
         DateTime? latestEnrollment;
         Map<String, double> courseProgressData = {};
 
+        // Get cached student data
+        final cachedStudentData = studentProgressCache[studentUid];
+
         for (final entry in enrolledCourses.entries) {
           final courseId = entry.key.toString();
           final enrollmentData = entry.value;
           final course = courseMap[courseId];
           final videoCount = course?['videoCount'] as int? ?? 0;
 
-          // Fetch actual progress from student's videoProgress
+          // OPTIMIZED: Use cached progress data instead of individual fetch
           double courseProgress = 0.0;
-          try {
-            final progressSnap = await _db
-                .child('student')
-                .child(studentUid)
-                .child('enrolledCourses')
-                .child(courseId)
-                .child('videoProgress')
-                .get();
-
-            if (progressSnap.exists &&
-                progressSnap.value != null &&
+          if (cachedStudentData != null &&
+              cachedStudentData[courseId] != null) {
+            final courseData =
+                cachedStudentData[courseId] as Map<dynamic, dynamic>?;
+            if (courseData != null &&
+                courseData['videoProgress'] != null &&
                 videoCount > 0) {
-              final progressData = progressSnap.value as Map<dynamic, dynamic>;
+              final progressData =
+                  courseData['videoProgress'] as Map<dynamic, dynamic>;
               int completedVideos = 0;
               for (final videoProgress in progressData.values) {
                 if (videoProgress is Map &&
@@ -304,8 +362,6 @@ class AnalyticsService {
               }
               courseProgress = (completedVideos / videoCount).clamp(0.0, 1.0);
             }
-          } catch (_) {
-            // Silent fail
           }
 
           // Ensure progress never exceeds 100%

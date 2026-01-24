@@ -257,10 +257,12 @@ class CourseService {
   }
 
   /// Get teacher's average rating and review count
+  /// Get teacher rating stats - calculated as simple average of ALL reviews
+  /// This ensures consistency between profile and insights tabs
   Future<Map<String, dynamic>> getTeacherRatingStats({
     required String teacherUid,
   }) async {
-    // Compute teacher rating as the average of per-course averages
+    // Get all reviews for all courses and calculate simple average
     final coursesSnap = await _db
         .child('teacher')
         .child(teacherUid)
@@ -269,26 +271,41 @@ class CourseService {
     if (!coursesSnap.exists) return {'averageRating': 0.0, 'reviewCount': 0};
 
     final coursesMap = coursesSnap.value as Map<dynamic, dynamic>;
-    double sumCourseAverages = 0.0;
-    int coursesWithReviews = 0;
+    double totalRatingSum = 0.0;
     int totalReviews = 0;
 
-    for (final entry in coursesMap.entries) {
+    // OPTIMIZED: Fetch all course reviews in parallel
+    final futures = coursesMap.entries.map((entry) async {
       final courseUid = entry.key.toString();
-      final stats = await getCourseRatingStats(courseUid: courseUid);
-      final avg = (stats['averageRating'] as double?) ?? 0.0;
-      final cnt = (stats['reviewCount'] as int?) ?? 0;
-      if (cnt > 0) {
-        sumCourseAverages += avg;
-        coursesWithReviews++;
-        totalReviews += cnt;
+      final reviewsSnap = await _db
+          .child('courses')
+          .child(courseUid)
+          .child('reviews')
+          .get();
+
+      double courseRatingSum = 0.0;
+      int courseReviewCount = 0;
+
+      if (reviewsSnap.exists) {
+        final reviews = reviewsSnap.value as Map<dynamic, dynamic>;
+        reviews.forEach((key, value) {
+          final review = Map<String, dynamic>.from(value);
+          courseRatingSum += (review['rating'] as num?)?.toDouble() ?? 0.0;
+          courseReviewCount++;
+        });
       }
+
+      return {'ratingSum': courseRatingSum, 'reviewCount': courseReviewCount};
+    });
+
+    final results = await Future.wait(futures);
+    for (final result in results) {
+      totalRatingSum += result['ratingSum'] as double;
+      totalReviews += result['reviewCount'] as int;
     }
 
     return {
-      'averageRating': coursesWithReviews > 0
-          ? (sumCourseAverages / coursesWithReviews)
-          : 0.0,
+      'averageRating': totalReviews > 0 ? (totalRatingSum / totalReviews) : 0.0,
       'reviewCount': totalReviews,
     };
   }
@@ -1253,6 +1270,7 @@ class CourseService {
   }
 
   /// Get all reviews for all courses of a teacher
+  /// OPTIMIZED: Fetches all course reviews in parallel instead of sequentially
   Future<List<Map<String, dynamic>>> getTeacherAllCourseReviews({
     required String teacherUid,
   }) async {
@@ -1268,20 +1286,38 @@ class CourseService {
 
     final courses = coursesSnap.value as Map<dynamic, dynamic>;
 
-    for (final courseEntry in courses.entries) {
+    // OPTIMIZED: Fetch all course reviews in parallel
+    final futures = courses.entries.map((courseEntry) async {
       final courseUid = courseEntry.key.toString();
       final courseData = courseEntry.value as Map<dynamic, dynamic>;
       final courseTitle = courseData['title'] ?? 'Untitled Course';
 
-      final reviews = await getCourseReviews(courseUid: courseUid);
-      for (final review in reviews) {
-        allReviews.add({
-          ...review,
-          'courseUid': courseUid,
-          'courseId': courseUid, // Add both for compatibility
-          'courseTitle': courseTitle,
+      // Try to get reviews from course node first (faster path)
+      final courseReviewsSnap = await _db
+          .child('courses')
+          .child(courseUid)
+          .child('reviews')
+          .get();
+
+      final List<Map<String, dynamic>> courseReviews = [];
+      if (courseReviewsSnap.exists) {
+        final reviewsData = courseReviewsSnap.value as Map<dynamic, dynamic>;
+        reviewsData.forEach((key, value) {
+          courseReviews.add({
+            'reviewId': key.toString(),
+            ...Map<String, dynamic>.from(value as Map),
+            'courseUid': courseUid,
+            'courseId': courseUid,
+            'courseTitle': courseTitle,
+          });
         });
       }
+      return courseReviews;
+    });
+
+    final results = await Future.wait(futures);
+    for (final courseReviews in results) {
+      allReviews.addAll(courseReviews);
     }
 
     // Sort by date (newest first)

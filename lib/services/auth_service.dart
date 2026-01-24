@@ -70,6 +70,7 @@ class AuthService {
   }
 
   // LOGIN
+  // Modified to support admin login - admin can login without selecting role
   Future<User?> signIn({
     required String email,
     required String password,
@@ -86,6 +87,19 @@ class AuthService {
         throw 'Login failed';
       }
 
+      // First check if user is an admin (admins can login with any role selected)
+      final adminSnapshot = await _db
+          .child('admin')
+          .child(user.uid)
+          .child('role')
+          .get();
+
+      if (adminSnapshot.exists && adminSnapshot.value == 'admin') {
+        // Admin user - allow login regardless of selected role
+        return user;
+      }
+
+      // For non-admin users, verify they have the selected role
       final snapshot = await _db
           .child(selectedRole)
           .child(user.uid)

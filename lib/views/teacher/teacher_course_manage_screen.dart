@@ -1854,12 +1854,12 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddVideoDialog,
-        backgroundColor: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
-        icon: Icon(Icons.add, color: isDark ? Colors.black : Colors.white),
+        backgroundColor: AppTheme.getButtonColor(context),
+        icon: Icon(Icons.add, color: AppTheme.getButtonTextColor(context)),
         label: Text(
           'Add Video',
           style: TextStyle(
-            color: isDark ? Colors.black : Colors.white,
+            color: AppTheme.getButtonTextColor(context),
             fontWeight: FontWeight.bold,
           ),
         ),

@@ -56,7 +56,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   @override
   void initState() {
     super.initState();
-    final currentUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final currentUid = currentUser.uid;
     // Use cached data immediately if available AND belongs to current teacher
     if (_hasLoadedOnce && _cachedCourses != null && _cachedUid == currentUid) {
       courses = _cachedCourses!;
@@ -74,7 +76,9 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   }
 
   Future<void> _fetchCourses({bool forceRefresh = false}) async {
-    final teacherUid = FirebaseAuth.instance.currentUser!.uid;
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) return;
+    final teacherUid = currentUser.uid;
     final cacheKeyCourses = 'teacher_all_courses_$teacherUid';
     final cacheKeyStudents = 'teacher_all_students_$teacherUid';
 
@@ -239,12 +243,14 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
     ).then((result) {
       // Only refresh if a course was actually added
       if (result == true) {
+        final currentUser = FirebaseAuth.instance.currentUser;
+        if (currentUser == null) return;
         // Refresh in background without showing loading indicator
         // since we already have data displayed
         _refreshCoursesInBackground(
-          FirebaseAuth.instance.currentUser!.uid,
-          'teacher_all_courses_${FirebaseAuth.instance.currentUser!.uid}',
-          'teacher_all_students_${FirebaseAuth.instance.currentUser!.uid}',
+          currentUser.uid,
+          'teacher_all_courses_${currentUser.uid}',
+          'teacher_all_students_${currentUser.uid}',
         );
       }
     });
@@ -263,11 +269,13 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
         ),
       ),
     ).then((_) {
+      final currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser == null) return;
       // Refresh in background, don't clear cache to avoid loading flash
       _refreshCoursesInBackground(
-        FirebaseAuth.instance.currentUser!.uid,
-        'teacher_all_courses_${FirebaseAuth.instance.currentUser!.uid}',
-        'teacher_all_students_${FirebaseAuth.instance.currentUser!.uid}',
+        currentUser.uid,
+        'teacher_all_courses_${currentUser.uid}',
+        'teacher_all_students_${currentUser.uid}',
       );
     });
   }
@@ -370,13 +378,13 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
             ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'create',
-        backgroundColor: isDark ? AppTheme.accentColor : AppTheme.primaryColor,
+        backgroundColor: AppTheme.getButtonColor(context),
         onPressed: _createNewCourse,
-        icon: Icon(Icons.add, color: isDark ? Colors.black : Colors.white),
+        icon: Icon(Icons.add, color: AppTheme.getButtonTextColor(context)),
         label: Text(
           'Create Course',
           style: TextStyle(
-            color: isDark ? Colors.black : Colors.white,
+            color: AppTheme.getButtonTextColor(context),
             fontWeight: FontWeight.bold,
           ),
         ),
