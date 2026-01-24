@@ -6,11 +6,51 @@ A modern, cross-platform educational learning app built with Flutter.
 EduVerse provides courses, Q&A, video lessons, bookmarks, notifications,
 and AI-assisted features to enhance learning and content discovery.
 
+
 ## Screenshots
 
-Add screenshots or GIFs of the app in `assets/` and reference them here.
+Will be added soon.
 
-## Key Features
+## Major Features & Recent Updates (2026)
+
+### Admin Dashboard & Moderation
+- Responsive admin dashboard with analytics, KPI cards, and user management
+- Admins can suspend, verify, or reject teachers with inline validation and dialogs
+- Moderation tools for flagging comments and reporting inappropriate content
+- Email notifications for verification, rejection, and suspension (integrated with local Node.js email server)
+
+### Teacher Features
+- Editable public profile and onboarding wizard for teachers
+- Responsive credential and certificate/document display (with zoomable images)
+- Teachers can upload and manage credentials/certificates
+
+### Student Features
+- Improved student dashboard and profile
+- Responsive course and Q&A views
+- Friendly error dialogs for suspended/rejected users
+
+### Authentication & Security
+- OAuth login (Google for all, GitHub for students)
+- Email verification with 6-digit code and professional HTML emails
+- Secure password reset with multi-step verification
+- Role-based access control and secure Firebase rules
+
+### UI/UX & General Improvements
+- Fully responsive layouts for all screens
+- Dark mode support with theme toggle
+- Inline form validation and user-friendly error handling
+- Loading states for async operations
+- AI-powered assistance and content suggestions
+
+### Tech Stack
+- Flutter (Dart), Firebase (Auth, Realtime Database, Firestore, Cloud Functions, Messaging)
+- Provider for state management
+- Node.js email server for admin notifications
+
+---
+
+
+## Key Features (Summary)
 
 - Course discovery and enrollment
 - Video playback with custom player widget
@@ -19,6 +59,11 @@ Add screenshots or GIFs of the app in `assets/` and reference them here.
 - Push notifications
 - User authentication and profiles
 - AI-powered assistance (chat / content suggestions)
+- Admin dashboard and moderation tools
+- Teacher onboarding, credential, and certificate management
+- Responsive UI for all user roles
+- Email notifications for verification, rejection, and suspension
+- Secure authentication and password reset
 
 ## Tech Stack
 
@@ -88,9 +133,23 @@ submit pull requests for changes. Follow these guidelines:
 This project does not include a license file. Add a `LICENSE` file if you
 intend to publish under an open-source license (MIT, Apache-2.0, etc.).
 
+
 ## Contact
 
 Project maintained by the EduVerse team. For questions, open an issue or contact the repository owner.
+
+---
+
+## How to Add Screenshots to README
+
+1. Save your screenshot (e.g., `screenshot1.png`) in the `assets/images/` folder.
+2. Reference it in Markdown like this:
+	```markdown
+	![Description](assets/images/screenshot1.png)
+	```
+3. The image will appear inline in your README on GitHub.
+
+---
 
 ## Chat migration (chat_history → chat_sessions + chat_messages)
 
