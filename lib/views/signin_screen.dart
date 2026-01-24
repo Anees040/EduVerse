@@ -704,10 +704,19 @@ class _SigninScreenState extends State<SigninScreen> {
       // Unfocus all fields after failed login
       FocusScope.of(context).unfocus();
 
-      setState(() {
-        _errorMessage = _formatErrorMessage(e.toString());
-        _passwordController.clear(); // Clear password on error
-      });
+      final errorMsg = e.toString();
+      
+      // Show special dialog for suspended accounts
+      if (errorMsg.contains('suspended')) {
+        _showSuspendedAccountDialog(errorMsg);
+      } else if (errorMsg.contains('rejected')) {
+        _showRejectedAccountDialog(errorMsg);
+      } else {
+        setState(() {
+          _errorMessage = _formatErrorMessage(errorMsg);
+          _passwordController.clear(); // Clear password on error
+        });
+      }
       return null;
     } finally {
       if (mounted) {
@@ -716,8 +725,246 @@ class _SigninScreenState extends State<SigninScreen> {
     }
   }
 
+  /// Show a dialog when a suspended user tries to login
+  void _showSuspendedAccountDialog(String errorMsg) {
+    final isDark = AppTheme.isDarkMode(context);
+    // Extract reason from error message
+    String reason = 'Contact support for more information';
+    if (errorMsg.contains('Reason:')) {
+      reason = errorMsg.split('Reason:').last.trim();
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkError : AppTheme.error).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.block_rounded,
+                color: isDark ? AppTheme.darkError : AppTheme.error,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Account Suspended',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your account has been suspended and you cannot access EduVerse at this time.',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkError : AppTheme.error).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (isDark ? AppTheme.darkError : AppTheme.error).withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Reason for Suspension:',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    reason,
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'If you believe this was a mistake, please contact our support team at support@eduverse.com',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _passwordController.clear();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('I Understand'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Show a dialog when a rejected teacher tries to login
+  void _showRejectedAccountDialog(String errorMsg) {
+    final isDark = AppTheme.isDarkMode(context);
+    // Extract reason from error message
+    String reason = 'Contact support for more information';
+    if (errorMsg.contains('Reason:')) {
+      reason = errorMsg.split('Reason:').last.trim();
+    }
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkWarning : AppTheme.warning).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(
+                Icons.cancel_rounded,
+                color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Application Rejected',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Your teacher application was not approved.',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: (isDark ? AppTheme.darkWarning : AppTheme.warning).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: (isDark ? AppTheme.darkWarning : AppTheme.warning).withOpacity(0.3),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Feedback:',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    reason,
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'You may strengthen your credentials and apply again in the future. Contact support@eduverse.com for more information.',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              _passwordController.clear();
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: const Text('I Understand'),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Format error messages to be more user-friendly
   String _formatErrorMessage(String error) {
+    // Keep suspension message as-is (already user-friendly)
+    if (error.contains('suspended')) {
+      return error;
+    }
+    // Keep rejection message as-is (already user-friendly)
+    if (error.contains('rejected')) {
+      return error;
+    }
+    // Keep not verified message as-is
+    if (error.contains('not been verified')) {
+      return error;
+    }
     if (error.contains('user-not-found') || error.contains('No user exists')) {
       return 'No account found with this email';
     } else if (error.contains('wrong-password') ||

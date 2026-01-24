@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
@@ -6,6 +7,7 @@ import '../providers/admin_provider.dart';
 import '../widgets/admin_scaffold.dart';
 import '../widgets/kpi_card.dart';
 import 'admin_users_screen.dart';
+import 'admin_verification_queue_screen.dart';
 import 'admin_moderation_screen.dart';
 import 'admin_analytics_screen.dart';
 import 'admin_data_screen.dart';
@@ -21,10 +23,12 @@ class AdminDashboardScreen extends StatefulWidget {
 
 class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
   int _selectedIndex = 0;
+  Timer? _refreshTimer;
 
   final List<Widget> _screens = [
     const _DashboardHomeTab(),
     const AdminUsersScreen(),
+    const AdminVerificationQueueScreen(),
     const AdminModerationScreen(),
     const AdminAnalyticsScreen(),
     const AdminDataScreen(),
@@ -37,6 +41,31 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAdmin();
     });
+    // Set up periodic refresh every 30 seconds for real-time feel
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+      _refreshDashboardData();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  void _refreshDashboardData() {
+    if (!mounted) return;
+    final provider = Provider.of<AdminProvider>(context, listen: false);
+    provider.loadKPIStats();
+    // Only refresh users if on dashboard or users tab
+    if (_selectedIndex == 0 || _selectedIndex == 1) {
+      provider.loadUsers(refresh: true);
+    }
+  }
+
+  /// Public method to change tab from child widgets
+  void navigateToTab(int index) {
+    setState(() => _selectedIndex = index);
   }
 
   Future<void> _initializeAdmin() async {
@@ -88,10 +117,12 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 1:
         return 'Users';
       case 2:
-        return 'Moderation';
+        return 'Verification';
       case 3:
-        return 'Analytics';
+        return 'Moderation';
       case 4:
+        return 'Analytics';
+      case 5:
         return 'Data';
       default:
         return 'Dashboard';
@@ -107,39 +138,81 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: isDark
-                    ? AppTheme.darkPrimaryGradient
-                    : AppTheme.primaryGradient,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Icon(
-                Icons.admin_panel_settings_rounded,
-                color: Colors.white,
-                size: 48,
-              ),
+            // Animated logo
+            TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0.8, end: 1.0),
+              duration: const Duration(milliseconds: 800),
+              curve: Curves.easeInOut,
+              builder: (context, value, child) {
+                return Transform.scale(
+                  scale: value,
+                  child: Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      gradient: isDark
+                          ? AppTheme.darkPrimaryGradient
+                          : AppTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(24),
+                      boxShadow: [
+                        BoxShadow(
+                          color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                              .withOpacity(0.3),
+                          blurRadius: 20,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.admin_panel_settings_rounded,
+                      color: Colors.white,
+                      size: 56,
+                    ),
+                  ),
+                );
+              },
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 32),
             Text(
-              'Verifying Admin Access...',
+              'Admin Panel',
               style: TextStyle(
                 color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            Text(
+              'Verifying access...',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Animated dots loading indicator
             SizedBox(
-              width: 200,
-              child: LinearProgressIndicator(
-                backgroundColor: isDark
-                    ? AppTheme.darkBorder
-                    : Colors.grey.shade200,
-                valueColor: AlwaysStoppedAnimation(
-                  isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-                ),
+              width: 60,
+              height: 20,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: List.generate(3, (index) {
+                  return TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0.0, end: 1.0),
+                    duration: Duration(milliseconds: 600 + (index * 200)),
+                    curve: Curves.easeInOut,
+                    builder: (context, value, child) {
+                      return Container(
+                        width: 12,
+                        height: 12,
+                        decoration: BoxDecoration(
+                          color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                              .withOpacity(0.3 + (value * 0.7)),
+                          shape: BoxShape.circle,
+                        ),
+                      );
+                    },
+                  );
+                }),
               ),
             ),
           ],
@@ -312,21 +385,24 @@ class _DashboardHomeTab extends StatelessWidget {
 
         if (screenWidth >= 1200) {
           crossAxisCount = 4;
-          childAspectRatio = 1.4;
+          childAspectRatio = 1.8;
         } else if (screenWidth >= 800) {
           crossAxisCount = 2;
-          childAspectRatio = 2.0;
-        } else {
+          childAspectRatio = 2.2;
+        } else if (screenWidth >= 400) {
           crossAxisCount = 2;
-          childAspectRatio = 1.3;
+          childAspectRatio = 1.5;
+        } else {
+          crossAxisCount = 1;
+          childAspectRatio = 2.5;
         }
 
         return GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
           childAspectRatio: childAspectRatio,
           children: [
             KPICard(
@@ -337,8 +413,9 @@ class _DashboardHomeTab extends StatelessWidget {
               isLoading: isLoading,
             ),
             KPICard(
-              title: 'Active Teachers',
-              value: isLoading ? '...' : '${stats!['activeTeachers'] ?? 0}',
+              title: 'Total Teachers',
+              value: isLoading ? '...' : '${stats!['totalTeachers'] ?? 0}',
+              subtitle: '${stats?['pendingTeachers'] ?? 0} pending',
               icon: Icons.school_rounded,
               iconColor: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
               isLoading: isLoading,
@@ -379,16 +456,27 @@ class _DashboardHomeTab extends StatelessWidget {
           label: 'Verify Teachers',
           color: isDark ? AppTheme.darkSuccess : AppTheme.success,
           onTap: () {
-            // Navigate to users tab with filter
+            // Find the parent state and navigate to Users tab with teacher filter
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(1);
+              provider.setRoleFilter('teacher');
+            }
           },
         ),
         _QuickActionButton(
           icon: Icons.report_rounded,
           label: 'Review Reports',
           color: isDark ? AppTheme.darkError : AppTheme.error,
-          badge: '${provider.state.reportedContent.length}',
+          badge: provider.state.reportedContent.isNotEmpty 
+              ? '${provider.state.reportedContent.length}' 
+              : null,
           onTap: () {
             // Navigate to moderation tab
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(2);
+            }
           },
         ),
         _QuickActionButton(
@@ -397,6 +485,10 @@ class _DashboardHomeTab extends StatelessWidget {
           color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
           onTap: () {
             // Navigate to data tab
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(4);
+            }
           },
         ),
         _QuickActionButton(
@@ -405,6 +497,10 @@ class _DashboardHomeTab extends StatelessWidget {
           color: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
           onTap: () {
             // Navigate to analytics tab
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(3);
+            }
           },
         ),
       ],

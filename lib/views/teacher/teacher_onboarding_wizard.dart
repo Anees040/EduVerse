@@ -952,235 +952,20 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
   }
 
   void _showAddCredentialDialog(bool isDark) {
-    final titleController = TextEditingController();
-    final issuerController = TextEditingController();
-    Uint8List? credentialImageBytes;
-    String? uploadedCredentialUrl;
-    bool isUploading = false;
-
     showDialog(
       context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (builderContext, setDialogState) => AlertDialog(
-          backgroundColor: AppTheme.getCardColor(builderContext),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
-          title: Text(
-            'Add Credential',
-            style: TextStyle(color: AppTheme.getTextPrimary(builderContext)),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: titleController,
-                  decoration: _buildInputDecoration(
-                    hint: 'Credential Title (e.g., AWS Certified)',
-                    icon: Icons.badge,
-                    isDark: isDark,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: issuerController,
-                  decoration: _buildInputDecoration(
-                    hint: 'Issuing Organization (e.g., Amazon)',
-                    icon: Icons.business,
-                    isDark: isDark,
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Certificate image upload section
-                Text(
-                  'Certificate Image (Optional)',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.getTextSecondary(builderContext),
-                  ),
-                ),
-                const SizedBox(height: 8),
-
-                // Image preview or upload button
-                GestureDetector(
-                  onTap: isUploading
-                      ? null
-                      : () async {
-                          final picker = ImagePicker();
-                          final picked = await picker.pickImage(
-                            source: ImageSource.gallery,
-                            maxWidth: 1200,
-                            maxHeight: 1200,
-                            imageQuality: 85,
-                          );
-                          if (picked != null) {
-                            final bytes = await picked.readAsBytes();
-                            setDialogState(() {
-                              credentialImageBytes = bytes;
-                            });
-
-                            // Auto-upload using XFile
-                            setDialogState(() => isUploading = true);
-                            try {
-                              final url = await uploadToCloudinaryFromXFile(
-                                picked,
-                              );
-                              setDialogState(() {
-                                uploadedCredentialUrl = url;
-                                isUploading = false;
-                              });
-                            } catch (e) {
-                              setDialogState(() => isUploading = false);
-                              if (builderContext.mounted) {
-                                ScaffoldMessenger.of(
-                                  builderContext,
-                                ).showSnackBar(
-                                  SnackBar(content: Text('Upload failed: $e')),
-                                );
-                              }
-                            }
-                          }
-                        },
-                  child: Container(
-                    width: double.infinity,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: isDark
-                          ? AppTheme.darkElevated
-                          : Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: isDark
-                            ? AppTheme.darkBorder
-                            : Colors.grey.shade300,
-                        style: BorderStyle.solid,
-                      ),
-                    ),
-                    child: credentialImageBytes != null
-                        ? Stack(
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.memory(
-                                  credentialImageBytes!,
-                                  width: double.infinity,
-                                  height: 120,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                              if (isUploading)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    color: Colors.black54,
-                                    borderRadius: BorderRadius.circular(11),
-                                  ),
-                                  child: const Center(
-                                    child: CircularProgressIndicator(
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                ),
-                              if (uploadedCredentialUrl != null)
-                                Positioned(
-                                  right: 8,
-                                  top: 8,
-                                  child: Container(
-                                    padding: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: AppTheme.success,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      Icons.check,
-                                      color: Colors.white,
-                                      size: 16,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          )
-                        : Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.add_photo_alternate_outlined,
-                                size: 32,
-                                color: AppTheme.getTextSecondary(
-                                  builderContext,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'Tap to add certificate image',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: AppTheme.getTextSecondary(
-                                    builderContext,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                'Builds trust with students',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: AppTheme.getTextSecondary(
-                                    builderContext,
-                                  ).withOpacity(0.7),
-                                ),
-                              ),
-                            ],
-                          ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(
-                'Cancel',
-                style: TextStyle(
-                  color: AppTheme.getTextSecondary(builderContext),
-                ),
-              ),
-            ),
-            ElevatedButton(
-              onPressed: isUploading
-                  ? null
-                  : () {
-                      if (titleController.text.isNotEmpty) {
-                        setState(() {
-                          _credentials.add({
-                            'title': titleController.text.trim(),
-                            'issuer': issuerController.text.trim(),
-                            'imageUrl': uploadedCredentialUrl,
-                          });
-                        });
-                        Navigator.pop(dialogContext);
-                      }
-                    },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark
-                    ? AppTheme.darkAccent
-                    : AppTheme.primaryColor,
-              ),
-              child: isUploading
-                  ? const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Add'),
-            ),
-          ],
-        ),
+      barrierDismissible: false,
+      builder: (dialogContext) => _CredentialDialog(
+        isDark: isDark,
+        onAdd: (title, issuer, imageUrl) {
+          setState(() {
+            _credentials.add({
+              'title': title,
+              'issuer': issuer,
+              'imageUrl': imageUrl,
+            });
+          });
+        },
       ),
     );
   }
@@ -1546,6 +1331,260 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
         ),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    );
+  }
+}
+
+/// Separate StatefulWidget for Credential Dialog to handle image picker properly
+class _CredentialDialog extends StatefulWidget {
+  final bool isDark;
+  final Function(String title, String issuer, String? imageUrl) onAdd;
+
+  const _CredentialDialog({
+    required this.isDark,
+    required this.onAdd,
+  });
+
+  @override
+  State<_CredentialDialog> createState() => _CredentialDialogState();
+}
+
+class _CredentialDialogState extends State<_CredentialDialog> {
+  final _titleController = TextEditingController();
+  final _issuerController = TextEditingController();
+  Uint8List? _credentialImageBytes;
+  String? _uploadedCredentialUrl;
+  bool _isUploading = false;
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _issuerController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickAndUploadImage() async {
+    if (_isUploading) return;
+    
+    try {
+      final picker = ImagePicker();
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
+      
+      if (picked != null && mounted) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _credentialImageBytes = bytes;
+          _isUploading = true;
+        });
+
+        try {
+          final url = await uploadToCloudinaryFromXFile(picked);
+          if (mounted) {
+            setState(() {
+              _uploadedCredentialUrl = url;
+              _isUploading = false;
+            });
+          }
+        } catch (e) {
+          if (mounted) {
+            setState(() => _isUploading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Upload failed: $e')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    
+    return AlertDialog(
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+      ),
+      title: Text(
+        'Add Credential',
+        style: TextStyle(color: AppTheme.getTextPrimary(context)),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(
+                hintText: 'Credential Title (e.g., AWS Certified)',
+                prefixIcon: Icon(
+                  Icons.badge,
+                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                ),
+                filled: true,
+                fillColor: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _issuerController,
+              decoration: InputDecoration(
+                hintText: 'Issuing Organization (e.g., Amazon)',
+                prefixIcon: Icon(
+                  Icons.business,
+                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                ),
+                filled: true,
+                fillColor: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Certificate Image (Optional)',
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppTheme.getTextSecondary(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: _pickAndUploadImage,
+              child: Container(
+                width: double.infinity,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                  ),
+                ),
+                child: _credentialImageBytes != null
+                    ? Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(11),
+                            child: Image.memory(
+                              _credentialImageBytes!,
+                              width: double.infinity,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          if (_isUploading)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.black54,
+                                borderRadius: BorderRadius.circular(11),
+                              ),
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          if (_uploadedCredentialUrl != null)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.success,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.check,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.add_photo_alternate_outlined,
+                            size: 32,
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Tap to add certificate image',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                          ),
+                          Text(
+                            'Builds trust with students',
+                            style: TextStyle(
+                              fontSize: 10,
+                              color: AppTheme.getTextSecondary(context).withOpacity(0.7),
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(
+            'Cancel',
+            style: TextStyle(color: AppTheme.getTextSecondary(context)),
+          ),
+        ),
+        ElevatedButton(
+          onPressed: _isUploading
+              ? null
+              : () {
+                  if (_titleController.text.isNotEmpty) {
+                    widget.onAdd(
+                      _titleController.text.trim(),
+                      _issuerController.text.trim(),
+                      _uploadedCredentialUrl,
+                    );
+                    Navigator.pop(context);
+                  }
+                },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+          ),
+          child: _isUploading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
+                )
+              : const Text('Add'),
+        ),
+      ],
     );
   }
 }

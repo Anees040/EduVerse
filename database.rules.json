@@ -11,14 +11,14 @@
       ".read": "auth != null",
       "$uid": {
         ".read": "auth != null",
-        ".write": "$uid === auth.uid"
+        ".write": "$uid === auth.uid || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
       }
     },
     "teacher": {
       ".read": "auth != null",
       "$uid": {
         ".read": "auth != null",
-        ".write": "$uid === auth.uid",
+        ".write": "$uid === auth.uid || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
         "courses": {
           ".read": "auth != null",
           "$courseId": {
@@ -74,6 +74,22 @@
           }
         }
       }
+    },
+    "qa": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$courseId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "$questionId": {
+          ".read": "auth != null",
+          ".write": "auth != null"
+        }
+      }
+    },
+    "moderation": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
     },
     "bookmarks": {
       ".read": "auth != null",

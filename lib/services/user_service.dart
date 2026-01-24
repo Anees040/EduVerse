@@ -159,21 +159,26 @@ class UserService {
 
     final data = Map<String, dynamic>.from(snapshot.value as Map);
 
-    // Return only public fields
+    // Return only public fields (including new fields from teacher registration wizard)
     return {
       'name': data['name'],
       'headline': data['headline'],
       'bio': data['bio'],
       'yearsOfExperience': data['yearsOfExperience'],
-      'subjectExpertise': data['subjectExpertise'],
+      'subjectExpertise': data['subjectExpertise'] ?? data['expertise'], // Support both old and new field name
+      'expertise': data['expertise'],
       'education': data['education'],
       'institution': data['institution'],
       'certifications': data['certifications'],
       'achievements': data['achievements'],
-      'linkedin': data['linkedin'],
-      'website': data['website'],
+      'linkedin': data['linkedin'] ?? data['linkedIn'], // Support both cases
+      'linkedIn': data['linkedIn'],
+      'portfolio': data['portfolio'],
+      'website': data['website'] ?? data['portfolio'], // Use portfolio as website
       'profilePicture': data['profilePicture'],
       'credentialsList': data['credentialsList'],
+      'credentialDocuments': data['credentialDocuments'], // From wizard
+      'isVerified': data['isVerified'],
       // Don't expose email or other sensitive data
     };
   }

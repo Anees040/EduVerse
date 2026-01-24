@@ -401,6 +401,158 @@ If you did NOT make this change, please reset your password immediately.
       }
     });
   }
+  // ==== SEND ADMIN EMAIL (Suspension, Verification) ====
+  else if (req.method === 'POST' && req.url === '/send-admin-email') {
+    let body = '';
+
+    req.on('data', chunk => {
+      body += chunk.toString();
+    });
+
+    req.on('end', () => {
+      try {
+        const data = JSON.parse(body);
+        const { to, name, subject, emailType, reason, isPermanent } = data;
+
+        if (!to || !emailType) {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Missing to or emailType' }));
+          return;
+        }
+
+        let htmlContent = '';
+        let textContent = '';
+        let emailSubject = subject || 'EduVerse Notification';
+
+        if (emailType === 'suspension') {
+          const suspensionType = isPermanent ? 'permanently' : 'temporarily';
+          emailSubject = 'EduVerse Account Suspension Notice';
+          htmlContent = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div style="background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%); padding: 40px 20px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">⚠️ Account Suspended</h1>
+    </div>
+    <div style="padding: 40px 30px;">
+      <h2 style="color: #333333; margin-top: 0;">Hello, ${name || 'User'}!</h2>
+      <p style="color: #666666; font-size: 16px; line-height: 1.6;">
+        We regret to inform you that your EduVerse account has been <strong>${suspensionType} suspended</strong>.
+      </p>
+      <div style="background-color: #fff3f3; border-left: 4px solid #ff6b6b; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+        <p style="color: #333333; margin: 0; font-size: 14px;">
+          <strong>Reason:</strong> ${reason || 'Violation of community guidelines'}
+        </p>
+      </div>
+      <p style="color: #666666; font-size: 14px; line-height: 1.6;">
+        If you believe this was a mistake, please contact our support team at support@eduverse.com.
+      </p>
+    </div>
+    <div style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+      <p style="color: #999999; font-size: 12px; margin: 0;">© 2026 EduVerse. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+          textContent = `Your EduVerse account has been ${suspensionType} suspended. Reason: ${reason || 'Violation of community guidelines'}. Contact support@eduverse.com if you believe this is a mistake.`;
+        } 
+        else if (emailType === 'teacher_approved') {
+          emailSubject = 'Congratulations! Your EduVerse Teacher Application is Approved';
+          htmlContent = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div style="background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%); padding: 40px 20px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎉 Welcome to EduVerse!</h1>
+    </div>
+    <div style="padding: 40px 30px;">
+      <div style="text-align: center; margin-bottom: 30px;">
+        <span style="font-size: 48px;">✅</span>
+      </div>
+      <h2 style="color: #333333; margin-top: 0; text-align: center;">Congratulations, ${name || 'Teacher'}!</h2>
+      <p style="color: #666666; font-size: 16px; line-height: 1.6;">
+        Great news! Your teacher application has been <strong>approved</strong>. You can now log in and start creating courses to share your knowledge with students worldwide.
+      </p>
+      <div style="background-color: #e8f8f0; border-left: 4px solid #27ae60; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+        <p style="color: #333333; margin: 0; font-size: 14px;">
+          <strong>Next Steps:</strong><br>
+          1. Log in to your account<br>
+          2. Complete your profile<br>
+          3. Create your first course
+        </p>
+      </div>
+      <div style="text-align: center; margin-top: 30px;">
+        <a href="https://eduverse.com/login" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 14px 30px; border-radius: 8px; text-decoration: none; font-weight: bold;">Log In Now</a>
+      </div>
+    </div>
+    <div style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+      <p style="color: #999999; font-size: 12px; margin: 0;">© 2026 EduVerse. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+          textContent = `Congratulations ${name || 'Teacher'}! Your EduVerse teacher application has been approved. You can now log in and start creating courses.`;
+        }
+        else if (emailType === 'teacher_rejected') {
+          const rejectionReason = reason || 'Your application did not meet our current requirements.';
+          emailSubject = 'EduVerse Teacher Application Update';
+          htmlContent = `
+<!DOCTYPE html>
+<html>
+<body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f4f4; margin: 0; padding: 20px;">
+  <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+    <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 20px; text-align: center;">
+      <h1 style="color: #ffffff; margin: 0; font-size: 28px;">🎓 EduVerse</h1>
+    </div>
+    <div style="padding: 40px 30px;">
+      <h2 style="color: #333333; margin-top: 0;">Hello, ${name || 'Applicant'}!</h2>
+      <p style="color: #666666; font-size: 16px; line-height: 1.6;">
+        Thank you for your interest in becoming an EduVerse teacher. After careful review, we regret to inform you that your application was not approved at this time.
+      </p>
+      <div style="background-color: #fff8e6; border-left: 4px solid #f39c12; padding: 15px 20px; margin: 25px 0; border-radius: 0 8px 8px 0;">
+        <p style="color: #333333; margin: 0; font-size: 14px;">
+          <strong>Feedback:</strong> ${rejectionReason}
+        </p>
+      </div>
+      <p style="color: #666666; font-size: 14px; line-height: 1.6;">
+        We encourage you to strengthen your credentials and apply again in the future. If you have questions, please contact support@eduverse.com.
+      </p>
+    </div>
+    <div style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
+      <p style="color: #999999; font-size: 12px; margin: 0;">© 2026 EduVerse. All rights reserved.</p>
+    </div>
+  </div>
+</body>
+</html>`;
+          textContent = `Hello ${name || 'Applicant'}, Thank you for applying to be an EduVerse teacher. Unfortunately, your application was not approved. Feedback: ${rejectionReason}`;
+        }
+        else {
+          res.writeHead(400, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify({ success: false, error: 'Unknown email type' }));
+          return;
+        }
+
+        sendEmailViaMailjet(to, name, emailSubject, htmlContent, textContent, (error) => {
+          if (error) {
+            console.error('Mailjet error:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: error }));
+          } else {
+            console.log(\`📧 Admin email (${emailType}) sent to ${to}\`);
+            res.writeHead(200, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: true, message: 'Email sent!' }));
+          }
+        });
+
+      } catch (e) {
+        console.error('Parse error:', e);
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ success: false, error: 'Invalid JSON' }));
+      }
+    });
+  }
   else {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));

@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/cache_service.dart';
+import 'package:eduverse/features/admin/services/admin_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/course_card.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
@@ -2195,7 +2196,7 @@ class _CoursesScreenState extends State<CoursesScreen>
               return ListView.builder(
                 itemCount: reviews.length,
                 itemBuilder: (ctx, index) =>
-                    _buildFullReviewCard(reviews[index], isDark),
+                    _buildFullReviewCard(reviews[index], isDark, course['courseUid']),
               );
             },
           ),
@@ -2215,7 +2216,7 @@ class _CoursesScreenState extends State<CoursesScreen>
     );
   }
 
-  Widget _buildFullReviewCard(Map<String, dynamic> review, bool isDark) {
+  Widget _buildFullReviewCard(Map<String, dynamic> review, bool isDark, String courseUid) {
     final rating = (review['rating'] ?? 0.0) as double;
     final studentName = review['studentName'] ?? 'Student';
     final reviewText = review['reviewText'] ?? '';
@@ -2265,6 +2266,19 @@ class _CoursesScreenState extends State<CoursesScreen>
                   ),
                 ),
               ),
+              // Report button
+              IconButton(
+                icon: Icon(
+                  Icons.flag_outlined,
+                  size: 18,
+                  color: isDark ? AppTheme.darkTextTertiary : Colors.grey.shade500,
+                ),
+                tooltip: 'Report review',
+                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                padding: EdgeInsets.zero,
+                onPressed: () => _showReportDialog(review, isDark, courseUid),
+              ),
+              const SizedBox(width: 4),
               // Rating stars
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -2305,6 +2319,129 @@ class _CoursesScreenState extends State<CoursesScreen>
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  void _showReportDialog(Map<String, dynamic> review, bool isDark, String courseUid) {
+    String selectedReason = 'Inappropriate content';
+    final reasons = [
+      'Inappropriate content',
+      'Spam or advertising',
+      'Harassment or bullying',
+      'Fake review',
+      'Other',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                Icons.flag_rounded,
+                color: isDark ? AppTheme.darkError : AppTheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Report Review',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Why are you reporting this review?',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...reasons.map((reason) => RadioListTile<String>(
+                title: Text(
+                  reason,
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    fontSize: 14,
+                  ),
+                ),
+                value: reason,
+                groupValue: selectedReason,
+                activeColor: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                onChanged: (value) {
+                  setDialogState(() => selectedReason = value!);
+                },
+              )),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final reason = selectedReason;
+                final reviewId = review['reviewId'] ?? review['id'] ?? '';
+                final dialogCtx = context;
+                Navigator.pop(dialogCtx);
+                
+                final currentUid = FirebaseAuth.instance.currentUser?.uid;
+                if (currentUid == null) return;
+
+                // Report as course review with courseUid as parentId
+                final success = await AdminService().reportContent(
+                  contentId: reviewId,
+                  contentType: 'course_review', // Use course_review type
+                  reason: reason,
+                  reportedBy: currentUid,
+                  parentId: courseUid,
+                );
+
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Review reported. Our team will review it.'
+                            : 'Failed to report. Please try again.',
+                      ),
+                      backgroundColor: success
+                          ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                          : (isDark ? AppTheme.darkError : AppTheme.error),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Report'),
+            ),
+          ],
+        ),
       ),
     );
   }

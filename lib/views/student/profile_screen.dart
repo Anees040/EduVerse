@@ -1378,6 +1378,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> _performLogout() async {
     try {
       // Clear all static caches to prevent data leakage between users
+      // Do this BEFORE signing out so we still have user context if needed
       try {
         ProfileScreen.clearCache();
         CoursesScreen.clearCache();
@@ -1386,12 +1387,20 @@ class _ProfileScreenState extends State<ProfileScreen>
         CacheService().clearAllOnLogout();
       } catch (cacheError) {
         debugPrint('Cache clearing error: $cacheError');
+        // Continue with logout even if cache clearing fails
       }
 
-      await FirebaseAuth.instance.signOut();
+      // Sign out from Firebase
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (signOutError) {
+        debugPrint('Sign out error: $signOutError');
+        // Continue to navigate away even if signout throws
+      }
 
       if (!mounted) return;
 
+      // Navigate to sign in screen and remove all previous routes
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const SigninScreen()),

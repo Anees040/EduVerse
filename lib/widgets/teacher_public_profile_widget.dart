@@ -231,9 +231,10 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
     // Handle achievements - ensure it's a String
     final rawAchievements = _profile!['achievements'];
     final achievements = rawAchievements is String ? rawAchievements : null;
-    final linkedin = _profile!['linkedin'];
-    final website = _profile!['website'];
+    final linkedin = _profile!['linkedin'] ?? _profile!['linkedIn'];
+    final website = _profile!['website'] ?? _profile!['portfolio'];
     final profilePicture = _profile!['profilePicture'];
+    final isVerified = _profile!['isVerified'] == true;
 
     // Handle credentialsList that might be stored as List or Map
     List<Map<String, dynamic>>? credentials;
@@ -298,14 +299,39 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                 ),
                 const SizedBox(height: 16),
 
-                // Name
-                Text(
-                  name,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context),
-                  ),
+                // Name with verification badge
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      name,
+                      style: TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.getTextPrimary(context),
+                      ),
+                    ),
+                    if (isVerified) ...[
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: BoxDecoration(
+                          color: (widget.isDark
+                                  ? AppTheme.darkSuccess
+                                  : AppTheme.success)
+                              .withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.verified_rounded,
+                          size: 20,
+                          color: widget.isDark
+                              ? AppTheme.darkSuccess
+                              : AppTheme.success,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
 
                 // Headline

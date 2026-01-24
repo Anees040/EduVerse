@@ -13,6 +13,8 @@ class AdminUsersScreen extends StatefulWidget {
 }
 
 class _AdminUsersScreenState extends State<AdminUsersScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
@@ -23,6 +25,12 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
         provider.loadUsers(refresh: true);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   @override
@@ -103,103 +111,254 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
   }
 
   Widget _buildFiltersSection(AdminProvider provider, bool isDark) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isMobile = screenWidth < 768;
-
-    if (isMobile) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AdminSearchBar(
-            hintText: 'Search by name or email...',
-            onSearch: provider.setSearchQuery,
-            initialValue: provider.state.userSearchQuery,
-          ),
-          const SizedBox(height: 12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
+    final currentFilter = provider.state.userRoleFilter ?? 'all';
+    final hasSearchText = _searchController.text.isNotEmpty;
+    
+    return Row(
+      children: [
+        Expanded(
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: isDark ? AppTheme.darkCard : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+              ),
+            ),
             child: Row(
               children: [
-                _buildFilterDropdown(
-                  'Role',
-                  provider.state.userRoleFilter ?? 'all',
-                  ['all', 'teacher', 'student'],
-                  (value) =>
-                      provider.setRoleFilter(value == 'all' ? null : value),
-                  isDark,
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    onChanged: (query) {
+                      setState(() {}); // Refresh to show/hide clear button
+                      provider.setSearchQuery(query);
+                    },
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
+                    decoration: InputDecoration(
+                      hintText: 'Search by name or email...',
+                      hintStyle: TextStyle(
+                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                      ),
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                      ),
+                      suffixIcon: hasSearchText
+                          ? IconButton(
+                              icon: Icon(
+                                Icons.close_rounded,
+                                color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                                size: 20,
+                              ),
+                              onPressed: () {
+                                _searchController.clear();
+                                provider.setSearchQuery('');
+                                setState(() {});
+                              },
+                            )
+                          : null,
+                      border: InputBorder.none,
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                    ),
+                  ),
+                ),
+                // Filter button
+                Container(
+                  height: 48,
+                  decoration: BoxDecoration(
+                    border: Border(
+                      left: BorderSide(
+                        color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                      ),
+                    ),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _showFilterBottomSheet(provider, isDark),
+                      borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.filter_list_rounded,
+                              color: currentFilter != 'all'
+                                  ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                                  : (isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary),
+                              size: 20,
+                            ),
+                            if (currentFilter != 'all') ...[
+                              const SizedBox(width: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                                      .withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  currentFilter[0].toUpperCase() + currentFilter.substring(1),
+                                  style: TextStyle(
+                                    color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      );
-    }
-
-    return Row(
-      children: [
-        Expanded(
-          flex: 2,
-          child: AdminSearchBar(
-            hintText: 'Search by name or email...',
-            onSearch: provider.setSearchQuery,
-            initialValue: provider.state.userSearchQuery,
-          ),
-        ),
-        const SizedBox(width: 16),
-        _buildFilterDropdown(
-          'Role',
-          provider.state.userRoleFilter ?? 'all',
-          ['all', 'teacher', 'student'],
-          (value) => provider.setRoleFilter(value == 'all' ? null : value),
-          isDark,
         ),
       ],
     );
   }
 
-  Widget _buildFilterDropdown(
-    String label,
-    String value,
-    List<String> options,
-    Function(String) onChanged,
-    bool isDark,
-  ) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+  void _showFilterBottomSheet(AdminProvider provider, bool isDark) {
+    final currentFilter = provider.state.userRoleFilter ?? 'all';
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Title
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.filter_list_rounded,
+                    color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Filter Users',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                    ),
+                  ),
+                  const Spacer(),
+                  if (currentFilter != 'all')
+                    TextButton(
+                      onPressed: () {
+                        provider.setRoleFilter(null);
+                        Navigator.pop(context);
+                      },
+                      child: Text(
+                        'Clear',
+                        style: TextStyle(
+                          color: isDark ? AppTheme.darkError : AppTheme.error,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Filter options
+            _buildFilterOption('all', 'All Users', Icons.people_rounded, currentFilter, provider, isDark),
+            _buildFilterOption('teacher', 'Teachers', Icons.school_rounded, currentFilter, provider, isDark),
+            _buildFilterOption('student', 'Students', Icons.person_rounded, currentFilter, provider, isDark),
+            const SizedBox(height: 20),
+          ],
         ),
       ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: value,
-          icon: Icon(
-            Icons.keyboard_arrow_down_rounded,
-            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+    );
+  }
+
+  Widget _buildFilterOption(
+    String value,
+    String label,
+    IconData icon,
+    String currentFilter,
+    AdminProvider provider,
+    bool isDark,
+  ) {
+    final isSelected = currentFilter == value;
+    
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          provider.setRoleFilter(value == 'all' ? null : value);
+          Navigator.pop(context);
+        },
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor).withOpacity(0.1)
+                : Colors.transparent,
           ),
-          dropdownColor: isDark ? AppTheme.darkCard : Colors.white,
-          items: options.map((option) {
-            return DropdownMenuItem(
-              value: option,
-              child: Text(
-                '$label: ${option[0].toUpperCase()}${option.substring(1)}',
-                style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                  fontSize: 14,
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isSelected
+                      ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor).withOpacity(0.2)
+                      : (isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  size: 20,
+                  color: isSelected
+                      ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                      : (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
                 ),
               ),
-            );
-          }).toList(),
-          onChanged: (newValue) {
-            if (newValue != null) {
-              onChanged(newValue);
-            }
-          },
+              const SizedBox(width: 14),
+              Text(
+                label,
+                style: TextStyle(
+                  color: isSelected
+                      ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                      : (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 15,
+                ),
+              ),
+              const Spacer(),
+              if (isSelected)
+                Icon(
+                  Icons.check_rounded,
+                  color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                  size: 20,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -340,20 +499,35 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
       onSelected: (action) {
         switch (action) {
           case 'suspend':
-            _showConfirmDialog(
-              title: 'Suspend User',
-              message: 'Are you sure you want to suspend this user?',
-              confirmText: 'Suspend',
-              isDark: isDark,
-              isDestructive: true,
-              onConfirm: () => provider.toggleUserSuspension(uid, role, true),
-            );
+            _showSuspendDialog(user, provider, isDark);
             break;
           case 'unsuspend':
             provider.toggleUserSuspension(uid, role, false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('User has been unsuspended'),
+                backgroundColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
             break;
           case 'verify':
-            provider.verifyTeacher(uid);
+            // Pass email and name for approval email
+            provider.verifyTeacher(
+              uid,
+              email: user['email'] as String?,
+              name: user['name'] as String?,
+            );
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Teacher verified. Approval email sent.'),
+                backgroundColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+            break;
+          case 'reject':
+            _showRejectTeacherDialog(user, provider, isDark);
             break;
           case 'view':
             // Show user details dialog
@@ -403,6 +577,26 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               ],
             ),
           ),
+        if (role == 'teacher' && !isVerified && !isSuspended)
+          PopupMenuItem(
+            value: 'reject',
+            child: Row(
+              children: [
+                Icon(
+                  Icons.cancel_rounded,
+                  size: 18,
+                  color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Reject Application',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                  ),
+                ),
+              ],
+            ),
+          ),
         if (isSuspended)
           PopupMenuItem(
             value: 'unsuspend',
@@ -444,64 +638,6 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
           ),
       ],
-    );
-  }
-
-  void _showConfirmDialog({
-    required String title,
-    required String message,
-    required String confirmText,
-    required bool isDark,
-    required VoidCallback onConfirm,
-    bool isDestructive = false,
-  }) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Text(
-          title,
-          style: TextStyle(
-            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-          ),
-        ),
-        content: Text(
-          message,
-          style: TextStyle(
-            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextSecondary
-                    : AppTheme.textSecondary,
-              ),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(ctx);
-              onConfirm();
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDestructive
-                  ? (isDark ? AppTheme.darkError : AppTheme.error)
-                  : (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor),
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            child: Text(confirmText),
-          ),
-        ],
-      ),
     );
   }
 
@@ -600,6 +736,422 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSuspendDialog(
+    Map<String, dynamic> user,
+    AdminProvider provider,
+    bool isDark,
+  ) {
+    String suspensionType = 'temporary';
+    final reasonController = TextEditingController();
+    final uid = user['uid'] ?? '';
+    final role = user['role'] ?? '';
+    final userName = user['name'] ?? 'User';
+    final userEmail = user['email'] ?? '';
+    String? reasonError; // For inline validation
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                Icons.block_rounded,
+                color: isDark ? AppTheme.darkError : AppTheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Suspend User',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Suspending: $userName',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Suspension Type',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                RadioListTile<String>(
+                  title: Text(
+                    'Temporary',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'User can appeal for review',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  value: 'temporary',
+                  groupValue: suspensionType,
+                  activeColor: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (value) {
+                    setDialogState(() => suspensionType = value!);
+                  },
+                ),
+                RadioListTile<String>(
+                  title: Text(
+                    'Permanent',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkError : AppTheme.error,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Account will be permanently banned',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                  value: 'permanent',
+                  groupValue: suspensionType,
+                  activeColor: isDark ? AppTheme.darkError : AppTheme.error,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (value) {
+                    setDialogState(() => suspensionType = value!);
+                  },
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Reason for Suspension *',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  ),
+                  onChanged: (value) {
+                    // Clear error when user starts typing
+                    if (reasonError != null && value.trim().isNotEmpty) {
+                      setDialogState(() => reasonError = null);
+                    }
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'Enter the reason for suspension...',
+                    hintStyle: TextStyle(
+                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                    ),
+                    filled: true,
+                    fillColor: isDark ? AppTheme.darkBackground : Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: reasonError != null
+                          ? BorderSide(color: isDark ? AppTheme.darkError : AppTheme.error, width: 1.5)
+                          : BorderSide.none,
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: reasonError != null
+                            ? (isDark ? AppTheme.darkError : AppTheme.error)
+                            : (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor),
+                        width: 1.5,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                    errorText: reasonError,
+                    errorStyle: TextStyle(
+                      color: isDark ? AppTheme.darkError : AppTheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (isDark ? AppTheme.darkInfo : AppTheme.info).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (isDark ? AppTheme.darkInfo : AppTheme.info).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.email_rounded,
+                        color: isDark ? AppTheme.darkInfo : AppTheme.info,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'An email will be sent to the user notifying them of the suspension.',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkInfo : AppTheme.info,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Inline validation
+                if (reasonController.text.trim().isEmpty) {
+                  setDialogState(() {
+                    reasonError = 'Please provide a reason for suspension';
+                  });
+                  return;
+                }
+
+                final reason = reasonController.text.trim();
+                final suspensionTypeFinal = suspensionType;
+                
+                // Capture the scaffold messenger before closing dialog
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                
+                // Close dialog first
+                Navigator.pop(ctx);
+                
+                // Suspend user with reason
+                await provider.suspendUserWithReason(
+                  uid: uid,
+                  role: role,
+                  reason: reason,
+                  isPermanent: suspensionTypeFinal == 'permanent',
+                  userEmail: userEmail,
+                  userName: userName,
+                );
+
+                // Use captured scaffold messenger
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: Text(
+                      'User has been ${suspensionTypeFinal == 'permanent' ? 'permanently' : 'temporarily'} suspended',
+                    ),
+                    backgroundColor: AppTheme.success,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Suspend User'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showRejectTeacherDialog(
+    Map<String, dynamic> user,
+    AdminProvider provider,
+    bool isDark,
+  ) {
+    final reasonController = TextEditingController();
+    final uid = user['uid'] ?? '';
+    final userName = user['name'] ?? 'Teacher';
+    final userEmail = user['email'] ?? '';
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                Icons.cancel_rounded,
+                color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Reject Teacher Application',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Rejecting application from: $userName',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Reason for Rejection (optional)',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: reasonController,
+                  maxLines: 3,
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: 'Provide feedback to the teacher (e.g., missing credentials, incomplete application)...',
+                    hintStyle: TextStyle(
+                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                    ),
+                    filled: true,
+                    fillColor: isDark ? AppTheme.darkBackground : Colors.grey.shade100,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    contentPadding: const EdgeInsets.all(12),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: (isDark ? AppTheme.darkInfo : AppTheme.info).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: (isDark ? AppTheme.darkInfo : AppTheme.info).withOpacity(0.3),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.email_rounded,
+                        color: isDark ? AppTheme.darkInfo : AppTheme.info,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'An email will be sent to the teacher notifying them of the rejection.',
+                          style: TextStyle(
+                            color: isDark ? AppTheme.darkInfo : AppTheme.info,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final reason = reasonController.text.trim().isEmpty 
+                    ? null 
+                    : reasonController.text.trim();
+                
+                // Capture the scaffold messenger before closing dialog
+                final scaffoldMessenger = ScaffoldMessenger.of(context);
+                
+                // Close dialog first
+                Navigator.pop(ctx);
+                
+                // Reject teacher with reason
+                await provider.rejectTeacher(
+                  uid,
+                  email: userEmail,
+                  name: userName,
+                  reason: reason,
+                );
+
+                // Use captured scaffold messenger
+                scaffoldMessenger.showSnackBar(
+                  SnackBar(
+                    content: const Text('Teacher application rejected. Email sent.'),
+                    backgroundColor: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.darkWarning : AppTheme.warning,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              child: const Text('Reject Application'),
+            ),
+          ],
+        ),
       ),
     );
   }

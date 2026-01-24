@@ -39,7 +39,7 @@ class KPICard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Container(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: backgroundColor ?? AppTheme.getCardColor(context),
             borderRadius: BorderRadius.circular(16),
@@ -68,19 +68,20 @@ class KPICard extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 48,
-          height: 48,
+          width: 40,
+          height: 40,
           decoration: BoxDecoration(
             color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
                 .withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Center(
             child: SizedBox(
-              width: 24,
-              height: 24,
+              width: 20,
+              height: 20,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
                 color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
@@ -88,10 +89,10 @@ class KPICard extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
         Container(
-          width: 80,
-          height: 16,
+          width: 60,
+          height: 14,
           decoration: BoxDecoration(
             color: isDark
                 ? AppTheme.darkBorder.withOpacity(0.3)
@@ -99,10 +100,10 @@ class KPICard extends StatelessWidget {
             borderRadius: BorderRadius.circular(4),
           ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
         Container(
-          width: 60,
-          height: 12,
+          width: 50,
+          height: 10,
           decoration: BoxDecoration(
             color: isDark
                 ? AppTheme.darkBorder.withOpacity(0.2)
@@ -118,93 +119,116 @@ class KPICard extends StatelessWidget {
     final effectiveIconColor =
         iconColor ?? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor);
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxHeight < 120;
+        final iconSize = isCompact ? 16.0 : 20.0;
+        final iconPadding = isCompact ? 8.0 : 10.0;
+        final valueSize = isCompact ? 18.0 : 24.0;
+        final titleSize = isCompact ? 10.0 : 12.0;
+        final subtitleSize = isCompact ? 9.0 : 10.0;
+        final spacing = isCompact ? 6.0 : 12.0;
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: effectiveIconColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: effectiveIconColor, size: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Container(
+                  padding: EdgeInsets.all(iconPadding),
+                  decoration: BoxDecoration(
+                    color: effectiveIconColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(icon, color: effectiveIconColor, size: iconSize),
+                ),
+                if (trend != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color:
+                          (isTrendPositive == true
+                                  ? (isDark
+                                        ? AppTheme.darkSuccess
+                                        : AppTheme.success)
+                                  : (isDark ? AppTheme.darkError : AppTheme.error))
+                              .withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          isTrendPositive == true
+                              ? Icons.trending_up_rounded
+                              : Icons.trending_down_rounded,
+                          size: 12,
+                          color: isTrendPositive == true
+                              ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                              : (isDark ? AppTheme.darkError : AppTheme.error),
+                        ),
+                        const SizedBox(width: 2),
+                        Text(
+                          trend!,
+                          style: TextStyle(
+                            color: isTrendPositive == true
+                                ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                                : (isDark ? AppTheme.darkError : AppTheme.error),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-            if (trend != null)
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color:
-                      (isTrendPositive == true
-                              ? (isDark
-                                    ? AppTheme.darkSuccess
-                                    : AppTheme.success)
-                              : (isDark ? AppTheme.darkError : AppTheme.error))
-                          .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isTrendPositive == true
-                          ? Icons.trending_up_rounded
-                          : Icons.trending_down_rounded,
-                      size: 14,
-                      color: isTrendPositive == true
-                          ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                          : (isDark ? AppTheme.darkError : AppTheme.error),
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      trend!,
-                      style: TextStyle(
-                        color: isTrendPositive == true
-                            ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                            : (isDark ? AppTheme.darkError : AppTheme.error),
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
+            SizedBox(height: spacing),
+            Flexible(
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  value,
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: valueSize,
+                  ),
                 ),
               ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              title,
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+                fontSize: titleSize,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (subtitle != null) ...[
+              const SizedBox(height: 2),
+              Text(
+                subtitle!,
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkTextTertiary
+                      : AppTheme.textSecondary,
+                  fontSize: subtitleSize,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ],
-        ),
-        const SizedBox(height: 16),
-        Text(
-          value,
-          style: TextStyle(
-            color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-            fontWeight: FontWeight.bold,
-            fontSize: 28,
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          title,
-          style: TextStyle(
-            color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-            fontWeight: FontWeight.w500,
-            fontSize: 14,
-          ),
-        ),
-        if (subtitle != null) ...[
-          const SizedBox(height: 2),
-          Text(
-            subtitle!,
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextTertiary
-                  : AppTheme.textSecondary,
-              fontSize: 12,
-            ),
-          ),
-        ],
-      ],
+        );
+      },
     );
   }
 }
