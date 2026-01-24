@@ -93,6 +93,20 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final data = provider.state.userGrowthData;
     final isLoading = data.isEmpty;
 
+    // Calculate stats for display
+    int totalUsers = 0;
+    int growthPercent = 0;
+    if (data.isNotEmpty) {
+      totalUsers = data.fold<int>(0, (sum, item) => sum + (item['count'] as int? ?? 0));
+      if (data.length >= 2) {
+        final recent = (data.last['count'] as int? ?? 0);
+        final previous = (data[data.length - 2]['count'] as int? ?? 1);
+        if (previous > 0) {
+          growthPercent = (((recent - previous) / previous) * 100).round();
+        }
+      }
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -101,6 +115,13 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         border: Border.all(
           color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
         ),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : Colors.grey).withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -120,15 +141,86 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-              Text(
-                'User Growth',
-                style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'User Growth',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    if (!isLoading) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Text(
+                            '$totalUsers total signups',
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (growthPercent != 0) ...[
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: (growthPercent > 0
+                                        ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                                        : (isDark ? AppTheme.darkError : AppTheme.error))
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    growthPercent > 0
+                                        ? Icons.arrow_upward_rounded
+                                        : Icons.arrow_downward_rounded,
+                                    size: 12,
+                                    color: growthPercent > 0
+                                        ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                                        : (isDark ? AppTheme.darkError : AppTheme.error),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Text(
+                                    '${growthPercent.abs()}%',
+                                    style: TextStyle(
+                                      color: growthPercent > 0
+                                          ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                                          : (isDark ? AppTheme.darkError : AppTheme.error),
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
+                  ],
                 ),
+              ),
+              // Refresh button
+              IconButton(
+                onPressed: isLoading ? null : () => provider.loadAnalyticsData(),
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  size: 20,
+                ),
+                tooltip: 'Refresh data',
               ),
             ],
           ),
@@ -178,11 +270,12 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxY > 0 ? maxY / 5 : 1,
+          horizontalInterval: maxY > 5 ? maxY / 5 : 1,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+              color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200).withOpacity(0.5),
               strokeWidth: 1,
+              dashArray: [5, 5],
             );
           },
         ),
@@ -190,15 +283,21 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
+              reservedSize: 45,
+              interval: maxY > 5 ? maxY / 5 : 1,
               getTitlesWidget: (value, meta) {
-                return Text(
-                  value.toInt().toString(),
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextTertiary
-                        : AppTheme.textSecondary,
-                    fontSize: 11,
+                if (value == meta.max || value == meta.min) return const SizedBox();
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    value.toInt().toString(),
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextTertiary
+                          : AppTheme.textSecondary,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 );
               },
@@ -207,27 +306,30 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 30,
-              interval: data.length > 6 ? 2 : 1,
+              reservedSize: 35,
+              interval: data.length > 8 ? 2 : 1,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index >= 0 && index < data.length) {
-                  final month = data[index]['month'] as String;
-                  // Parse month string (YYYY-MM) and format
+                  final dateStr = data[index]['date']?.toString() ?? '';
                   try {
-                    final date = DateTime.parse('$month-01');
-                    return Transform.rotate(
-                      angle: -0.5,
-                      child: Text(
-                        DateFormat('MMM').format(date),
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.darkTextTertiary
-                              : AppTheme.textSecondary,
-                          fontSize: 10,
+                    if (dateStr.isNotEmpty) {
+                      final date = DateTime.parse(dateStr);
+                      return Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          DateFormat('MMM').format(date),
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkTextTertiary
+                                : AppTheme.textSecondary,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
+                    return const Text('');
                   } catch (_) {
                     return const Text('');
                   }
@@ -252,16 +354,23 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+            curveSmoothness: 0.35,
+            preventCurveOverShooting: true,
+            gradient: LinearGradient(
+              colors: [
+                isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                isDark ? AppTheme.darkAccent : AppTheme.accentColor,
+              ],
+            ),
             barWidth: 3,
             isStrokeCapRound: true,
             dotData: FlDotData(
               show: true,
               getDotPainter: (spot, percent, barData, index) {
                 return FlDotCirclePainter(
-                  radius: 4,
+                  radius: 5,
                   color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-                  strokeWidth: 2,
+                  strokeWidth: 2.5,
                   strokeColor: isDark ? AppTheme.darkCard : Colors.white,
                 );
               },
@@ -271,42 +380,92 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               gradient: LinearGradient(
                 colors: [
                   (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                      .withOpacity(0.3),
+                      .withOpacity(0.25),
                   (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                      .withOpacity(0.0),
+                      .withOpacity(0.05),
+                  Colors.transparent,
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
+                stops: const [0.0, 0.5, 1.0],
               ),
             ),
           ),
         ],
         lineTouchData: LineTouchData(
           enabled: true,
+          handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
+            maxContentWidth: 150,
             getTooltipColor: (_) =>
                 isDark ? AppTheme.darkElevated : Colors.white,
+            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            tooltipBorder: BorderSide(
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            ),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final index = spot.x.toInt();
-                final date = index < data.length
-                    ? data[index]['date'] as String
-                    : '';
+                String dateDisplay = '';
+                if (index < data.length) {
+                  final dateStr = data[index]['date']?.toString() ?? '';
+                  try {
+                    if (dateStr.isNotEmpty) {
+                      final date = DateTime.parse(dateStr);
+                      dateDisplay = DateFormat('MMM d, yyyy').format(date);
+                    }
+                  } catch (_) {}
+                }
                 return LineTooltipItem(
-                  '${spot.y.toInt()} users\n$date',
+                  '${spot.y.toInt()} new users\n',
                   TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextPrimary
-                        : AppTheme.textPrimary,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 12,
+                    color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
                   ),
+                  children: [
+                    TextSpan(
+                      text: dateDisplay,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
+                        fontWeight: FontWeight.normal,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
                 );
               }).toList();
             },
           ),
+          getTouchedSpotIndicator: (barData, spotIndexes) {
+            return spotIndexes.map((index) {
+              return TouchedSpotIndicatorData(
+                FlLine(
+                  color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                      .withOpacity(0.3),
+                  strokeWidth: 2,
+                  dashArray: [5, 5],
+                ),
+                FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) {
+                    return FlDotCirclePainter(
+                      radius: 7,
+                      color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                      strokeWidth: 3,
+                      strokeColor: isDark ? AppTheme.darkCard : Colors.white,
+                    );
+                  },
+                ),
+              );
+            }).toList();
+          },
         ),
       ),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
     );
   }
 
@@ -482,7 +641,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxRevenue / 4,
+          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
           getDrawingHorizontalLine: (value) => FlLine(
             color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
             strokeWidth: 1,

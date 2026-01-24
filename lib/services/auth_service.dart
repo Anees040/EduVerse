@@ -118,6 +118,58 @@ class AuthService {
         throw 'Invalid role selected';
       }
 
+      // Check if teacher is pending verification (only for teachers)
+      if (selectedRole == 'teacher') {
+        final statusSnapshot = await _db
+            .child('teacher')
+            .child(user.uid)
+            .child('status')
+            .get();
+
+        if (statusSnapshot.exists) {
+          final status = statusSnapshot.value?.toString();
+          if (status == 'pending') {
+            await _auth.signOut();
+            throw 'Your teacher application is still pending admin approval. Please wait for verification.';
+          } else if (status == 'rejected') {
+            // Get rejection reason if available
+            final rejectionReasonSnapshot = await _db
+                .child('teacher')
+                .child(user.uid)
+                .child('rejectionReason')
+                .get();
+            final rejectionReason =
+                rejectionReasonSnapshot.exists &&
+                    rejectionReasonSnapshot.value != null
+                ? rejectionReasonSnapshot.value.toString()
+                : 'Contact support for more information';
+            await _auth.signOut();
+            throw 'Your teacher application was rejected. Reason: $rejectionReason';
+          }
+        }
+      }
+
+      // Check if user is suspended
+      final suspendedSnapshot = await _db
+          .child(selectedRole)
+          .child(user.uid)
+          .child('isSuspended')
+          .get();
+
+      if (suspendedSnapshot.exists && suspendedSnapshot.value == true) {
+        // Get suspension reason if available
+        final reasonSnapshot = await _db
+            .child(selectedRole)
+            .child(user.uid)
+            .child('suspensionReason')
+            .get();
+        final reason = reasonSnapshot.exists && reasonSnapshot.value != null
+            ? reasonSnapshot.value.toString()
+            : 'Contact support for more information';
+        await _auth.signOut();
+        throw 'Your account has been suspended. Reason: $reason';
+      }
+
       return user;
     } on FirebaseAuthException catch (e) {
       throw e.message ?? 'Login failed';

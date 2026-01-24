@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:eduverse/services/auth_service.dart';
 import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/features/teacher/screens/teacher_registration_wizard.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'dart:async';
@@ -158,6 +159,17 @@ class _RegisterScreenWithVerificationState
 
   void _onRoleToggle(bool studentSelected) {
     if (isStudent == studentSelected) return; // No change needed
+    
+    // If switching to teacher, redirect to teacher registration wizard
+    if (!studentSelected) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => const TeacherRegistrationWizard(),
+        ),
+      );
+      return;
+    }
     
     // Unfocus any active field to prevent keyboard staying up or focus issues
     FocusScope.of(context).unfocus();

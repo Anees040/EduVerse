@@ -1,5 +1,8 @@
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 /// Admin Service - Handles all admin-related backend operations
 /// Uses Firebase Realtime Database to match app architecture
@@ -7,8 +10,40 @@ class AdminService {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
   final FirebaseAuth _auth = FirebaseAuth.instance;
 
+  // Email server URL
+  static const String _emailServerUrl = 'http://localhost:3001';
+
   // Pagination constants
   static const int pageSize = 20;
+
+  /// Helper to send emails via the local email server
+  Future<void> _sendEmailViaServer({
+    required String to,
+    required String name,
+    required String subject,
+    required String emailType,
+    Map<String, dynamic>? extraData,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$_emailServerUrl/send-admin-email'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'to': to,
+          'name': name,
+          'subject': subject,
+          'emailType': emailType,
+          ...?extraData,
+        }),
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint('Email server error: ${response.body}');
+      }
+    } catch (e) {
+      debugPrint('Failed to send email: $e');
+    }
+  }
 
   /// Verify if the current user is an admin
   Future<bool> isAdmin() async {
@@ -75,6 +110,7 @@ class AdminService {
       final teachersSnapshot = await _db.child('teacher').get();
       int totalTeachers = 0;
       int verifiedTeachers = 0;
+      int pendingTeachers = 0;
       if (teachersSnapshot.exists && teachersSnapshot.value != null) {
         final teachersMap = Map<String, dynamic>.from(
           teachersSnapshot.value as Map,
@@ -82,8 +118,11 @@ class AdminService {
         totalTeachers = teachersMap.length;
         for (var entry in teachersMap.entries) {
           final teacher = Map<String, dynamic>.from(entry.value as Map);
-          if (teacher['isVerified'] == true) {
+          if (teacher['isVerified'] == true ||
+              teacher['status'] == 'approved') {
             verifiedTeachers++;
+          } else if (teacher['status'] == 'pending') {
+            pendingTeachers++;
           }
         }
       }
@@ -110,7 +149,9 @@ class AdminService {
         'totalUsers': totalStudents + totalTeachers,
         'totalStudents': totalStudents,
         'totalTeachers': totalTeachers,
+        'activeTeachers': verifiedTeachers,
         'verifiedTeachers': verifiedTeachers,
+        'pendingTeachers': pendingTeachers,
         'totalCourses': totalCourses,
         'totalRevenue': totalRevenue,
         'lastUpdated': DateTime.now().toIso8601String(),
@@ -121,6 +162,7 @@ class AdminService {
         'totalStudents': 0,
         'totalTeachers': 0,
         'verifiedTeachers': 0,
+        'pendingTeachers': 0,
         'totalCourses': 0,
         'totalRevenue': 0.0,
         'error': e.toString(),
@@ -239,17 +281,138 @@ class AdminService {
     }
   }
 
-  /// Verify a teacher
-  Future<bool> verifyTeacher(String uid) async {
+  /// Suspend user with detailed information and email notification
+  Future<bool> suspendUserWithDetails({
+    required String uid,
+    required String role,
+    required String reason,
+    required bool isPermanent,
+    required String userEmail,
+    required String userName,
+  }) async {
+    try {
+      // Update user status in database
+      await _db.child(role).child(uid).update({
+        'isSuspended': true,
+        'suspendedAt': ServerValue.timestamp,
+        'suspensionReason': reason,
+        'suspensionType': isPermanent ? 'permanent' : 'temporary',
+      });
+
+      // Send suspension email (using the email server)
+      try {
+        await _sendSuspensionEmail(
+          email: userEmail,
+          name: userName,
+          reason: reason,
+          isPermanent: isPermanent,
+        );
+      } catch (e) {
+        // Email failed but suspension was successful
+        debugPrint('Failed to send suspension email: $e');
+      }
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  /// Send suspension notification email
+  Future<void> _sendSuspensionEmail({
+    required String email,
+    required String name,
+    required String reason,
+    required bool isPermanent,
+  }) async {
+    // Send suspension email via email server
+    debugPrint('Sending suspension email to $email');
+    await _sendEmailViaServer(
+      to: email,
+      name: name,
+      subject: 'EduVerse Account Suspension Notice',
+      emailType: 'suspension',
+      extraData: {'reason': reason, 'isPermanent': isPermanent},
+    );
+  }
+
+  /// Verify a teacher and send approval email
+  Future<bool> verifyTeacher(String uid, {String? email, String? name}) async {
     try {
       await _db.child('teacher').child(uid).update({
         'isVerified': true,
         'verifiedAt': ServerValue.timestamp,
       });
+      
+      // Send approval email if email provided
+      if (email != null && email.isNotEmpty) {
+        try {
+          await sendVerificationEmail(
+            email: email,
+            name: name ?? 'Teacher',
+            isApproved: true,
+          );
+        } catch (e) {
+          debugPrint('Failed to send teacher approval email: $e');
+          // Verification was successful, just email failed
+        }
+      }
+      
       return true;
     } catch (e) {
+      debugPrint('Error verifying teacher: $e');
       return false;
     }
+  }
+
+  /// Reject a teacher and send rejection email
+  Future<bool> rejectTeacher(String uid, {String? email, String? name, String? reason}) async {
+    try {
+      await _db.child('teacher').child(uid).update({
+        'isVerified': false,
+        'isRejected': true,
+        'rejectedAt': ServerValue.timestamp,
+        'rejectionReason': reason,
+      });
+      
+      // Send rejection email if email provided
+      if (email != null && email.isNotEmpty) {
+        try {
+          await sendVerificationEmail(
+            email: email,
+            name: name ?? 'Teacher',
+            isApproved: false,
+            reason: reason,
+          );
+        } catch (e) {
+          debugPrint('Failed to send teacher rejection email: $e');
+          // Rejection was successful, just email failed
+        }
+      }
+      
+      return true;
+    } catch (e) {
+      debugPrint('Error rejecting teacher: $e');
+      return false;
+    }
+  }
+
+  /// Send verification result email (approval/rejection)
+  Future<void> sendVerificationEmail({
+    required String email,
+    required String name,
+    required bool isApproved,
+    String? reason,
+  }) async {
+    await _sendEmailViaServer(
+      to: email,
+      name: name,
+      subject: isApproved
+          ? 'Congratulations! Your EduVerse Teacher Application is Approved'
+          : 'EduVerse Teacher Application Update',
+      emailType: isApproved ? 'teacher_approved' : 'teacher_rejected',
+      extraData: reason != null ? {'reason': reason} : null,
+    );
   }
 
   /// Delete a user
@@ -369,16 +532,21 @@ class AdminService {
   /// Report content
   Future<bool> reportContent({
     required String contentId,
-    required String contentType, // 'qa', 'review', 'course'
+    required String contentType, // 'qa', 'review', 'course_review', 'course'
     required String reason,
     required String reportedBy,
-    String? parentId, // courseId for qa, teacherId for review
+    String? parentId, // courseId for qa/course_review, teacherId for review
   }) async {
     try {
       String path;
       if (contentType == 'qa' && parentId != null) {
-        path = 'qa/$parentId/$contentId';
+        // Questions are stored at courses/$courseId/questions/$questionId
+        path = 'courses/$parentId/questions/$contentId';
+      } else if (contentType == 'course_review' && parentId != null) {
+        // Course reviews are stored at courses/$courseId/reviews/$reviewId
+        path = 'courses/$parentId/reviews/$contentId';
       } else if (contentType == 'review' && parentId != null) {
+        // Teacher reviews are stored at teacher/$teacherId/reviews/$reviewId
         path = 'teacher/$parentId/reviews/$contentId';
       } else {
         path = 'courses/$contentId';
@@ -391,8 +559,22 @@ class AdminService {
         'reportReason': reason,
         'reportedAt': ServerValue.timestamp,
       });
+      
+      // Also add to moderation queue for admin review
+      await _db.child('moderation').push().set({
+        'contentId': contentId,
+        'contentType': contentType,
+        'contentPath': path, // Store the full path for easy moderation
+        'parentId': parentId,
+        'reason': reason,
+        'reportedBy': reportedBy,
+        'reportedAt': ServerValue.timestamp,
+        'status': 'pending',
+      });
+      
       return true;
     } catch (e) {
+      debugPrint('Error reporting content: $e');
       return false;
     }
   }
@@ -403,12 +585,20 @@ class AdminService {
     required String contentType,
     required bool approve,
     String? parentId,
+    String? contentPath, // Direct path to content (if available)
     String? moderatorNote,
   }) async {
     try {
       String path;
-      if (contentType == 'qa' && parentId != null) {
-        path = 'qa/$parentId/$contentId';
+      if (contentPath != null && contentPath.isNotEmpty) {
+        // Use the stored path directly if available
+        path = contentPath;
+      } else if (contentType == 'qa' && parentId != null) {
+        // Questions are stored at courses/$courseId/questions/$questionId
+        path = 'courses/$parentId/questions/$contentId';
+      } else if (contentType == 'course_review' && parentId != null) {
+        // Course reviews are stored at courses/$courseId/reviews/$reviewId
+        path = 'courses/$parentId/reviews/$contentId';
       } else if (contentType == 'review' && parentId != null) {
         path = 'teacher/$parentId/reviews/$contentId';
       } else {
@@ -429,6 +619,7 @@ class AdminService {
       }
       return true;
     } catch (e) {
+      debugPrint('Error moderating content: $e');
       return false;
     }
   }

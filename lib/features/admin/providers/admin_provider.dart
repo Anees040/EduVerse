@@ -44,6 +44,7 @@ class AdminState {
     bool? hasMoreUsers,
     String? userSearchQuery,
     String? userRoleFilter,
+    bool clearRoleFilter = false,
   }) {
     return AdminState(
       isLoading: isLoading ?? this.isLoading,
@@ -57,7 +58,9 @@ class AdminState {
       lastUserKey: lastUserKey ?? this.lastUserKey,
       hasMoreUsers: hasMoreUsers ?? this.hasMoreUsers,
       userSearchQuery: userSearchQuery ?? this.userSearchQuery,
-      userRoleFilter: userRoleFilter ?? this.userRoleFilter,
+      userRoleFilter: clearRoleFilter
+          ? null
+          : (userRoleFilter ?? this.userRoleFilter),
     );
   }
 }
@@ -149,6 +152,7 @@ class AdminProvider extends ChangeNotifier {
   void setRoleFilter(String? role) {
     _state = _state.copyWith(
       userRoleFilter: role,
+      clearRoleFilter: role == null,
       users: [],
       lastUserKey: null,
       hasMoreUsers: false,
@@ -192,8 +196,58 @@ class AdminProvider extends ChangeNotifier {
     }
   }
 
-  /// Verify a teacher (optimistic update)
-  Future<void> verifyTeacher(String uid) async {
+  /// Suspend user with reason and email notification
+  Future<void> suspendUserWithReason({
+    required String uid,
+    required String role,
+    required String reason,
+    required bool isPermanent,
+    required String userEmail,
+    required String userName,
+  }) async {
+    // Optimistic update
+    final updatedUsers = _state.users.map((user) {
+      if (user['uid'] == uid) {
+        return {
+          ...user,
+          'isSuspended': true,
+          'suspensionReason': reason,
+          'suspensionType': isPermanent ? 'permanent' : 'temporary',
+        };
+      }
+      return user;
+    }).toList();
+
+    _state = _state.copyWith(users: updatedUsers);
+    notifyListeners();
+
+    try {
+      await _adminService.suspendUserWithDetails(
+        uid: uid,
+        role: role,
+        reason: reason,
+        isPermanent: isPermanent,
+        userEmail: userEmail,
+        userName: userName,
+      );
+      // Also refresh KPI stats as suspension affects counts
+      loadKPIStats();
+    } catch (e) {
+      // Revert optimistic update on failure
+      final revertedUsers = _state.users.map((user) {
+        if (user['uid'] == uid) {
+          return {...user, 'isSuspended': false};
+        }
+        return user;
+      }).toList();
+
+      _state = _state.copyWith(users: revertedUsers, error: e.toString());
+      notifyListeners();
+    }
+  }
+
+  /// Verify a teacher (optimistic update) and send approval email
+  Future<void> verifyTeacher(String uid, {String? email, String? name}) async {
     // Optimistic update
     final updatedUsers = _state.users.map((user) {
       if (user['uid'] == uid) {
@@ -206,12 +260,41 @@ class AdminProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await _adminService.verifyTeacher(uid);
+      await _adminService.verifyTeacher(uid, email: email, name: name);
     } catch (e) {
       // Revert optimistic update on failure
       final revertedUsers = _state.users.map((user) {
         if (user['uid'] == uid) {
           return {...user, 'isVerified': false};
+        }
+        return user;
+      }).toList();
+
+      _state = _state.copyWith(users: revertedUsers, error: e.toString());
+      notifyListeners();
+    }
+  }
+
+  /// Reject a teacher (optimistic update) and send rejection email
+  Future<void> rejectTeacher(String uid, {String? email, String? name, String? reason}) async {
+    // Optimistic update
+    final updatedUsers = _state.users.map((user) {
+      if (user['uid'] == uid) {
+        return {...user, 'isRejected': true};
+      }
+      return user;
+    }).toList();
+
+    _state = _state.copyWith(users: updatedUsers);
+    notifyListeners();
+
+    try {
+      await _adminService.rejectTeacher(uid, email: email, name: name, reason: reason);
+    } catch (e) {
+      // Revert optimistic update on failure
+      final revertedUsers = _state.users.map((user) {
+        if (user['uid'] == uid) {
+          return {...user, 'isRejected': false};
         }
         return user;
       }).toList();

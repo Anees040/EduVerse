@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:eduverse/services/qa_service.dart';
 import 'package:eduverse/services/user_service.dart';
+import 'package:eduverse/services/moderation_service.dart';
+import 'package:eduverse/features/admin/services/admin_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -36,12 +38,14 @@ class QASectionWidget extends StatefulWidget {
 class _QASectionWidgetState extends State<QASectionWidget>
     with AutomaticKeepAliveClientMixin {
   final QAService _qaService = QAService();
+  final ModerationService _moderationService = ModerationService();
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
   String? _studentName;
   bool _isSubmitting = false;
   bool _showAllQuestions = true; // Default to showing all questions
   String _selectedFilter = 'all'; // all, unanswered, answered, recent
+  Set<String> _hiddenContentIds = {};
 
   // Cache the stream to prevent rebuilding
   Stream<List<Map<String, dynamic>>>? _questionsStream;
@@ -55,7 +59,15 @@ class _QASectionWidgetState extends State<QASectionWidget>
   void initState() {
     super.initState();
     _loadStudentName();
+    _loadHiddenContent();
     _updateQuestionsStream();
+  }
+
+  Future<void> _loadHiddenContent() async {
+    final hiddenIds = await _moderationService.getHiddenContentIds();
+    if (mounted) {
+      setState(() => _hiddenContentIds = hiddenIds);
+    }
   }
 
   @override
@@ -105,6 +117,36 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
+
+      // Check for banned words
+      final bannedWords = await _moderationService.checkForBannedWords(
+        _questionController.text,
+      );
+      
+      if (bannedWords.isNotEmpty) {
+        // Log the attempt
+        await _moderationService.logModerationEvent(
+          userId: uid,
+          userRole: widget.isTeacher ? 'teacher' : 'student',
+          contentType: 'question',
+          originalText: _questionController.text,
+          detectedWords: bannedWords,
+        );
+        
+        if (mounted) {
+          setState(() => _isSubmitting = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'Your message contains inappropriate content and cannot be posted.',
+              ),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+        return;
+      }
 
       // Get current video position if available
       int? timestampSeconds;
@@ -1000,8 +1042,13 @@ class _QASectionWidgetState extends State<QASectionWidget>
               }
 
               final allQuestions = snapshot.data ?? [];
+              // Filter out hidden content for current user
+              final visibleQuestions = allQuestions.where((q) {
+                final questionId = q['questionId']?.toString() ?? '';
+                return !_hiddenContentIds.contains(questionId);
+              }).toList();
               // Apply filter for all users (students and teachers)
-              final questions = _applyFilter(allQuestions);
+              final questions = _applyFilter(visibleQuestions);
 
               if (questions.isEmpty) {
                 return Padding(
@@ -1455,6 +1502,19 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
                           const Spacer(),
 
+                          // Report button for non-owners
+                          if (!isQuestionOwner)
+                            _buildIconButton(
+                              icon: Icons.flag_outlined,
+                              tooltip: 'Report',
+                              onTap: () => _showReportDialog(
+                                contentId: q['questionId'],
+                                contentType: 'qa',
+                                parentId: widget.courseUid,
+                              ),
+                              isDark: isDark,
+                            ),
+
                           // Edit/Delete for question owner (student)
                           if (isQuestionOwner && !widget.isTeacher) ...[
                             _buildIconButton(
@@ -1656,6 +1716,143 @@ class _QASectionWidgetState extends State<QASectionWidget>
                 ),
               ),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showReportDialog({
+    required String contentId,
+    required String contentType,
+    String? parentId,
+  }) {
+    final isDark = AppTheme.isDarkMode(context);
+    String selectedReason = 'Inappropriate content';
+    final reasons = [
+      'Inappropriate content',
+      'Spam or advertising',
+      'Harassment or bullying',
+      'Misinformation',
+      'Off-topic content',
+      'Other',
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(
+                Icons.flag_rounded,
+                color: isDark ? AppTheme.darkError : AppTheme.error,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Report Content',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Why are you reporting this?',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 12),
+              ...reasons.map((reason) => RadioListTile<String>(
+                title: Text(
+                  reason,
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                    fontSize: 14,
+                  ),
+                ),
+                value: reason,
+                groupValue: selectedReason,
+                activeColor: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                onChanged: (value) {
+                  setDialogState(() => selectedReason = value!);
+                },
+              )),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(
+                'Cancel',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                final reason = selectedReason;
+                final dialogCtx = context;
+                Navigator.pop(dialogCtx);
+                
+                final currentUid = FirebaseAuth.instance.currentUser?.uid;
+                if (currentUid == null) return;
+
+                final success = await AdminService().reportContent(
+                  contentId: contentId,
+                  contentType: contentType,
+                  reason: reason,
+                  reportedBy: currentUid,
+                  parentId: parentId,
+                );
+
+                // Hide the content locally for this user
+                if (success) {
+                  await _moderationService.hideContentForUser(contentId, contentType);
+                  if (mounted) {
+                    setState(() {
+                      _hiddenContentIds.add(contentId);
+                    });
+                  }
+                }
+
+                if (mounted) {
+                  ScaffoldMessenger.of(this.context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        success
+                            ? 'Comment flagged for review.'
+                            : 'Failed to report. Please try again.',
+                      ),
+                      backgroundColor: success
+                          ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                          : (isDark ? AppTheme.darkError : AppTheme.error),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Report'),
+            ),
           ],
         ),
       ),

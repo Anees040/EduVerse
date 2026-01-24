@@ -992,11 +992,11 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                     decoration: AppTheme.getCardDecoration(context),
                     child: Column(
                       children: [
-                        // Complete Teacher Profile
+                        // Edit Teacher Profile
                         _buildActionTile(
-                          Icons.person_add,
-                          "Complete Teacher Profile",
-                          "Add credentials, bio & achievements",
+                          Icons.edit_rounded,
+                          "Edit Profile",
+                          "Update bio, credentials & achievements",
                           () async {
                             await Navigator.push(
                               context,
@@ -1005,7 +1005,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                                     TeacherOnboardingWizard(
                                       isFirstTime: false,
                                       onComplete: () {
-                                        // Force refresh profile data after onboarding
+                                        // Force refresh profile data after editing
                                         fetchUserData(forceRefresh: true);
                                       },
                                     ),
@@ -1339,6 +1339,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   Future<void> _performLogout() async {
     try {
       // Clear ALL static caches to prevent data leakage between users
+      // Do this BEFORE signing out so we still have user context if needed
       try {
         TeacherProfileScreen.clearCache();
         TeacherCoursesScreen.clearCache();
@@ -1348,12 +1349,20 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         CacheService().clearAllOnLogout();
       } catch (cacheError) {
         debugPrint('Cache clearing error: $cacheError');
+        // Continue with logout even if cache clearing fails
       }
 
-      await FirebaseAuth.instance.signOut();
+      // Sign out from Firebase
+      try {
+        await FirebaseAuth.instance.signOut();
+      } catch (signOutError) {
+        debugPrint('Sign out error: $signOutError');
+        // Continue to navigate away even if signout throws
+      }
 
       if (!mounted) return;
 
+      // Navigate to sign in screen and remove all previous routes
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const SigninScreen()),
