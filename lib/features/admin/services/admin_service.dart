@@ -529,13 +529,18 @@ class AdminService {
     }
   }
 
-  /// Report content
+  /// Report content - Writes to moderation queue first (user can write to moderation),
+  /// then updates the content path separately
   Future<bool> reportContent({
     required String contentId,
     required String contentType, // 'qa', 'review', 'course_review', 'course'
     required String reason,
     required String reportedBy,
     String? parentId, // courseId for qa/course_review, teacherId for review
+    String? reporterRole, // 'student' or 'teacher'
+    String? contentText, // The actual text content being reported
+    String? contentAuthorId, // The ID of the user who created the content
+    String? contentAuthorName, // Name of the content author
   }) async {
     try {
       String path;
@@ -552,25 +557,33 @@ class AdminService {
         path = 'courses/$contentId';
       }
 
-      await _db.child(path).update({
-        'isReported': true,
-        'flagged': true,
-        'reportedBy': reportedBy,
-        'reportReason': reason,
-        'reportedAt': ServerValue.timestamp,
-      });
-      
-      // Also add to moderation queue for admin review
+      // First, add to moderation queue (user has write access to moderation)
       await _db.child('moderation').push().set({
         'contentId': contentId,
         'contentType': contentType,
-        'contentPath': path, // Store the full path for easy moderation
+        'contentPath': path,
         'parentId': parentId,
         'reason': reason,
         'reportedBy': reportedBy,
+        'reporterRole': reporterRole ?? 'unknown',
+        'contentText': contentText,
+        'contentAuthorId': contentAuthorId,
+        'contentAuthorName': contentAuthorName,
         'reportedAt': ServerValue.timestamp,
         'status': 'pending',
       });
+
+      // Try to update the content directly (may fail if user doesn't have permission)
+      // But the report is already in the moderation queue for admin review
+      try {
+        await _db.child(path).update({
+          'isReported': true,
+          'flagged': true,
+        });
+      } catch (e) {
+        // It's okay if this fails - the moderation entry is what matters
+        debugPrint('Could not update content flags (expected): $e');
+      }
       
       return true;
     } catch (e) {

@@ -89,7 +89,17 @@
     },
     "moderation": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
-      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      ".write": "auth != null",
+      "$reportId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null"
+      }
+    },
+    "userPreferences": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
+      }
     },
     "bookmarks": {
       ".read": "auth != null",
