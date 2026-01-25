@@ -1,5 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show Uint8List;
+import 'package:flutter/foundation.dart' show Uint8List, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:eduverse/utils/app_theme.dart';
@@ -304,6 +304,56 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
     }
   }
 
+  void _showDiscardConfirmation(bool isDark) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.getCardColor(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: isDark ? AppTheme.darkWarning : AppTheme.warning,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Discard Changes?',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'All unsaved changes will be lost. Are you sure you want to leave?',
+          style: TextStyle(color: AppTheme.getTextSecondary(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx);
+              Navigator.pop(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Discard'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSuccessDialog() {
     final isDark = AppTheme.isDarkMode(context);
 
@@ -410,7 +460,7 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
                         Icons.close,
                         color: AppTheme.getTextPrimary(context),
                       ),
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: () => _showDiscardConfirmation(isDark),
                     )
                   : null),
         title: Text(
@@ -423,7 +473,7 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
         actions: [
           if (!widget.isFirstTime)
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => _showDiscardConfirmation(isDark),
               child: Text(
                 'Skip',
                 style: TextStyle(color: AppTheme.getTextSecondary(context)),
@@ -1355,6 +1405,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   Uint8List? _credentialImageBytes;
   String? _uploadedCredentialUrl;
   bool _isUploading = false;
+  bool _isPickingImage = false;
 
   @override
   void dispose() {
@@ -1364,10 +1415,16 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   }
 
   Future<void> _pickAndUploadImage() async {
-    if (_isUploading) return;
+    if (_isUploading || _isPickingImage) return;
+    
+    setState(() => _isPickingImage = true);
     
     try {
       final picker = ImagePicker();
+      
+      // Use a slight delay to let the dialog settle before opening picker
+      await Future.delayed(const Duration(milliseconds: 100));
+      
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1200,
@@ -1375,8 +1432,14 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         imageQuality: 85,
       );
       
-      if (picked != null && mounted) {
+      if (!mounted) return;
+      
+      setState(() => _isPickingImage = false);
+      
+      if (picked != null) {
         final bytes = await picked.readAsBytes();
+        if (!mounted) return;
+        
         setState(() {
           _credentialImageBytes = bytes;
           _isUploading = true;
@@ -1401,7 +1464,11 @@ class _CredentialDialogState extends State<_CredentialDialog> {
       }
     } catch (e) {
       if (mounted) {
-        setState(() => _isUploading = false);
+        setState(() {
+          _isPickingImage = false;
+          _isUploading = false;
+        });
+        debugPrint('Image picker error: $e');
       }
     }
   }

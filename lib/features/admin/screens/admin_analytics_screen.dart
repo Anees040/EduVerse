@@ -306,25 +306,34 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 35,
-              interval: data.length > 8 ? 2 : 1,
+              reservedSize: 40,
+              interval: 1,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index >= 0 && index < data.length) {
+                  // Only show every nth label to avoid overlap
+                  final showLabel = data.length <= 6 || index % 2 == 0 || index == data.length - 1;
+                  if (!showLabel) return const SizedBox();
+                  
                   final dateStr = data[index]['date']?.toString() ?? '';
                   try {
                     if (dateStr.isNotEmpty) {
                       final date = DateTime.parse(dateStr);
+                      final monthName = DateFormat('MMM').format(date);
+                      final year = date.year.toString().substring(2); // '26' from '2026'
                       return Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: Text(
-                          DateFormat('MMM').format(date),
-                          style: TextStyle(
-                            color: isDark
-                                ? AppTheme.darkTextTertiary
-                                : AppTheme.textSecondary,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w500,
+                        child: RotatedBox(
+                          quarterTurns: 0,
+                          child: Text(
+                            "$monthName '$year",
+                            style: TextStyle(
+                              color: isDark
+                                  ? AppTheme.darkTextTertiary
+                                  : AppTheme.textSecondary,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       );

@@ -382,27 +382,37 @@ class _DashboardHomeTab extends StatelessWidget {
         final screenWidth = constraints.maxWidth;
         int crossAxisCount;
         double childAspectRatio;
+        double spacing;
 
+        // More responsive breakpoints with better aspect ratios
         if (screenWidth >= 1200) {
           crossAxisCount = 4;
-          childAspectRatio = 1.8;
-        } else if (screenWidth >= 800) {
+          childAspectRatio = 1.6;
+          spacing = 16;
+        } else if (screenWidth >= 900) {
+          crossAxisCount = 4;
+          childAspectRatio = 1.3;
+          spacing = 12;
+        } else if (screenWidth >= 600) {
           crossAxisCount = 2;
-          childAspectRatio = 2.2;
+          childAspectRatio = 1.8;
+          spacing = 16;
         } else if (screenWidth >= 400) {
           crossAxisCount = 2;
-          childAspectRatio = 1.5;
+          childAspectRatio = 1.4;
+          spacing = 12;
         } else {
           crossAxisCount = 1;
-          childAspectRatio = 2.5;
+          childAspectRatio = 2.8;
+          spacing = 12;
         }
 
         return GridView.count(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: crossAxisCount,
-          crossAxisSpacing: 12,
-          mainAxisSpacing: 12,
+          crossAxisSpacing: spacing,
+          mainAxisSpacing: spacing,
           childAspectRatio: childAspectRatio,
           children: [
             KPICard(
@@ -411,6 +421,10 @@ class _DashboardHomeTab extends StatelessWidget {
               icon: Icons.people_rounded,
               iconColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
               isLoading: isLoading,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(1);
+              },
             ),
             KPICard(
               title: 'Total Teachers',
@@ -419,6 +433,10 @@ class _DashboardHomeTab extends StatelessWidget {
               icon: Icons.school_rounded,
               iconColor: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
               isLoading: isLoading,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(2);
+              },
             ),
             KPICard(
               title: 'Total Courses',
@@ -426,6 +444,10 @@ class _DashboardHomeTab extends StatelessWidget {
               icon: Icons.menu_book_rounded,
               iconColor: isDark ? AppTheme.darkWarning : AppTheme.warning,
               isLoading: isLoading,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(5);
+              },
             ),
             KPICard(
               title: 'Total Revenue',
@@ -435,6 +457,10 @@ class _DashboardHomeTab extends StatelessWidget {
               icon: Icons.attach_money_rounded,
               iconColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
               isLoading: isLoading,
+              onTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(4);
+              },
             ),
           ],
         );
@@ -456,11 +482,10 @@ class _DashboardHomeTab extends StatelessWidget {
           label: 'Verify Teachers',
           color: isDark ? AppTheme.darkSuccess : AppTheme.success,
           onTap: () {
-            // Find the parent state and navigate to Users tab with teacher filter
+            // Navigate to Verification tab (index 2)
             final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
-              dashboardState.navigateToTab(1);
-              provider.setRoleFilter('teacher');
+              dashboardState.navigateToTab(2);
             }
           },
         ),
@@ -472,10 +497,10 @@ class _DashboardHomeTab extends StatelessWidget {
               ? '${provider.state.reportedContent.length}' 
               : null,
           onTap: () {
-            // Navigate to moderation tab
+            // Navigate to Moderation tab (index 3)
             final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
-              dashboardState.navigateToTab(2);
+              dashboardState.navigateToTab(3);
             }
           },
         ),
@@ -484,10 +509,10 @@ class _DashboardHomeTab extends StatelessWidget {
           label: 'Export Data',
           color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
           onTap: () {
-            // Navigate to data tab
+            // Navigate to Data tab (index 5)
             final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
-              dashboardState.navigateToTab(4);
+              dashboardState.navigateToTab(5);
             }
           },
         ),
@@ -496,7 +521,7 @@ class _DashboardHomeTab extends StatelessWidget {
           label: 'View Analytics',
           color: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
           onTap: () {
-            // Navigate to analytics tab
+            // Navigate to Analytics tab (index 4)
             final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(3);
