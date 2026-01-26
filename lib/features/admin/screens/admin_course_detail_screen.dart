@@ -3,10 +3,13 @@ import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/models/course_model.dart';
+<<<<<<< HEAD
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/teacher_public_profile_widget.dart';
 import 'package:eduverse/services/notification_service.dart';
 import 'package:flutter/services.dart';
+=======
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
 
 /// Admin Course Detail Screen - Video-level moderation
 /// Features: View all videos, moderate individual videos, audit logging
@@ -16,17 +19,27 @@ class AdminCourseDetailScreen extends StatefulWidget {
   const AdminCourseDetailScreen({super.key, required this.course});
 
   @override
+<<<<<<< HEAD
   State<AdminCourseDetailScreen> createState() =>
       _AdminCourseDetailScreenState();
+=======
+  State<AdminCourseDetailScreen> createState() => _AdminCourseDetailScreenState();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
 }
 
 class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     with SingleTickerProviderStateMixin {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
+<<<<<<< HEAD
   final NotificationService _notificationService = NotificationService();
 
   late TabController _tabController;
 
+=======
+  
+  late TabController _tabController;
+  
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
   String? _teacherName;
   List<Map<String, dynamic>> _videos = [];
   List<Map<String, dynamic>> _reviews = [];
@@ -51,11 +64,16 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
     try {
       // Load teacher name
+<<<<<<< HEAD
       final teacherSnapshot = await _db
           .child('teacher')
           .child(widget.course.teacherUid)
           .child('name')
           .get();
+=======
+      final teacherSnapshot = await _db.child('teacher')
+          .child(widget.course.teacherUid).child('name').get();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (teacherSnapshot.exists) {
         _teacherName = teacherSnapshot.value.toString();
       }
@@ -77,6 +95,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   }
 
   Future<void> _loadVideos() async {
+<<<<<<< HEAD
     final videosSnapshot = await _db
         .child('courses')
         .child(widget.course.courseUid)
@@ -87,6 +106,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       final data = videosSnapshot.value;
       final videos = <Map<String, dynamic>>[];
 
+=======
+    final videosSnapshot = await _db.child('courses')
+        .child(widget.course.courseUid).child('videos').get();
+    
+    if (videosSnapshot.exists && videosSnapshot.value != null) {
+      final data = videosSnapshot.value;
+      final videos = <Map<String, dynamic>>[];
+      
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (data is Map) {
         for (var entry in data.entries) {
           videos.add({
@@ -104,15 +132,23 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           }
         }
       }
+<<<<<<< HEAD
 
       // Sort by order if available
       videos.sort((a, b) => (a['order'] ?? 0).compareTo(b['order'] ?? 0));
 
+=======
+      
+      // Sort by order if available
+      videos.sort((a, b) => (a['order'] ?? 0).compareTo(b['order'] ?? 0));
+      
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       setState(() => _videos = videos);
     }
   }
 
   Future<void> _loadReviews() async {
+<<<<<<< HEAD
     final reviewsSnapshot = await _db
         .child('courses')
         .child(widget.course.courseUid)
@@ -199,6 +235,52 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         });
       }
 
+=======
+    final reviewsSnapshot = await _db.child('courses')
+        .child(widget.course.courseUid).child('reviews').get();
+    
+    if (reviewsSnapshot.exists && reviewsSnapshot.value != null) {
+      final data = reviewsSnapshot.value as Map;
+      final reviews = <Map<String, dynamic>>[];
+      
+      for (var entry in data.entries) {
+        reviews.add({
+          'id': entry.key.toString(),
+          ...Map<String, dynamic>.from(entry.value as Map),
+        });
+      }
+      
+      // Sort by date descending
+      reviews.sort((a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0));
+      
+      setState(() => _reviews = reviews);
+    }
+  }
+
+  Future<void> _loadEnrolledStudents() async {
+    final enrolledSnapshot = await _db.child('courses')
+        .child(widget.course.courseUid).child('enrolledStudents').get();
+    
+    if (enrolledSnapshot.exists && enrolledSnapshot.value != null) {
+      final data = enrolledSnapshot.value as Map;
+      final students = <Map<String, dynamic>>[];
+      
+      for (var entry in data.entries) {
+        final studentId = entry.key.toString();
+        final enrollmentData = entry.value;
+        
+        // Load student name
+        final studentSnapshot = await _db.child('student')
+            .child(studentId).child('name').get();
+        
+        students.add({
+          'id': studentId,
+          'name': studentSnapshot.exists ? studentSnapshot.value.toString() : 'Unknown',
+          'enrolledAt': enrollmentData is Map ? enrollmentData['enrolledAt'] : null,
+        });
+      }
+      
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       setState(() => _enrolledStudents = students);
     }
   }
@@ -220,6 +302,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     delegate: _SliverTabBarDelegate(
                       TabBar(
                         controller: _tabController,
+<<<<<<< HEAD
                         labelColor: isDark
                             ? AppTheme.darkAccent
                             : AppTheme.primaryColor,
@@ -229,6 +312,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                         indicatorColor: isDark
                             ? AppTheme.darkAccent
                             : AppTheme.primaryColor,
+=======
+                        labelColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                        unselectedLabelColor: AppTheme.getTextSecondary(context),
+                        indicatorColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                         tabs: const [
                           Tab(text: 'Overview'),
                           Tab(text: 'Videos'),
@@ -277,7 +365,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
+<<<<<<< HEAD
                   colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+=======
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withOpacity(0.7),
+                  ],
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 ),
               ),
             ),
@@ -294,9 +389,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               child: Row(
                 children: [
                   Icon(
+<<<<<<< HEAD
                     widget.course.isPublished
                         ? Icons.visibility_off
                         : Icons.visibility,
+=======
+                    widget.course.isPublished ? Icons.visibility_off : Icons.visibility,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -347,15 +446,23 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ),
           ),
           const SizedBox(height: 8),
+<<<<<<< HEAD
 
+=======
+          
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
           // Teacher and Category
           Row(
             children: [
               CircleAvatar(
                 radius: 16,
+<<<<<<< HEAD
                 backgroundColor: isDark
                     ? AppTheme.darkAccent
                     : AppTheme.primaryColor,
+=======
+                backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 child: Text(
                   (_teacherName ?? 'T')[0].toUpperCase(),
                   style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -371,6 +478,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
               const Spacer(),
               Container(
+<<<<<<< HEAD
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 4,
@@ -378,6 +486,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 decoration: BoxDecoration(
                   color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
                       .withOpacity(0.1),
+=======
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -392,6 +505,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ],
           ),
           const SizedBox(height: 16),
+<<<<<<< HEAD
 
           // Stats Row
           Row(
@@ -408,6 +522,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 'Videos',
                 isDark,
               ),
+=======
+          
+          // Stats Row
+          Row(
+            children: [
+              _buildStatItem(Icons.people, '${widget.course.enrolledCount}', 'Students', isDark),
+              _buildStatItem(Icons.video_library, '${_videos.length}', 'Videos', isDark),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
               _buildStatItem(
                 Icons.star,
                 widget.course.averageRating?.toStringAsFixed(1) ?? '0.0',
@@ -417,9 +539,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
               _buildStatItem(
                 Icons.attach_money,
+<<<<<<< HEAD
                 widget.course.isFree
                     ? 'Free'
                     : '\$${widget.course.price.toStringAsFixed(0)}',
+=======
+                widget.course.isFree ? 'Free' : '\$${widget.course.price.toStringAsFixed(0)}',
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 widget.course.isFree ? '' : 'Price',
                 isDark,
                 iconColor: Colors.green,
@@ -427,15 +553,23 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ],
           ),
           const SizedBox(height: 12),
+<<<<<<< HEAD
 
+=======
+          
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
           // Status Badge
           Row(
             children: [
               Container(
+<<<<<<< HEAD
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
                 ),
+=======
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 decoration: BoxDecoration(
                   color: widget.course.isPublished
                       ? Colors.green.withOpacity(0.1)
@@ -451,6 +585,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
+<<<<<<< HEAD
                       widget.course.isPublished
                           ? Icons.check_circle
                           : Icons.pending,
@@ -458,14 +593,23 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       color: widget.course.isPublished
                           ? Colors.green
                           : Colors.orange,
+=======
+                      widget.course.isPublished ? Icons.check_circle : Icons.pending,
+                      size: 16,
+                      color: widget.course.isPublished ? Colors.green : Colors.orange,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                     ),
                     const SizedBox(width: 4),
                     Text(
                       widget.course.isPublished ? 'Published' : 'Draft',
                       style: TextStyle(
+<<<<<<< HEAD
                         color: widget.course.isPublished
                             ? Colors.green
                             : Colors.orange,
+=======
+                        color: widget.course.isPublished ? Colors.green : Colors.orange,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -475,10 +619,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
               const SizedBox(width: 8),
               Container(
+<<<<<<< HEAD
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 6,
                 ),
+=======
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
@@ -498,6 +646,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     );
   }
 
+<<<<<<< HEAD
   Widget _buildStatItem(
     IconData icon,
     String value,
@@ -505,17 +654,24 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     bool isDark, {
     Color? iconColor,
   }) {
+=======
+  Widget _buildStatItem(IconData icon, String value, String label, bool isDark, {Color? iconColor}) {
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     return Expanded(
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+<<<<<<< HEAD
               Icon(
                 icon,
                 size: 18,
                 color: iconColor ?? AppTheme.getTextSecondary(context),
               ),
+=======
+              Icon(icon, size: 18, color: iconColor ?? AppTheme.getTextSecondary(context)),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
               const SizedBox(width: 4),
               Text(
                 value,
@@ -543,9 +699,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   }
 
   Widget _buildOverviewTab(bool isDark) {
+<<<<<<< HEAD
     final createdDate = DateFormat(
       'MMM d, yyyy',
     ).format(DateTime.fromMillisecondsSinceEpoch(widget.course.createdAt));
+=======
+    final createdDate = DateFormat('MMM d, yyyy').format(
+      DateTime.fromMillisecondsSinceEpoch(widget.course.createdAt),
+    );
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     final updatedDate = widget.course.updatedAt != null
         ? DateFormat('MMM d, yyyy').format(
             DateTime.fromMillisecondsSinceEpoch(widget.course.updatedAt!),
@@ -568,7 +730,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ),
         ),
         const SizedBox(height: 16),
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         // Course Details
         _buildSection(
           title: 'Course Details',
@@ -580,18 +746,26 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               _buildDetailRow('Created', createdDate, isDark),
               if (updatedDate != null)
                 _buildDetailRow('Last Updated', updatedDate, isDark),
+<<<<<<< HEAD
               _buildDetailRow(
                 'Difficulty',
                 widget.course.difficultyDisplay,
                 isDark,
               ),
+=======
+              _buildDetailRow('Difficulty', widget.course.difficultyDisplay, isDark),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
               _buildDetailRow('Category', widget.course.category, isDark),
               _buildDetailRow('Price', widget.course.priceDisplay, isDark),
             ],
           ),
         ),
         const SizedBox(height: 16),
+<<<<<<< HEAD
 
+=======
+        
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         // Quick Actions
         _buildSection(
           title: 'Quick Actions',
@@ -609,19 +783,31 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               _buildActionChip(
                 'Contact Teacher',
                 Icons.email,
+<<<<<<< HEAD
                 () => _contactTeacher(),
+=======
+                () {},
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 isDark,
               ),
               _buildActionChip(
                 'View Reports',
                 Icons.flag,
+<<<<<<< HEAD
                 () => _viewCourseReports(),
+=======
+                () {},
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 isDark,
               ),
               _buildActionChip(
                 'View Analytics',
                 Icons.analytics,
+<<<<<<< HEAD
                 () => _viewCourseAnalytics(),
+=======
+                () {},
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 isDark,
               ),
             ],
@@ -645,7 +831,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 16),
             Text(
               'No videos in this course',
+<<<<<<< HEAD
               style: TextStyle(color: AppTheme.getTextSecondary(context)),
+=======
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+              ),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             ),
           ],
         ),
@@ -664,6 +856,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   Widget _buildVideoCard(Map<String, dynamic> video, int number, bool isDark) {
     final isHidden = video['isHidden'] == true;
+<<<<<<< HEAD
     // Handle duration as int or string
     int durationSeconds = 0;
     final rawDuration = video['duration'];
@@ -675,6 +868,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       durationSeconds = rawDuration.toInt();
     }
     final durationStr = _formatDuration(durationSeconds);
+=======
+    final duration = video['duration'] ?? 0;
+    final durationStr = Duration(seconds: duration).toString().split('.')[0];
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -696,8 +893,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
+<<<<<<< HEAD
                 color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
                     .withOpacity(0.1),
+=======
+                color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
@@ -711,7 +912,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
             ),
             const SizedBox(width: 12),
+<<<<<<< HEAD
 
+=======
+            
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             // Video Info
             Expanded(
               child: Column(
@@ -727,18 +932,26 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                                 ? AppTheme.getTextSecondary(context)
                                 : AppTheme.getTextPrimary(context),
                             fontWeight: FontWeight.w600,
+<<<<<<< HEAD
                             decoration: isHidden
                                 ? TextDecoration.lineThrough
                                 : null,
+=======
+                            decoration: isHidden ? TextDecoration.lineThrough : null,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                           ),
                         ),
                       ),
                       if (isHidden)
                         Container(
+<<<<<<< HEAD
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
                           ),
+=======
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                           decoration: BoxDecoration(
                             color: Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -773,10 +986,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       if (video['isFree'] == true) ...[
                         const SizedBox(width: 12),
                         Container(
+<<<<<<< HEAD
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
                           ),
+=======
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                           decoration: BoxDecoration(
                             color: Colors.green.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -796,6 +1013,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 ],
               ),
             ),
+<<<<<<< HEAD
 
             // Actions
             PopupMenuButton<String>(
@@ -809,10 +1027,20 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                   value: 'preview',
                   child: Text('Preview Video'),
                 ),
+=======
+            
+            // Actions
+            PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: AppTheme.getTextSecondary(context)),
+              onSelected: (action) => _handleVideoAction(video, action),
+              itemBuilder: (context) => [
+                const PopupMenuItem(value: 'preview', child: Text('Preview Video')),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 PopupMenuItem(
                   value: isHidden ? 'show' : 'hide',
                   child: Text(isHidden ? 'Show Video' : 'Hide Video'),
                 ),
+<<<<<<< HEAD
                 const PopupMenuItem(value: 'flag', child: Text('Flag Video')),
                 const PopupMenuItem(
                   value: 'delete',
@@ -820,6 +1048,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     'Delete Video',
                     style: TextStyle(color: Colors.red),
                   ),
+=======
+                const PopupMenuItem(
+                  value: 'flag',
+                  child: Text('Flag Video'),
+                ),
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Text('Delete Video', style: TextStyle(color: Colors.red)),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                 ),
               ],
             ),
@@ -843,7 +1080,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 16),
             Text(
               'No reviews yet',
+<<<<<<< HEAD
               style: TextStyle(color: AppTheme.getTextSecondary(context)),
+=======
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+              ),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             ),
           ],
         ),
@@ -885,9 +1128,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               children: [
                 CircleAvatar(
                   radius: 18,
+<<<<<<< HEAD
                   backgroundColor: isDark
                       ? AppTheme.darkAccent
                       : AppTheme.primaryColor,
+=======
+                  backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                   child: Text(
                     (review['studentName'] ?? 'U')[0].toUpperCase(),
                     style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -907,6 +1154,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       ),
                       Row(
                         children: [
+<<<<<<< HEAD
                           ...List.generate(
                             5,
                             (i) => Icon(
@@ -915,14 +1163,25 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                               color: Colors.amber,
                             ),
                           ),
+=======
+                          ...List.generate(5, (i) => Icon(
+                            i < rating ? Icons.star : Icons.star_border,
+                            size: 14,
+                            color: Colors.amber,
+                          )),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                           const SizedBox(width: 8),
                           Text(
                             createdAt != null
                                 ? DateFormat('MMM d, y').format(
+<<<<<<< HEAD
                                     DateTime.fromMillisecondsSinceEpoch(
                                       createdAt,
                                     ),
                                   )
+=======
+                                    DateTime.fromMillisecondsSinceEpoch(createdAt))
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                                 : '',
                             style: TextStyle(
                               color: AppTheme.getTextSecondary(context),
@@ -936,10 +1195,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 ),
                 if (isHidden)
                   Container(
+<<<<<<< HEAD
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
                       vertical: 2,
                     ),
+=======
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
@@ -954,11 +1217,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     ),
                   ),
                 PopupMenuButton<String>(
+<<<<<<< HEAD
                   icon: Icon(
                     Icons.more_vert,
                     color: AppTheme.getTextSecondary(context),
                     size: 20,
                   ),
+=======
+                  icon: Icon(Icons.more_vert, color: AppTheme.getTextSecondary(context), size: 20),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                   onSelected: (action) => _handleReviewAction(review, action),
                   itemBuilder: (context) => [
                     PopupMenuItem(
@@ -967,10 +1234,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     ),
                     const PopupMenuItem(
                       value: 'delete',
+<<<<<<< HEAD
                       child: Text(
                         'Delete Review',
                         style: TextStyle(color: Colors.red),
                       ),
+=======
+                      child: Text('Delete Review', style: TextStyle(color: Colors.red)),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
                     ),
                   ],
                 ),
@@ -1007,7 +1278,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 16),
             Text(
               'No students enrolled',
+<<<<<<< HEAD
               style: TextStyle(color: AppTheme.getTextSecondary(context)),
+=======
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+              ),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             ),
           ],
         ),
@@ -1030,7 +1307,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: isDark ? AppTheme.darkCard : Colors.white,
+<<<<<<< HEAD
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+=======
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
@@ -1125,12 +1408,16 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     );
   }
 
+<<<<<<< HEAD
   Widget _buildActionChip(
     String label,
     IconData icon,
     VoidCallback onTap,
     bool isDark,
   ) {
+=======
+  Widget _buildActionChip(String label, IconData icon, VoidCallback onTap, bool isDark) {
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     return ActionChip(
       avatar: Icon(icon, size: 18),
       label: Text(label),
@@ -1160,6 +1447,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   Future<void> _togglePublish() async {
     final newStatus = !widget.course.isPublished;
+<<<<<<< HEAD
 
     await _db.child('courses').child(widget.course.courseUid).update({
       'isPublished': newStatus,
@@ -1190,6 +1478,22 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         SnackBar(
           content: Text('Course ${newStatus ? 'published' : 'unpublished'}'),
         ),
+=======
+    
+    await _db.child('courses').child(widget.course.courseUid).update({
+      'isPublished': newStatus,
+    });
+    await _db.child('teacher').child(widget.course.teacherUid)
+        .child('courses').child(widget.course.courseUid).update({
+      'isPublished': newStatus,
+    });
+    
+    await _logAction(newStatus ? 'publish_course' : 'unpublish_course');
+    
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Course ${newStatus ? 'published' : 'unpublished'}')),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       );
       Navigator.pop(context);
     }
@@ -1218,6 +1522,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ],
       ),
     );
+<<<<<<< HEAD
 
     if (confirm == true) {
       // Store course info for notification before deletion
@@ -1243,6 +1548,16 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
       await _logAction('delete_course');
 
+=======
+    
+    if (confirm == true) {
+      await _db.child('courses').child(widget.course.courseUid).remove();
+      await _db.child('teacher').child(widget.course.teacherUid)
+          .child('courses').child(widget.course.courseUid).remove();
+      
+      await _logAction('delete_course');
+      
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (mounted) {
         Navigator.pop(context);
       }
@@ -1251,6 +1566,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   void _handleVideoAction(Map<String, dynamic> video, String action) async {
     final videoId = video['id'];
+<<<<<<< HEAD
 
     switch (action) {
       case 'preview':
@@ -1262,10 +1578,17 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SnackBar(content: Text('Video URL not available')),
           );
         }
+=======
+    
+    switch (action) {
+      case 'preview':
+        // Open video player
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         break;
       case 'hide':
       case 'show':
         final isHidden = action == 'hide';
+<<<<<<< HEAD
         await _db
             .child('courses')
             .child(widget.course.courseUid)
@@ -1292,6 +1615,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         break;
       case 'flag':
         _showFlagVideoDialog(video);
+=======
+        await _db.child('courses').child(widget.course.courseUid)
+            .child('videos').child(videoId).update({'isHidden': isHidden});
+        await _logAction(isHidden ? 'hide_video' : 'show_video', videoId);
+        _loadVideos();
+        break;
+      case 'flag':
+        // Flag video
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         break;
       case 'delete':
         final confirm = await showDialog<bool>(
@@ -1300,10 +1632,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             title: const Text('Delete Video'),
             content: const Text('Are you sure? This cannot be undone.'),
             actions: [
+<<<<<<< HEAD
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancel'),
               ),
+=======
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1313,6 +1649,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ),
         );
         if (confirm == true) {
+<<<<<<< HEAD
           // Store video info for notification before deletion
           final videoTitle = video['title'] ?? 'A video';
 
@@ -1332,6 +1669,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               .child('videos')
               .child(videoId)
               .remove();
+=======
+          await _db.child('courses').child(widget.course.courseUid)
+              .child('videos').child(videoId).remove();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
           await _logAction('delete_video', videoId);
           _loadVideos();
         }
@@ -1341,17 +1682,26 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   void _handleReviewAction(Map<String, dynamic> review, String action) async {
     final reviewId = review['id'];
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     switch (action) {
       case 'hide':
       case 'show':
         final isHidden = action == 'hide';
+<<<<<<< HEAD
         await _db
             .child('courses')
             .child(widget.course.courseUid)
             .child('reviews')
             .child(reviewId)
             .update({'isHidden': isHidden});
+=======
+        await _db.child('courses').child(widget.course.courseUid)
+            .child('reviews').child(reviewId).update({'isHidden': isHidden});
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         await _logAction(isHidden ? 'hide_review' : 'show_review', reviewId);
         _loadReviews();
         break;
@@ -1362,10 +1712,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             title: const Text('Delete Review'),
             content: const Text('Are you sure? This cannot be undone.'),
             actions: [
+<<<<<<< HEAD
               TextButton(
                 onPressed: () => Navigator.pop(context, false),
                 child: const Text('Cancel'),
               ),
+=======
+              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1375,12 +1729,17 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ),
         );
         if (confirm == true) {
+<<<<<<< HEAD
           await _db
               .child('courses')
               .child(widget.course.courseUid)
               .child('reviews')
               .child(reviewId)
               .remove();
+=======
+          await _db.child('courses').child(widget.course.courseUid)
+              .child('reviews').child(reviewId).remove();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
           await _logAction('delete_review', reviewId);
           _loadReviews();
         }
@@ -1395,10 +1754,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         title: const Text('Remove Student'),
         content: Text('Remove ${student['name']} from this course?'),
         actions: [
+<<<<<<< HEAD
           TextButton(
             onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel'),
           ),
+=======
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1407,6 +1770,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ],
       ),
     );
+<<<<<<< HEAD
 
     if (confirm == true) {
       await _db
@@ -1421,11 +1785,20 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           .child('enrolledCourses')
           .child(widget.course.courseUid)
           .remove();
+=======
+    
+    if (confirm == true) {
+      await _db.child('courses').child(widget.course.courseUid)
+          .child('enrolledStudents').child(student['id']).remove();
+      await _db.child('student').child(student['id'])
+          .child('enrolledCourses').child(widget.course.courseUid).remove();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       await _logAction('remove_student', student['id']);
       _loadEnrolledStudents();
     }
   }
 
+<<<<<<< HEAD
   void _showVideoPreviewDialog(Map<String, dynamic> video) {
     final videoUrl = video['url'] ?? video['videoUrl'] ?? '';
     final videoTitle = video['title'] ?? 'Video Preview';
@@ -2148,6 +2521,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     } else {
       return '${secs}s';
     }
+=======
+  void _viewTeacherProfile() {
+    // Navigate to teacher profile
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
   }
 
   Future<void> _logAction(String action, [String? targetId]) async {
@@ -2172,11 +2549,15 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
+<<<<<<< HEAD
   Widget build(
     BuildContext context,
     double shrinkOffset,
     bool overlapsContent,
   ) {
+=======
+  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     return Container(
       color: isDark ? AppTheme.darkSurface : Colors.white,
       child: tabBar,

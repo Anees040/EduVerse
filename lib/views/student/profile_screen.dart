@@ -355,6 +355,7 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _showEditProfileDialog() async {
     // Fetch current user data to pre-populate the edit form
+<<<<<<< HEAD
     final userData = await UserService().getUser(
       uid: widget.uid,
       role: widget.role,
@@ -362,6 +363,12 @@ class _ProfileScreenState extends State<ProfileScreen>
 
     if (!mounted) return;
 
+=======
+    final userData = await UserService().getUser(uid: widget.uid, role: widget.role);
+    
+    if (!mounted) return;
+    
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     // Navigate to comprehensive edit profile screen
     final result = await Navigator.push<bool>(
       context,
