@@ -12,6 +12,7 @@ import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/views/signin_screen.dart';
 import 'package:eduverse/views/student/courses_screen.dart';
 import 'package:eduverse/views/student/home_tab.dart';
+import 'package:eduverse/views/student/student_edit_profile_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 
@@ -310,119 +311,35 @@ class _ProfileScreenState extends State<ProfileScreen>
     }
   }
 
-  void _showEditProfileDialog() {
-    _nameController.text = userName;
-    final isDark = AppTheme.isDarkMode(context);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.getCardColor(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(
-              Icons.edit,
-              color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Edit Profile',
-              style: TextStyle(color: AppTheme.getTextPrimary(context)),
-            ),
-          ],
+  void _showEditProfileDialog() async {
+    // Fetch current user data to pre-populate the edit form
+    final userData = await UserService().getUser(uid: widget.uid, role: widget.role);
+    
+    if (!mounted) return;
+    
+    // Navigate to comprehensive edit profile screen
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (context) => StudentEditProfileScreen(
+          uid: widget.uid,
+          currentName: userName,
+          currentPhotoUrl: userData?['photoUrl'],
+          currentHeadline: userData?['headline'],
+          currentBio: userData?['bio'],
+          currentInterests: userData?['interests'] != null
+              ? List<String>.from(userData!['interests'] as List)
+              : null,
+          currentLinkedIn: userData?['linkedIn'],
+          currentGitHub: userData?['gitHub'],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              style: TextStyle(color: AppTheme.getTextPrimary(context)),
-              decoration: InputDecoration(
-                labelText: 'Full Name',
-                labelStyle: TextStyle(
-                  color: AppTheme.getTextSecondary(context),
-                ),
-                prefixIcon: Icon(
-                  Icons.person_outline,
-                  color: AppTheme.getTextSecondary(context),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.getBorderColor(context),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: isDark
-                        ? AppTheme.darkPrimaryLight
-                        : AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppTheme.getTextSecondary(context)),
-            ),
-          ),
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              boxShadow: [
-                BoxShadow(
-                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                      .withOpacity(0.4),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
-            ),
-            child: ElevatedButton(
-              onPressed: () async {
-                try {
-                  await UserService().updateUserName(
-                    uid: widget.uid,
-                    role: widget.role,
-                    name: _nameController.text.trim(),
-                  );
-                  Navigator.pop(ctx);
-                  fetchUserData();
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Profile updated successfully!'),
-                      backgroundColor: AppTheme.success,
-                    ),
-                  );
-                } catch (e) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to update profile: $e')),
-                  );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isDark
-                    ? AppTheme.darkAccent
-                    : AppTheme.primaryColor,
-                foregroundColor: const Color(0xFFF0F8FF),
-              ),
-              child: const Text('Save'),
-            ),
-          ),
-        ],
       ),
     );
+
+    // Refresh profile if updated
+    if (result == true) {
+      fetchUserData(forceRefresh: true);
+    }
   }
 
   void _showChangePasswordDialog() {

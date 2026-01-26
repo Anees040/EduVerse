@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/cache_service.dart';
+import 'package:eduverse/services/payment_service.dart';
 import 'package:eduverse/features/admin/services/admin_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/course_card.dart';
@@ -1863,15 +1864,16 @@ class _CoursesScreenState extends State<CoursesScreen>
     );
   }
 
-  void _processPayment(Map<String, dynamic> course, double amount) {
+  void _processPayment(Map<String, dynamic> course, double amount) async {
     final isDark = AppTheme.isDarkMode(context);
+    final paymentService = PaymentService();
 
     // Show processing dialog
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (ctx) => WillPopScope(
-        onWillPop: () async => false,
+      builder: (ctx) => PopScope(
+        canPop: false,
         child: AlertDialog(
           backgroundColor: AppTheme.getCardColor(context),
           shape: RoundedRectangleBorder(
@@ -1914,14 +1916,47 @@ class _CoursesScreenState extends State<CoursesScreen>
       ),
     );
 
-    // Simulate payment processing
-    Future.delayed(const Duration(seconds: 2), () {
+    // Process payment through PaymentService
+    try {
+      // Get student name - just use a simple name for now
+      const studentName = 'Student';
+
+      final result = await paymentService.processCoursePayment(
+        studentUid: _studentUid,
+        studentName: studentName,
+        courseId: course['courseUid'],
+        courseName: course['title'] ?? 'Course',
+        teacherUid: course['teacherUid'] ?? '',
+        teacherName: course['teacherName'] ?? 'Instructor',
+        coursePrice: amount,
+      );
+
+      if (!mounted) return;
       Navigator.pop(context); // Close processing dialog
-      _showPaymentSuccessDialog(course, amount);
-    });
+
+      if (result.success) {
+        _showPaymentSuccessDialog(course, amount, result);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Payment failed: ${result.error}'),
+            backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      Navigator.pop(context); // Close processing dialog
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Payment error: $e'),
+          backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+        ),
+      );
+    }
   }
 
-  void _showPaymentSuccessDialog(Map<String, dynamic> course, double amount) {
+  void _showPaymentSuccessDialog(Map<String, dynamic> course, double amount, PaymentResult paymentResult) {
     final isDark = AppTheme.isDarkMode(context);
 
     showDialog(

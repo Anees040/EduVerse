@@ -4,6 +4,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import '../providers/admin_provider.dart';
+import 'package:eduverse/services/payment_service.dart';
 
 /// Admin Analytics Screen - Platform analytics with charts
 class AdminAnalyticsScreen extends StatefulWidget {
@@ -14,6 +15,15 @@ class AdminAnalyticsScreen extends StatefulWidget {
 }
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
+  // Time filter for user growth chart
+  String _userGrowthFilter = '12months'; // all, year, 12months, 6months, 30days, 7days
+  
+  // Revenue chart data
+  final PaymentService _paymentService = PaymentService();
+  RevenueStats? _revenueStats;
+  bool _isLoadingRevenue = true;
+  String _revenueFilter = 'all'; // all, year, month, week
+
   @override
   void initState() {
     super.initState();
@@ -23,7 +33,25 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       if (provider.state.userGrowthData.isEmpty) {
         provider.loadAnalyticsData();
       }
+      _loadRevenueData();
     });
+  }
+
+  Future<void> _loadRevenueData() async {
+    setState(() => _isLoadingRevenue = true);
+    try {
+      final stats = await _paymentService.getPlatformRevenueStats(filter: _revenueFilter);
+      if (mounted) {
+        setState(() {
+          _revenueStats = stats;
+          _isLoadingRevenue = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingRevenue = false);
+      }
+    }
   }
 
   @override
@@ -35,7 +63,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     return Consumer<AdminProvider>(
       builder: (context, provider, child) {
         return RefreshIndicator(
-          onRefresh: () => provider.loadAnalyticsData(),
+          onRefresh: () async {
+            await provider.loadAnalyticsData();
+            await _loadRevenueData();
+          },
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(20),
@@ -71,16 +102,18 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     children: [
                       Expanded(child: _buildUserGrowthChart(provider, isDark)),
                       const SizedBox(width: 20),
-                      Expanded(
-                        child: _buildRevenueSplitChart(provider, isDark),
-                      ),
+                      Expanded(child: _buildRevenueChart(isDark)),
                     ],
                   )
                 else ...[
                   _buildUserGrowthChart(provider, isDark),
                   const SizedBox(height: 20),
-                  _buildRevenueSplitChart(provider, isDark),
+                  _buildRevenueChart(isDark),
                 ],
+                const SizedBox(height: 20),
+                
+                // User type split chart
+                _buildRevenueSplitChart(provider, isDark),
               ],
             ),
           ),
@@ -90,8 +123,11 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   }
 
   Widget _buildUserGrowthChart(AdminProvider provider, bool isDark) {
-    final data = provider.state.userGrowthData;
-    final isLoading = data.isEmpty;
+    final allData = provider.state.userGrowthData;
+    final isLoading = allData.isEmpty;
+    
+    // Filter data based on selected time range
+    final data = _filterUserGrowthData(allData);
 
     // Calculate stats for display
     int totalUsers = 0;
@@ -160,7 +196,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                       Row(
                         children: [
                           Text(
-                            '$totalUsers total signups',
+                            '$totalUsers signups',
                             style: TextStyle(
                               color: isDark
                                   ? AppTheme.darkTextSecondary
@@ -224,17 +260,36 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
-          Text(
-            'New signups over the last 12 months',
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-              fontSize: 13,
+          const SizedBox(height: 12),
+          
+          // Time filter chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildTimeFilterChip('All Time', 'all', _userGrowthFilter, (v) {
+                  setState(() => _userGrowthFilter = v);
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('12 Months', '12months', _userGrowthFilter, (v) {
+                  setState(() => _userGrowthFilter = v);
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('6 Months', '6months', _userGrowthFilter, (v) {
+                  setState(() => _userGrowthFilter = v);
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('30 Days', '30days', _userGrowthFilter, (v) {
+                  setState(() => _userGrowthFilter = v);
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('7 Days', '7days', _userGrowthFilter, (v) {
+                  setState(() => _userGrowthFilter = v);
+                }, isDark),
+              ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           SizedBox(
             height: 250,
             child: isLoading
@@ -307,43 +362,52 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             sideTitles: SideTitles(
               showTitles: true,
               reservedSize: 40,
-              interval: 1,
+              // Calculate smart interval based on data length
+              interval: data.length > 12 ? (data.length / 6).ceilToDouble() : 
+                        data.length > 6 ? 2 : 1,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
-                if (index >= 0 && index < data.length) {
-                  // Only show every nth label to avoid overlap
-                  final showLabel = data.length <= 6 || index % 2 == 0 || index == data.length - 1;
-                  if (!showLabel) return const SizedBox();
-                  
-                  final dateStr = data[index]['date']?.toString() ?? '';
-                  try {
-                    if (dateStr.isNotEmpty) {
-                      final date = DateTime.parse(dateStr);
-                      final monthName = DateFormat('MMM').format(date);
-                      final year = date.year.toString().substring(2); // '26' from '2026'
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 8),
-                        child: RotatedBox(
-                          quarterTurns: 0,
-                          child: Text(
-                            "$monthName '$year",
-                            style: TextStyle(
-                              color: isDark
-                                  ? AppTheme.darkTextTertiary
-                                  : AppTheme.textSecondary,
-                              fontSize: 10,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      );
+                if (index < 0 || index >= data.length) return const SizedBox();
+                
+                // Smart label spacing - show first, last, and evenly spaced labels
+                final interval = data.length > 12 ? (data.length / 6).ceil() : 
+                                 data.length > 6 ? 2 : 1;
+                final showLabel = index == 0 || 
+                                  index == data.length - 1 || 
+                                  index % interval == 0;
+                if (!showLabel) return const SizedBox();
+                
+                final dateStr = data[index]['date']?.toString() ?? '';
+                try {
+                  if (dateStr.isNotEmpty) {
+                    final date = DateTime.parse(dateStr);
+                    String label;
+                    
+                    // Format based on filter
+                    if (_userGrowthFilter == '7days' || _userGrowthFilter == '30days') {
+                      label = DateFormat('MMM d').format(date);
+                    } else {
+                      label = DateFormat("MMM ''yy").format(date);
                     }
-                    return const Text('');
-                  } catch (_) {
-                    return const Text('');
+                    
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(
+                        label,
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextTertiary
+                              : AppTheme.textSecondary,
+                          fontSize: 9,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    );
                   }
+                  return const SizedBox();
+                } catch (_) {
+                  return const SizedBox();
                 }
-                return const Text('');
               },
             ),
           ),
@@ -724,6 +788,325 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Filter user growth data based on selected time range
+  List<Map<String, dynamic>> _filterUserGrowthData(List<Map<String, dynamic>> data) {
+    if (data.isEmpty || _userGrowthFilter == 'all') return data;
+    
+    final now = DateTime.now();
+    int monthsToShow;
+    
+    switch (_userGrowthFilter) {
+      case '12months':
+        monthsToShow = 12;
+        break;
+      case '6months':
+        monthsToShow = 6;
+        break;
+      case '30days':
+        monthsToShow = 1;
+        break;
+      case '7days':
+        monthsToShow = 1;
+        break;
+      default:
+        return data;
+    }
+    
+    final cutoffDate = DateTime(now.year, now.month - monthsToShow, 1);
+    
+    return data.where((item) {
+      final dateStr = item['date']?.toString() ?? '';
+      if (dateStr.isEmpty) return false;
+      try {
+        final date = DateTime.parse(dateStr);
+        return date.isAfter(cutoffDate);
+      } catch (_) {
+        return false;
+      }
+    }).toList();
+  }
+
+  /// Build time filter chip
+  Widget _buildTimeFilterChip(
+    String label,
+    String value,
+    String currentValue,
+    Function(String) onSelected,
+    bool isDark,
+  ) {
+    final isSelected = value == currentValue;
+    
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Build revenue chart with filters
+  Widget _buildRevenueChart(bool isDark) {
+    // Get revenue data from payment service
+    final totalRevenue = _revenueStats?.totalRevenue ?? 0.0;
+    final dataPoints = _revenueStats?.dataPoints ?? [];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: (isDark ? Colors.black : Colors.grey).withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: const Icon(
+                  Icons.attach_money_rounded,
+                  color: Colors.green,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Platform Revenue',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Row(
+                      children: [
+                        Text(
+                          '\$${totalRevenue.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                            color: Colors.green,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          '20% commission',
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkTextSecondary
+                                : AppTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _isLoadingRevenue ? null : _loadRevenueData,
+                icon: Icon(
+                  Icons.refresh_rounded,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  size: 20,
+                ),
+                tooltip: 'Refresh data',
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          // Time filter chips
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                _buildTimeFilterChip('All Time', 'all', _revenueFilter, (v) {
+                  setState(() => _revenueFilter = v);
+                  _loadRevenueData();
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('This Year', 'year', _revenueFilter, (v) {
+                  setState(() => _revenueFilter = v);
+                  _loadRevenueData();
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('This Month', 'month', _revenueFilter, (v) {
+                  setState(() => _revenueFilter = v);
+                  _loadRevenueData();
+                }, isDark),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('This Week', 'week', _revenueFilter, (v) {
+                  setState(() => _revenueFilter = v);
+                  _loadRevenueData();
+                }, isDark),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          
+          // Chart
+          SizedBox(
+            height: 200,
+            child: _isLoadingRevenue
+                ? _buildLoadingChart(isDark)
+                : _buildRevenueBarChartFromStats(dataPoints, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRevenueBarChartFromStats(List<RevenueDataPoint> data, bool isDark) {
+    if (data.isEmpty) return _buildNoDataState(isDark);
+    
+    final maxRevenue = data.fold<double>(
+      1.0,
+      (max, item) => item.amount > max ? item.amount : max,
+    ) * 1.2;
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxRevenue,
+        barTouchData: BarTouchData(
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (group) => isDark ? AppTheme.darkCard : Colors.white,
+            tooltipPadding: const EdgeInsets.all(8),
+            tooltipMargin: 8,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              return BarTooltipItem(
+                '\$${rod.toY.toStringAsFixed(2)}',
+                const TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 50,
+              interval: maxRevenue > 4 ? maxRevenue / 4 : 1,
+              getTitlesWidget: (value, meta) {
+                if (value == meta.max || value == meta.min) return const SizedBox();
+                return Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: Text(
+                    '\$${value.toInt()}',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                      fontSize: 10,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 30,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index >= 0 && index < data.length) {
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(
+                      data[index].label,
+                      style: TextStyle(
+                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                        fontSize: 10,
+                      ),
+                    ),
+                  );
+                }
+                return const SizedBox();
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            strokeWidth: 1,
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: List.generate(data.length, (index) {
+          final revenue = data[index].amount;
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: revenue,
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    Colors.green.shade400,
+                    Colors.green.shade600,
+                  ],
+                ),
+                width: 20,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+              ),
+            ],
+          );
+        }),
       ),
     );
   }

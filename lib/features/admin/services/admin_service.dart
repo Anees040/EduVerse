@@ -529,7 +529,7 @@ class AdminService {
     }
   }
 
-  /// Report content - Writes to moderation queue first (user can write to moderation),
+  /// Report content - Writes to content_reports (users can write here),
   /// then updates the content path separately
   Future<bool> reportContent({
     required String contentId,
@@ -557,15 +557,30 @@ class AdminService {
         path = 'courses/$contentId';
       }
 
-      // First, add to moderation queue (user has write access to moderation)
-      await _db.child('moderation').push().set({
+      // Determine reporter role if not provided
+      String role = reporterRole ?? 'unknown';
+      if (role == 'unknown') {
+        // Try to determine role from database
+        final studentSnapshot = await _db.child('student/$reportedBy').get();
+        if (studentSnapshot.exists) {
+          role = 'student';
+        } else {
+          final teacherSnapshot = await _db.child('teacher/$reportedBy').get();
+          if (teacherSnapshot.exists) {
+            role = 'teacher';
+          }
+        }
+      }
+
+      // First, add to content_reports (users have write access here)
+      await _db.child('content_reports').push().set({
         'contentId': contentId,
         'contentType': contentType,
         'contentPath': path,
         'parentId': parentId,
         'reason': reason,
         'reportedBy': reportedBy,
-        'reporterRole': reporterRole ?? 'unknown',
+        'reporterRole': role,
         'contentText': contentText,
         'contentAuthorId': contentAuthorId,
         'contentAuthorName': contentAuthorName,
@@ -573,15 +588,35 @@ class AdminService {
         'status': 'pending',
       });
 
+      // Also add to moderation queue for backward compatibility
+      try {
+        await _db.child('moderation').push().set({
+          'contentId': contentId,
+          'contentType': contentType,
+          'contentPath': path,
+          'parentId': parentId,
+          'reason': reason,
+          'reportedBy': reportedBy,
+          'reporterRole': role,
+          'contentText': contentText,
+          'contentAuthorId': contentAuthorId,
+          'contentAuthorName': contentAuthorName,
+          'reportedAt': ServerValue.timestamp,
+          'status': 'pending',
+        });
+      } catch (e) {
+        // It's okay if moderation fails - content_reports is the primary
+        debugPrint('Moderation queue write failed (fallback): $e');
+      }
+
       // Try to update the content directly (may fail if user doesn't have permission)
-      // But the report is already in the moderation queue for admin review
       try {
         await _db.child(path).update({
           'isReported': true,
           'flagged': true,
         });
       } catch (e) {
-        // It's okay if this fails - the moderation entry is what matters
+        // It's okay if this fails - the report is what matters
         debugPrint('Could not update content flags (expected): $e');
       }
       
