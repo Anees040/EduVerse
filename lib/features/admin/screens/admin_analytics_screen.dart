@@ -110,6 +110,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   const SizedBox(height: 20),
                   _buildRevenueChart(isDark),
                 ],
+                const SizedBox(height: 20),
+                
+                // User type split chart
+                _buildRevenueSplitChart(provider, isDark),
               ],
             ),
           ),
@@ -535,6 +539,205 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       ),
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
+    );
+  }
+
+  Widget _buildRevenueSplitChart(AdminProvider provider, bool isDark) {
+    final data = provider.state.revenueData;
+    final isLoading = data.isEmpty;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: (isDark ? AppTheme.darkSuccess : AppTheme.success)
+                      .withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  Icons.bar_chart_rounded,
+                  color: isDark ? AppTheme.darkSuccess : AppTheme.success,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Monthly Revenue',
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Revenue trends over the past months',
+            style: TextStyle(
+              color: isDark
+                  ? AppTheme.darkTextSecondary
+                  : AppTheme.textSecondary,
+              fontSize: 13,
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 250,
+            child: isLoading
+                ? _buildLoadingChart(isDark)
+                : _buildRevenueBarChart(data, isDark),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRevenueBarChart(List<Map<String, dynamic>> data, bool isDark) {
+    if (data.isEmpty) {
+      return _buildNoDataState(isDark);
+    }
+
+    final maxRevenue = data.fold<double>(0, (max, item) {
+      final revenue = (item['revenue'] ?? 0).toDouble();
+      return revenue > max ? revenue : max;
+    });
+
+    final currencyFormat = NumberFormat.compactCurrency(symbol: '\$');
+
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxRevenue * 1.2,
+        minY: 0,
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) =>
+                isDark ? AppTheme.darkElevated : Colors.white,
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final month = data[group.x.toInt()]['month'] as String;
+              return BarTooltipItem(
+                '${currencyFormat.format(rod.toY)}\n$month',
+                TextStyle(
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              );
+            },
+          ),
+        ),
+        titlesData: FlTitlesData(
+          show: true,
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                final index = value.toInt();
+                if (index >= 0 && index < data.length) {
+                  final month = data[index]['month'] as String;
+                  // Show only month abbreviation
+                  final parts = month.split('-');
+                  if (parts.length >= 2) {
+                    final monthNum = int.tryParse(parts[1]) ?? 1;
+                    const monthNames = [
+                      'J',
+                      'F',
+                      'M',
+                      'A',
+                      'M',
+                      'J',
+                      'J',
+                      'A',
+                      'S',
+                      'O',
+                      'N',
+                      'D',
+                    ];
+                    return Text(
+                      monthNames[monthNum - 1],
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextTertiary
+                            : AppTheme.textSecondary,
+                        fontSize: 10,
+                      ),
+                    );
+                  }
+                }
+                return const SizedBox();
+              },
+              reservedSize: 20,
+            ),
+          ),
+          leftTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              reservedSize: 50,
+              getTitlesWidget: (value, meta) {
+                return Text(
+                  currencyFormat.format(value),
+                  style: TextStyle(
+                    color: isDark
+                        ? AppTheme.darkTextTertiary
+                        : AppTheme.textSecondary,
+                    fontSize: 10,
+                  ),
+                );
+              },
+            ),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            strokeWidth: 1,
+          ),
+        ),
+        borderData: FlBorderData(show: false),
+        barGroups: List.generate(data.length, (index) {
+          final revenue = (data[index]['revenue'] ?? 0).toDouble();
+          return BarChartGroupData(
+            x: index,
+            barRods: [
+              BarChartRodData(
+                toY: revenue,
+                color: isDark ? AppTheme.darkSuccess : AppTheme.success,
+                width: 20,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
+              ),
+            ],
+          );
+        }),
+      ),
     );
   }
 

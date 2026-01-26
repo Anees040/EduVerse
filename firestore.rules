@@ -13,48 +13,23 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    // Helper function to check if user is admin
-    function isAdmin() {
-      return isSignedIn() && 
-        exists(/databases/$(database)/documents/admin/$(request.auth.uid)) &&
-        get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'admin';
-    }
-    
     // Student collection
     match /student/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && isOwner(userId);
     }
     
     // Teacher collection
     match /teacher/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
-    }
-    
-    // Admin collection
-    match /admin/{userId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow read: if isSignedIn() && isOwner(userId);
+      allow write: if isSignedIn() && isOwner(userId);
     }
     
     // Courses collection
     match /courses/{courseId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.teacherId == request.auth.uid || isAdmin());
-      
-      // Nested videos collection
-      match /videos/{videoId} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn();
-      }
-      
-      // Nested reviews collection
-      match /reviews/{reviewId} {
-        allow read: if isSignedIn();
-        allow write: if isSignedIn();
-      }
+      allow create: if isSignedIn() && exists(/databases/$(database)/documents/teacher/$(request.auth.uid));
+      allow update, delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
     }
     
     // Bookmarks collection
@@ -65,59 +40,11 @@ service cloud.firestore {
     // Chat history collection
     match /chat_history/{userId} {
       allow read, write: if isSignedIn() && isOwner(userId);
-      
-      match /{document=**} {
-        allow read, write: if isSignedIn() && isOwner(userId);
-      }
     }
     
     // Notifications collection
     match /notifications/{userId} {
-      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
-      
-      match /{notificationId} {
-        allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
-      }
-    }
-    
-    // Support tickets - Users can create/read own, admin full access
-    match /support_tickets/{ticketId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
-    }
-    
-    // Content reports - Anyone authenticated can create
-    match /content_reports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-    
-    // Flagged content - Anyone authenticated can flag, admin can manage
-    match /flagged_content/{itemId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-    
-    // Flags - Anyone authenticated can create flags
-    match /flags/{flagId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-    
-    // Payments - Users can create own payments
-    match /payments/{paymentId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin();
-    }
-    
-    // Revenue tracking
-    match /revenue/{transactionId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow read, write: if isSignedIn() && isOwner(userId);
     }
     
     // Verification codes (temporary storage)
@@ -126,7 +53,7 @@ service cloud.firestore {
       allow write: if true; // Anyone can write for email verification
     }
     
-    // Default deny all other paths
+    // Default deny all
     match /{document=**} {
       allow read, write: if false;
     }

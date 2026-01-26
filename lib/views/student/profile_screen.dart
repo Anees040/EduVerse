@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -48,9 +46,6 @@ class _ProfileScreenState extends State<ProfileScreen>
   String userName = "...";
   String userRole = "student";
   String email = "...";
-  String? photoUrl;
-  String? bio;
-  List<String> interests = [];
   int? enrolledCourses;
   int? joinedDate;
   int completedCourses = 0;
@@ -77,11 +72,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         ProfileScreen.cachedProfileData != null) {
       userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
       email = ProfileScreen.cachedProfileData!['email'] ?? "...";
-      photoUrl = ProfileScreen.cachedProfileData!['photoUrl'];
-      bio = ProfileScreen.cachedProfileData!['bio'];
-      interests = List<String>.from(
-        ProfileScreen.cachedProfileData!['interests'] ?? [],
-      );
       userRole = widget.role;
       joinedDate = ProfileScreen.cachedProfileData!['joinedDate'];
       enrolledCourses = ProfileScreen.cachedProfileData!['enrolledCourses'];
@@ -115,11 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   Future<void> fetchUserData({bool forceRefresh = false}) async {
     if (!mounted) return;
 
-    // Safety check - user might be logged out
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) return;
-
-    final uid = currentUser.uid;
+    final uid = FirebaseAuth.instance.currentUser!.uid;
     final cacheKey = 'profile_data_$uid';
 
     // Use static cache if available and not forcing refresh
@@ -132,11 +118,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
           email = ProfileScreen.cachedProfileData!['email'] ?? "...";
-          photoUrl = ProfileScreen.cachedProfileData!['photoUrl'];
-          bio = ProfileScreen.cachedProfileData!['bio'];
-          interests = List<String>.from(
-            ProfileScreen.cachedProfileData!['interests'] ?? [],
-          );
           userRole = widget.role;
           joinedDate = ProfileScreen.cachedProfileData!['joinedDate'];
           enrolledCourses = ProfileScreen.cachedProfileData!['enrolledCourses'];
@@ -162,9 +143,6 @@ class _ProfileScreenState extends State<ProfileScreen>
           setState(() {
             userName = cachedData['userName'] ?? "...";
             email = cachedData['email'] ?? "...";
-            photoUrl = cachedData['photoUrl'];
-            bio = cachedData['bio'];
-            interests = List<String>.from(cachedData['interests'] ?? []);
             userRole = widget.role;
             joinedDate = cachedData['joinedDate'];
             enrolledCourses = cachedData['enrolledCourses'];
@@ -227,15 +205,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
         if (!mounted) return;
 
-        // Cache the data including photo URL, bio, and interests
+        // Cache the data
         final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
-          'photoUrl': userData['photoUrl'],
-          'bio': userData['bio'],
-          'interests': userData['interests'] is List
-              ? userData['interests']
-              : [],
           'joinedDate': userData['createdAt'],
           'enrolledCourses': enrolledCoursesList.length,
           'completedCourses': completed,
@@ -251,11 +224,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           userName = userData['name'] ?? "...";
           email = userData['email'] ?? "...";
-          photoUrl = userData['photoUrl'];
-          bio = userData['bio'];
-          interests = userData['interests'] is List
-              ? List<String>.from(userData['interests'])
-              : [];
           userRole = widget.role;
           joinedDate = userData['createdAt'];
           enrolledCourses = enrolledCoursesList.length;
@@ -270,8 +238,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         _isInitialLoading = false;
       });
 
-      // Check mounted again before showing snackbar (async gap in setState)
-      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Failed to load user data: $e")));
@@ -317,9 +283,6 @@ class _ProfileScreenState extends State<ProfileScreen>
       final profileData = {
         'userName': userData['name'],
         'email': userData['email'],
-        'photoUrl': userData['photoUrl'],
-        'bio': userData['bio'],
-        'interests': userData['interests'] is List ? userData['interests'] : [],
         'joinedDate': userData['createdAt'],
         'enrolledCourses': enrolledCoursesList.length,
         'completedCourses': completed,
@@ -337,11 +300,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           userName = userData['name'] ?? "...";
           email = userData['email'] ?? "...";
-          photoUrl = userData['photoUrl'];
-          bio = userData['bio'];
-          interests = userData['interests'] is List
-              ? List<String>.from(userData['interests'])
-              : [];
           joinedDate = userData['createdAt'];
           enrolledCourses = enrolledCoursesList.length;
           completedCourses = completed;
@@ -355,20 +313,10 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _showEditProfileDialog() async {
     // Fetch current user data to pre-populate the edit form
-<<<<<<< HEAD
-    final userData = await UserService().getUser(
-      uid: widget.uid,
-      role: widget.role,
-    );
-
-    if (!mounted) return;
-
-=======
     final userData = await UserService().getUser(uid: widget.uid, role: widget.role);
     
     if (!mounted) return;
     
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     // Navigate to comprehensive edit profile screen
     final result = await Navigator.push<bool>(
       context,
@@ -861,7 +809,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
               child: Column(
                 children: [
-                  // Avatar with photo support
+                  // Avatar
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -871,19 +819,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white.withOpacity(0.2),
-                      backgroundImage: _getProfileImage(),
-                      child: (photoUrl == null || photoUrl!.isEmpty)
-                          ? Text(
-                              userName.isNotEmpty
-                                  ? userName[0].toUpperCase()
-                                  : "?",
-                              style: const TextStyle(
-                                fontSize: 40,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                            )
-                          : null,
+                      child: Text(
+                        userName.isNotEmpty ? userName[0].toUpperCase() : "?",
+                        style: const TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -956,124 +899,6 @@ class _ProfileScreenState extends State<ProfileScreen>
                 ],
               ),
             ),
-
-            // Bio Section (if available)
-            if (bio != null && bio!.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                decoration: AppTheme.getCardDecoration(context),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.info_outline,
-                          color: isDark
-                              ? AppTheme.darkPrimaryLight
-                              : AppTheme.primaryColor,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'About Me',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.getTextPrimary(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      bio!,
-                      style: TextStyle(
-                        color: AppTheme.getTextSecondary(context),
-                        height: 1.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-
-            // Interests Section (if available)
-            if (interests.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity,
-                decoration: AppTheme.getCardDecoration(context),
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.interests,
-                          color: isDark
-                              ? AppTheme.darkPrimaryLight
-                              : AppTheme.primaryColor,
-                          size: 20,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Interests',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.getTextPrimary(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: interests
-                          .map(
-                            (interest) => Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color:
-                                    (isDark
-                                            ? AppTheme.darkAccent
-                                            : AppTheme.primaryColor)
-                                        .withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(20),
-                                border: Border.all(
-                                  color:
-                                      (isDark
-                                              ? AppTheme.darkAccent
-                                              : AppTheme.primaryColor)
-                                          .withOpacity(0.3),
-                                ),
-                              ),
-                              child: Text(
-                                interest,
-                                style: TextStyle(
-                                  color: isDark
-                                      ? AppTheme.darkAccent
-                                      : AppTheme.primaryColor,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ],
-                ),
-              ),
-            ],
 
             const SizedBox(height: 20),
 
@@ -1239,26 +1064,6 @@ class _ProfileScreenState extends State<ProfileScreen>
         ),
       ),
     );
-  }
-
-  /// Helper to get profile image provider (supports base64 and network URLs)
-  ImageProvider? _getProfileImage() {
-    if (photoUrl == null || photoUrl!.isEmpty) return null;
-
-    try {
-      if (photoUrl!.startsWith('data:image')) {
-        // Base64 data URL
-        final base64Data = photoUrl!.split(',').last;
-        final bytes = base64Decode(base64Data);
-        return MemoryImage(Uint8List.fromList(bytes));
-      } else {
-        // Network URL
-        return NetworkImage(photoUrl!);
-      }
-    } catch (e) {
-      debugPrint('Error loading profile image: $e');
-      return null;
-    }
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
@@ -1488,15 +1293,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _performLogout() async {
-    // Store scaffold messenger reference BEFORE any async operations
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-
     try {
-      // Cancel auto-refresh timer FIRST to prevent callbacks during logout
-      _autoRefreshTimer?.cancel();
-      _autoRefreshTimer = null;
-
       // Clear all static caches to prevent data leakage between users
       // Do this BEFORE signing out so we still have user context if needed
       try {
@@ -1518,17 +1315,19 @@ class _ProfileScreenState extends State<ProfileScreen>
         // Continue to navigate away even if signout throws
       }
 
+      if (!mounted) return;
+
       // Navigate to sign in screen and remove all previous routes
-      // Use stored navigator reference to avoid context issues
-      navigator.pushAndRemoveUntil(
+      Navigator.pushAndRemoveUntil(
+        context,
         MaterialPageRoute(builder: (context) => const SigninScreen()),
         (route) => false,
       );
     } catch (e) {
-      // Use stored scaffold messenger reference
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text("Logout failed: $e")),
-      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
     }
   }
 
