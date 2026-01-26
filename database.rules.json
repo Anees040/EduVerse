@@ -1,8 +1,5 @@
 {
   "rules": {
-    // Helper: Check if user is an admin
-    // Usage: root.child('admin').child(auth.uid).child('role').val() === 'admin'
-    
     "admin": {
       ".read": "auth != null",
       "$uid": {
@@ -103,13 +100,11 @@
       }
     },
     
-    // Moderation node - Admin full access, authenticated users can write
     "moderation": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null"
     },
     
-    // Content reports - Anyone authenticated can report, admin can read all
     "content_reports": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -118,10 +113,16 @@
         ".write": "auth != null"
       }
     },
+    
     "user_reports": {
-      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
-      ".write": "auth != null"
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$reportId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
     },
+    
     "support_tickets": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -130,42 +131,53 @@
         ".write": "auth != null"
       }
     },
+    
     "admin_logs": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
     },
+    
     "payments": {
       ".read": "auth != null",
       ".write": "auth != null",
       "$paymentId": {
         ".read": "auth != null",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['userId', 'courseId', 'amount', 'timestamp']) && newData.child('userId').val() === auth.uid"
+        ".write": "auth != null"
       }
     },
+    
     "reports": {
-      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".read": "auth != null",
       ".write": "auth != null",
       "$reportId": {
-        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['reporterId', 'reason', 'targetId']) && newData.child('reporterId').val() === auth.uid"
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     },
+    
     "flags": {
-      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".read": "auth != null",
       ".write": "auth != null",
       "$flagId": {
-        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['reporterId', 'reason']) && newData.child('reporterId').val() === auth.uid"
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     },
+    
+    "flagged_content": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$itemId": {
+        ".read": "auth != null",
+        ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    
     "revenue": {
-      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".read": "auth != null",
       ".write": "auth != null",
       "$transactionId": {
-        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".read": "auth != null",
         ".write": "auth != null"
       }
     },

@@ -16,8 +16,9 @@ class AdminAnalyticsScreen extends StatefulWidget {
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   // Time filter for user growth chart
-  String _userGrowthFilter = '12months'; // all, year, 12months, 6months, 30days, 7days
-  
+  String _userGrowthFilter =
+      '12months'; // all, year, 12months, 6months, 30days, 7days
+
   // Revenue chart data
   final PaymentService _paymentService = PaymentService();
   RevenueStats? _revenueStats;
@@ -40,7 +41,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Future<void> _loadRevenueData() async {
     setState(() => _isLoadingRevenue = true);
     try {
-      final stats = await _paymentService.getPlatformRevenueStats(filter: _revenueFilter);
+      final stats = await _paymentService.getPlatformRevenueStats(
+        filter: _revenueFilter,
+      );
       if (mounted) {
         setState(() {
           _revenueStats = stats;
@@ -110,10 +113,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   const SizedBox(height: 20),
                   _buildRevenueChart(isDark),
                 ],
-                const SizedBox(height: 20),
-                
-                // User type split chart
-                _buildRevenueSplitChart(provider, isDark),
               ],
             ),
           ),
@@ -125,7 +124,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   Widget _buildUserGrowthChart(AdminProvider provider, bool isDark) {
     final allData = provider.state.userGrowthData;
     final isLoading = allData.isEmpty;
-    
+
     // Filter data based on selected time range
     final data = _filterUserGrowthData(allData);
 
@@ -133,7 +132,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     int totalUsers = 0;
     int growthPercent = 0;
     if (data.isNotEmpty) {
-      totalUsers = data.fold<int>(0, (sum, item) => sum + (item['count'] as int? ?? 0));
+      totalUsers = data.fold<int>(
+        0,
+        (sum, item) => sum + (item['count'] as int? ?? 0),
+      );
       if (data.length >= 2) {
         final recent = (data.last['count'] as int? ?? 0);
         final previous = (data[data.length - 2]['count'] as int? ?? 1);
@@ -207,12 +209,20 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                           if (growthPercent != 0) ...[
                             const SizedBox(width: 8),
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
-                                color: (growthPercent > 0
-                                        ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                                        : (isDark ? AppTheme.darkError : AppTheme.error))
-                                    .withOpacity(0.1),
+                                color:
+                                    (growthPercent > 0
+                                            ? (isDark
+                                                  ? AppTheme.darkSuccess
+                                                  : AppTheme.success)
+                                            : (isDark
+                                                  ? AppTheme.darkError
+                                                  : AppTheme.error))
+                                        .withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Row(
@@ -224,16 +234,24 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                                         : Icons.arrow_downward_rounded,
                                     size: 12,
                                     color: growthPercent > 0
-                                        ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                                        : (isDark ? AppTheme.darkError : AppTheme.error),
+                                        ? (isDark
+                                              ? AppTheme.darkSuccess
+                                              : AppTheme.success)
+                                        : (isDark
+                                              ? AppTheme.darkError
+                                              : AppTheme.error),
                                   ),
                                   const SizedBox(width: 2),
                                   Text(
                                     '${growthPercent.abs()}%',
                                     style: TextStyle(
                                       color: growthPercent > 0
-                                          ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                                          : (isDark ? AppTheme.darkError : AppTheme.error),
+                                          ? (isDark
+                                                ? AppTheme.darkSuccess
+                                                : AppTheme.success)
+                                          : (isDark
+                                                ? AppTheme.darkError
+                                                : AppTheme.error),
                                       fontSize: 11,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -250,10 +268,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               ),
               // Refresh button
               IconButton(
-                onPressed: isLoading ? null : () => provider.loadAnalyticsData(),
+                onPressed: isLoading
+                    ? null
+                    : () => provider.loadAnalyticsData(),
                 icon: Icon(
                   Icons.refresh_rounded,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                   size: 20,
                 ),
                 tooltip: 'Refresh data',
@@ -261,7 +283,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Time filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -271,15 +293,25 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   setState(() => _userGrowthFilter = v);
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('12 Months', '12months', _userGrowthFilter, (v) {
+                _buildTimeFilterChip(
+                  '12 Months',
+                  '12months',
+                  _userGrowthFilter,
+                  (v) {
+                    setState(() => _userGrowthFilter = v);
+                  },
+                  isDark,
+                ),
+                const SizedBox(width: 8),
+                _buildTimeFilterChip('6 Months', '6months', _userGrowthFilter, (
+                  v,
+                ) {
                   setState(() => _userGrowthFilter = v);
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('6 Months', '6months', _userGrowthFilter, (v) {
-                  setState(() => _userGrowthFilter = v);
-                }, isDark),
-                const SizedBox(width: 8),
-                _buildTimeFilterChip('30 Days', '30days', _userGrowthFilter, (v) {
+                _buildTimeFilterChip('30 Days', '30days', _userGrowthFilter, (
+                  v,
+                ) {
                   setState(() => _userGrowthFilter = v);
                 }, isDark),
                 const SizedBox(width: 8),
@@ -328,7 +360,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           horizontalInterval: maxY > 5 ? maxY / 5 : 1,
           getDrawingHorizontalLine: (value) {
             return FlLine(
-              color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200).withOpacity(0.5),
+              color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200)
+                  .withOpacity(0.5),
               strokeWidth: 1,
               dashArray: [5, 5],
             );
@@ -341,7 +374,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               reservedSize: 45,
               interval: maxY > 5 ? maxY / 5 : 1,
               getTitlesWidget: (value, meta) {
-                if (value == meta.max || value == meta.min) return const SizedBox();
+                if (value == meta.max || value == meta.min)
+                  return const SizedBox();
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
@@ -363,33 +397,41 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               showTitles: true,
               reservedSize: 40,
               // Calculate smart interval based on data length
-              interval: data.length > 12 ? (data.length / 6).ceilToDouble() : 
-                        data.length > 6 ? 2 : 1,
+              interval: data.length > 12
+                  ? (data.length / 6).ceilToDouble()
+                  : data.length > 6
+                  ? 2
+                  : 1,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index < 0 || index >= data.length) return const SizedBox();
-                
+
                 // Smart label spacing - show first, last, and evenly spaced labels
-                final interval = data.length > 12 ? (data.length / 6).ceil() : 
-                                 data.length > 6 ? 2 : 1;
-                final showLabel = index == 0 || 
-                                  index == data.length - 1 || 
-                                  index % interval == 0;
+                final interval = data.length > 12
+                    ? (data.length / 6).ceil()
+                    : data.length > 6
+                    ? 2
+                    : 1;
+                final showLabel =
+                    index == 0 ||
+                    index == data.length - 1 ||
+                    index % interval == 0;
                 if (!showLabel) return const SizedBox();
-                
+
                 final dateStr = data[index]['date']?.toString() ?? '';
                 try {
                   if (dateStr.isNotEmpty) {
                     final date = DateTime.parse(dateStr);
                     String label;
-                    
+
                     // Format based on filter
-                    if (_userGrowthFilter == '7days' || _userGrowthFilter == '30days') {
+                    if (_userGrowthFilter == '7days' ||
+                        _userGrowthFilter == '30days') {
                       label = DateFormat('MMM d').format(date);
                     } else {
                       label = DateFormat("MMM ''yy").format(date);
                     }
-                    
+
                     return Padding(
                       padding: const EdgeInsets.only(top: 8),
                       child: Text(
@@ -472,7 +514,10 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             maxContentWidth: 150,
             getTooltipColor: (_) =>
                 isDark ? AppTheme.darkElevated : Colors.white,
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            tooltipPadding: const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 8,
+            ),
             tooltipBorder: BorderSide(
               color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
             ),
@@ -492,7 +537,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 return LineTooltipItem(
                   '${spot.y.toInt()} new users\n',
                   TextStyle(
-                    color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                    color: isDark
+                        ? AppTheme.darkPrimary
+                        : AppTheme.primaryColor,
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
                   ),
@@ -526,7 +573,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   getDotPainter: (spot, percent, barData, index) {
                     return FlDotCirclePainter(
                       radius: 7,
-                      color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimary
+                          : AppTheme.primaryColor,
                       strokeWidth: 3,
                       strokeColor: isDark ? AppTheme.darkCard : Colors.white,
                     );
@@ -539,205 +588,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       ),
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
-    );
-  }
-
-  Widget _buildRevenueSplitChart(AdminProvider provider, bool isDark) {
-    final data = provider.state.revenueData;
-    final isLoading = data.isEmpty;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                      .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.bar_chart_rounded,
-                  color: isDark ? AppTheme.darkSuccess : AppTheme.success,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Monthly Revenue',
-                style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Revenue trends over the past months',
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 250,
-            child: isLoading
-                ? _buildLoadingChart(isDark)
-                : _buildRevenueBarChart(data, isDark),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRevenueBarChart(List<Map<String, dynamic>> data, bool isDark) {
-    if (data.isEmpty) {
-      return _buildNoDataState(isDark);
-    }
-
-    final maxRevenue = data.fold<double>(0, (max, item) {
-      final revenue = (item['revenue'] ?? 0).toDouble();
-      return revenue > max ? revenue : max;
-    });
-
-    final currencyFormat = NumberFormat.compactCurrency(symbol: '\$');
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxRevenue * 1.2,
-        minY: 0,
-        barTouchData: BarTouchData(
-          enabled: true,
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (_) =>
-                isDark ? AppTheme.darkElevated : Colors.white,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              final month = data[group.x.toInt()]['month'] as String;
-              return BarTooltipItem(
-                '${currencyFormat.format(rod.toY)}\n$month',
-                TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index >= 0 && index < data.length) {
-                  final month = data[index]['month'] as String;
-                  // Show only month abbreviation
-                  final parts = month.split('-');
-                  if (parts.length >= 2) {
-                    final monthNum = int.tryParse(parts[1]) ?? 1;
-                    const monthNames = [
-                      'J',
-                      'F',
-                      'M',
-                      'A',
-                      'M',
-                      'J',
-                      'J',
-                      'A',
-                      'S',
-                      'O',
-                      'N',
-                      'D',
-                    ];
-                    return Text(
-                      monthNames[monthNum - 1],
-                      style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextTertiary
-                            : AppTheme.textSecondary,
-                        fontSize: 10,
-                      ),
-                    );
-                  }
-                }
-                return const SizedBox();
-              },
-              reservedSize: 20,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 50,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  currencyFormat.format(value),
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextTertiary
-                        : AppTheme.textSecondary,
-                    fontSize: 10,
-                  ),
-                );
-              },
-            ),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-        ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-            strokeWidth: 1,
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        barGroups: List.generate(data.length, (index) {
-          final revenue = (data[index]['revenue'] ?? 0).toDouble();
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: revenue,
-                color: isDark ? AppTheme.darkSuccess : AppTheme.success,
-                width: 20,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(4),
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
     );
   }
 
@@ -793,12 +643,14 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   }
 
   /// Filter user growth data based on selected time range
-  List<Map<String, dynamic>> _filterUserGrowthData(List<Map<String, dynamic>> data) {
+  List<Map<String, dynamic>> _filterUserGrowthData(
+    List<Map<String, dynamic>> data,
+  ) {
     if (data.isEmpty || _userGrowthFilter == 'all') return data;
-    
+
     final now = DateTime.now();
     int monthsToShow;
-    
+
     switch (_userGrowthFilter) {
       case '12months':
         monthsToShow = 12;
@@ -815,9 +667,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       default:
         return data;
     }
-    
+
     final cutoffDate = DateTime(now.year, now.month - monthsToShow, 1);
-    
+
     return data.where((item) {
       final dateStr = item['date']?.toString() ?? '';
       if (dateStr.isEmpty) return false;
@@ -839,7 +691,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     bool isDark,
   ) {
     final isSelected = value == currentValue;
-    
+
     return GestureDetector(
       onTap: () => onSelected(value),
       child: Container(
@@ -860,7 +712,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           style: TextStyle(
             color: isSelected
                 ? Colors.white
-                : (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
+                : (isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary),
             fontSize: 12,
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
           ),
@@ -952,7 +806,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 onPressed: _isLoadingRevenue ? null : _loadRevenueData,
                 icon: Icon(
                   Icons.refresh_rounded,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                   size: 20,
                 ),
                 tooltip: 'Refresh data',
@@ -960,7 +816,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Time filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -976,7 +832,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   _loadRevenueData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('This Month', 'month', _revenueFilter, (v) {
+                _buildTimeFilterChip('This Month', 'month', _revenueFilter, (
+                  v,
+                ) {
                   setState(() => _revenueFilter = v);
                   _loadRevenueData();
                 }, isDark),
@@ -989,7 +847,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ),
           ),
           const SizedBox(height: 20),
-          
+
           // Chart
           SizedBox(
             height: 200,
@@ -1002,13 +860,18 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildRevenueBarChartFromStats(List<RevenueDataPoint> data, bool isDark) {
+  Widget _buildRevenueBarChartFromStats(
+    List<RevenueDataPoint> data,
+    bool isDark,
+  ) {
     if (data.isEmpty) return _buildNoDataState(isDark);
-    
-    final maxRevenue = data.fold<double>(
-      1.0,
-      (max, item) => item.amount > max ? item.amount : max,
-    ) * 1.2;
+
+    final maxRevenue =
+        data.fold<double>(
+          1.0,
+          (max, item) => item.amount > max ? item.amount : max,
+        ) *
+        1.2;
 
     return BarChart(
       BarChartData(
@@ -1016,7 +879,8 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
         maxY: maxRevenue,
         barTouchData: BarTouchData(
           touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => isDark ? AppTheme.darkCard : Colors.white,
+            getTooltipColor: (group) =>
+                isDark ? AppTheme.darkCard : Colors.white,
             tooltipPadding: const EdgeInsets.all(8),
             tooltipMargin: 8,
             getTooltipItem: (group, groupIndex, rod, rodIndex) {
@@ -1037,13 +901,16 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               reservedSize: 50,
               interval: maxRevenue > 4 ? maxRevenue / 4 : 1,
               getTitlesWidget: (value, meta) {
-                if (value == meta.max || value == meta.min) return const SizedBox();
+                if (value == meta.max || value == meta.min)
+                  return const SizedBox();
                 return Padding(
                   padding: const EdgeInsets.only(right: 8),
                   child: Text(
                     '\$${value.toInt()}',
                     style: TextStyle(
-                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                      color: isDark
+                          ? AppTheme.darkTextTertiary
+                          : AppTheme.textSecondary,
                       fontSize: 10,
                     ),
                   ),
@@ -1063,7 +930,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     child: Text(
                       data[index].label,
                       style: TextStyle(
-                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                        color: isDark
+                            ? AppTheme.darkTextTertiary
+                            : AppTheme.textSecondary,
                         fontSize: 10,
                       ),
                     ),
@@ -1073,8 +942,12 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
         ),
         gridData: FlGridData(
           show: true,
@@ -1096,13 +969,12 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.bottomCenter,
                   end: Alignment.topCenter,
-                  colors: [
-                    Colors.green.shade400,
-                    Colors.green.shade600,
-                  ],
+                  colors: [Colors.green.shade400, Colors.green.shade600],
                 ),
                 width: 20,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(6),
+                ),
               ),
             ],
           );

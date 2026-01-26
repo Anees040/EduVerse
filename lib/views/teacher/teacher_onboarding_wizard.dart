@@ -1007,15 +1007,26 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
       barrierDismissible: false,
       builder: (dialogContext) => _CredentialDialog(
         isDark: isDark,
-        onAdd: (title, issuer, imageUrl) {
-          setState(() {
-            _credentials.add({
-              'title': title,
-              'issuer': issuer,
-              'imageUrl': imageUrl,
-            });
-          });
-        },
+        onAdd:
+            (
+              title,
+              issuer,
+              imageUrl, {
+              String? description,
+              int? yearReceived,
+              String? category,
+            }) {
+              setState(() {
+                _credentials.add({
+                  'title': title,
+                  'issuer': issuer,
+                  'imageUrl': imageUrl,
+                  'description': description,
+                  'yearReceived': yearReceived,
+                  'category': category,
+                });
+              });
+            },
       ),
     );
   }
@@ -1388,58 +1399,83 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
 /// Separate StatefulWidget for Credential Dialog to handle image picker properly
 class _CredentialDialog extends StatefulWidget {
   final bool isDark;
-  final Function(String title, String issuer, String? imageUrl) onAdd;
+  final Function(
+    String title,
+    String issuer,
+    String? imageUrl, {
+    String? description,
+    int? yearReceived,
+    String? category,
+  })
+  onAdd;
 
-  const _CredentialDialog({
-    required this.isDark,
-    required this.onAdd,
-  });
+  const _CredentialDialog({required this.isDark, required this.onAdd});
 
   @override
   State<_CredentialDialog> createState() => _CredentialDialogState();
 }
 
 class _CredentialDialogState extends State<_CredentialDialog> {
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _issuerController = TextEditingController();
+  final _descriptionController = TextEditingController();
   Uint8List? _credentialImageBytes;
   String? _uploadedCredentialUrl;
   bool _isUploading = false;
   bool _isPickingImage = false;
+  int? _selectedYear;
+  String? _selectedCategory;
+
+  static const List<String> _categories = [
+    'Professional Certification',
+    'Academic Degree',
+    'Course Completion',
+    'Industry License',
+    'Award/Recognition',
+    'Training Certificate',
+    'Other',
+  ];
+
+  List<int> get _years {
+    final currentYear = DateTime.now().year;
+    return List.generate(50, (index) => currentYear - index);
+  }
 
   @override
   void dispose() {
     _titleController.dispose();
     _issuerController.dispose();
+    _descriptionController.dispose();
     super.dispose();
   }
 
   Future<void> _pickAndUploadImage() async {
     if (_isUploading || _isPickingImage) return;
-    
+
     setState(() => _isPickingImage = true);
-    
+
     try {
       final picker = ImagePicker();
-      
+
       // Use a slight delay to let the dialog settle before opening picker
       await Future.delayed(const Duration(milliseconds: 100));
-      
+
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1200,
         maxHeight: 1200,
         imageQuality: 85,
       );
-      
+
       if (!mounted) return;
-      
+
       setState(() => _isPickingImage = false);
-      
+
       if (picked != null) {
         final bytes = await picked.readAsBytes();
         if (!mounted) return;
-        
+
         setState(() {
           _credentialImageBytes = bytes;
           _isUploading = true;
@@ -1456,9 +1492,9 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         } catch (e) {
           if (mounted) {
             setState(() => _isUploading = false);
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Upload failed: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
           }
         }
       }
@@ -1473,147 +1509,568 @@ class _CredentialDialogState extends State<_CredentialDialog> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
+  void _showConfirmationDialog() {
     final isDark = widget.isDark;
-    
-    return AlertDialog(
-      backgroundColor: AppTheme.getCardColor(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-      title: Text(
-        'Add Credential',
-        style: TextStyle(color: AppTheme.getTextPrimary(context)),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.getCardColor(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
           children: [
-            TextField(
-              controller: _titleController,
-              decoration: InputDecoration(
-                hintText: 'Credential Title (e.g., AWS Certified)',
-                prefixIcon: Icon(
-                  Icons.badge,
-                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                ),
-                filled: true,
-                fillColor: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
+            Icon(
+              Icons.verified_outlined,
+              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _issuerController,
-              decoration: InputDecoration(
-                hintText: 'Issuing Organization (e.g., Amazon)',
-                prefixIcon: Icon(
-                  Icons.business,
-                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                ),
-                filled: true,
-                fillColor: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16),
+            const SizedBox(width: 8),
             Text(
-              'Certificate Image (Optional)',
+              'Confirm Credential',
               style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.getTextSecondary(context),
-              ),
-            ),
-            const SizedBox(height: 8),
-            GestureDetector(
-              onTap: _pickAndUploadImage,
-              child: Container(
-                width: double.infinity,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
-                  ),
-                ),
-                child: _credentialImageBytes != null
-                    ? Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(11),
-                            child: Image.memory(
-                              _credentialImageBytes!,
-                              width: double.infinity,
-                              height: 120,
-                              fit: BoxFit.cover,
-                            ),
-                          ),
-                          if (_isUploading)
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black54,
-                                borderRadius: BorderRadius.circular(11),
-                              ),
-                              child: const Center(
-                                child: CircularProgressIndicator(
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          if (_uploadedCredentialUrl != null)
-                            Positioned(
-                              right: 8,
-                              top: 8,
-                              child: Container(
-                                padding: const EdgeInsets.all(4),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.success,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const Icon(
-                                  Icons.check,
-                                  color: Colors.white,
-                                  size: 16,
-                                ),
-                              ),
-                            ),
-                        ],
-                      )
-                    : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate_outlined,
-                            size: 32,
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to add certificate image',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppTheme.getTextSecondary(context),
-                            ),
-                          ),
-                          Text(
-                            'Builds trust with students',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppTheme.getTextSecondary(context).withOpacity(0.7),
-                            ),
-                          ),
-                        ],
-                      ),
+                color: AppTheme.getTextPrimary(context),
+                fontSize: 18,
               ),
             ),
           ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildConfirmRow(
+              'Certificate',
+              _titleController.text.trim(),
+              isDark,
+            ),
+            if (_issuerController.text.isNotEmpty)
+              _buildConfirmRow(
+                'Issuing Authority',
+                _issuerController.text.trim(),
+                isDark,
+              ),
+            if (_selectedCategory != null)
+              _buildConfirmRow('Category', _selectedCategory!, isDark),
+            if (_selectedYear != null)
+              _buildConfirmRow(
+                'Year Received',
+                _selectedYear.toString(),
+                isDark,
+              ),
+            if (_descriptionController.text.isNotEmpty)
+              _buildConfirmRow(
+                'Description',
+                _descriptionController.text.trim(),
+                isDark,
+              ),
+            _buildConfirmRow(
+              'Image',
+              _uploadedCredentialUrl != null ? 'Attached ✓' : 'Not provided',
+              isDark,
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'Please verify this information is accurate.',
+              style: TextStyle(
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
+                color: AppTheme.getTextSecondary(context),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Edit',
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(ctx); // Close confirmation
+              widget.onAdd(
+                _titleController.text.trim(),
+                _issuerController.text.trim(),
+                _uploadedCredentialUrl,
+                description: _descriptionController.text.trim().isNotEmpty
+                    ? _descriptionController.text.trim()
+                    : null,
+                yearReceived: _selectedYear,
+                category: _selectedCategory,
+              );
+              Navigator.pop(context); // Close main dialog
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark
+                  ? AppTheme.darkAccent
+                  : AppTheme.primaryColor,
+            ),
+            child: const Text('Confirm & Add'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConfirmRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 100,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+                color: AppTheme.getTextSecondary(context),
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 13,
+                color: AppTheme.getTextPrimary(context),
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+
+    return AlertDialog(
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      title: Row(
+        children: [
+          Icon(
+            Icons.workspace_premium,
+            color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Add Credential',
+            style: TextStyle(color: AppTheme.getTextPrimary(context)),
+          ),
+        ],
+      ),
+      content: SizedBox(
+        width: MediaQuery.of(context).size.width * 0.8,
+        child: SingleChildScrollView(
+          child: Form(
+            key: _formKey,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Certificate Name (Required)
+                _buildFieldLabel('Certificate Name *', isDark),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _titleController,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Certificate name is required';
+                    }
+                    if (value.trim().length < 3) {
+                      return 'Name must be at least 3 characters';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'e.g., AWS Certified Solutions Architect',
+                    prefixIcon: Icon(
+                      Icons.badge,
+                      color: isDark
+                          ? AppTheme.darkAccent
+                          : AppTheme.primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        width: 2,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppTheme.error),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Issuing Authority (Required)
+                _buildFieldLabel('Issuing Authority *', isDark),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _issuerController,
+                  validator: (value) {
+                    if (value == null || value.trim().isEmpty) {
+                      return 'Issuing authority is required';
+                    }
+                    return null;
+                  },
+                  decoration: InputDecoration(
+                    hintText: 'e.g., Amazon Web Services',
+                    prefixIcon: Icon(
+                      Icons.business,
+                      color: isDark
+                          ? AppTheme.darkAccent
+                          : AppTheme.primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        width: 2,
+                      ),
+                    ),
+                    errorBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppTheme.error),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Category Dropdown
+                _buildFieldLabel('Category', isDark),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<String>(
+                  value: _selectedCategory,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(
+                      Icons.category_outlined,
+                      color: isDark
+                          ? AppTheme.darkAccent
+                          : AppTheme.primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                  dropdownColor: AppTheme.getCardColor(context),
+                  hint: Text(
+                    'Select category',
+                    style: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  ),
+                  items: _categories
+                      .map(
+                        (cat) => DropdownMenuItem(
+                          value: cat,
+                          child: Text(
+                            cat,
+                            style: TextStyle(
+                              color: AppTheme.getTextPrimary(context),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) =>
+                      setState(() => _selectedCategory = value),
+                ),
+                const SizedBox(height: 16),
+
+                // Year Received Dropdown
+                _buildFieldLabel('Year Received', isDark),
+                const SizedBox(height: 6),
+                DropdownButtonFormField<int>(
+                  value: _selectedYear,
+                  decoration: InputDecoration(
+                    prefixIcon: Icon(
+                      Icons.calendar_today,
+                      color: isDark
+                          ? AppTheme.darkAccent
+                          : AppTheme.primaryColor,
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                  dropdownColor: AppTheme.getCardColor(context),
+                  hint: Text(
+                    'Select year',
+                    style: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  ),
+                  items: _years
+                      .map(
+                        (year) => DropdownMenuItem(
+                          value: year,
+                          child: Text(
+                            year.toString(),
+                            style: TextStyle(
+                              color: AppTheme.getTextPrimary(context),
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) => setState(() => _selectedYear = value),
+                ),
+                const SizedBox(height: 16),
+
+                // Description (Optional)
+                _buildFieldLabel('Description (Optional)', isDark),
+                const SizedBox(height: 6),
+                TextFormField(
+                  controller: _descriptionController,
+                  maxLines: 3,
+                  maxLength: 200,
+                  decoration: InputDecoration(
+                    hintText: 'Brief description of the credential...',
+                    prefixIcon: Padding(
+                      padding: const EdgeInsets.only(bottom: 48),
+                      child: Icon(
+                        Icons.description_outlined,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                      ),
+                    ),
+                    filled: true,
+                    fillColor: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide.none,
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        width: 2,
+                      ),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 14,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Certificate Image
+                _buildFieldLabel('Certificate Image (Optional)', isDark),
+                const SizedBox(height: 6),
+                GestureDetector(
+                  onTap: _pickAndUploadImage,
+                  child: Container(
+                    width: double.infinity,
+                    height: 120,
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? AppTheme.darkElevated
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                    ),
+                    child: _credentialImageBytes != null
+                        ? Stack(
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.memory(
+                                  _credentialImageBytes!,
+                                  width: double.infinity,
+                                  height: 120,
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                              if (_isUploading)
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(11),
+                                  ),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              if (_uploadedCredentialUrl != null)
+                                Positioned(
+                                  right: 8,
+                                  top: 8,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.success,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.check,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              // Remove image button
+                              Positioned(
+                                left: 8,
+                                top: 8,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    setState(() {
+                                      _credentialImageBytes = null;
+                                      _uploadedCredentialUrl = null;
+                                    });
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: const Icon(
+                                      Icons.close,
+                                      color: Colors.white,
+                                      size: 16,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.add_photo_alternate_outlined,
+                                size: 32,
+                                color: AppTheme.getTextSecondary(context),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Tap to add certificate image',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.getTextSecondary(context),
+                                ),
+                              ),
+                              Text(
+                                'Builds trust with students',
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: AppTheme.getTextSecondary(
+                                    context,
+                                  ).withOpacity(0.7),
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       ),
       actions: [
@@ -1628,17 +2085,14 @@ class _CredentialDialogState extends State<_CredentialDialog> {
           onPressed: _isUploading
               ? null
               : () {
-                  if (_titleController.text.isNotEmpty) {
-                    widget.onAdd(
-                      _titleController.text.trim(),
-                      _issuerController.text.trim(),
-                      _uploadedCredentialUrl,
-                    );
-                    Navigator.pop(context);
+                  if (_formKey.currentState!.validate()) {
+                    _showConfirmationDialog();
                   }
                 },
           style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+            backgroundColor: isDark
+                ? AppTheme.darkAccent
+                : AppTheme.primaryColor,
           ),
           child: _isUploading
               ? const SizedBox(
@@ -1649,9 +2103,30 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                     color: Colors.white,
                   ),
                 )
-              : const Text('Add'),
+              : const Text('Continue'),
         ),
       ],
+    );
+  }
+
+  Widget _buildFieldLabel(String label, bool isDark) {
+    final isRequired = label.contains('*');
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.w600,
+          color: AppTheme.getTextPrimary(context),
+        ),
+        children: [
+          TextSpan(text: label.replaceAll(' *', '')),
+          if (isRequired)
+            TextSpan(
+              text: ' *',
+              style: TextStyle(color: AppTheme.error),
+            ),
+        ],
+      ),
     );
   }
 }
