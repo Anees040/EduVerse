@@ -22,11 +22,7 @@ class SupportService {
     try {
       final ticketRef = _db.child('support_tickets').push();
       final ticketId = ticketRef.key!;
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       await ticketRef.set({
         'ticketId': ticketId,
         'userId': userId,
@@ -46,11 +42,7 @@ class SupportService {
             'senderRole': userRole,
             'message': message,
             'timestamp': ServerValue.timestamp,
-<<<<<<< HEAD
-          },
-=======
           }
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         },
         'assignedTo': null,
         'resolvedAt': null,
@@ -72,11 +64,7 @@ class SupportService {
   }) async {
     try {
       final messageRef = _db.child('support_tickets/$ticketId/messages').push();
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       await messageRef.set({
         'senderId': senderId,
         'senderName': senderName,
@@ -106,11 +94,7 @@ class SupportService {
   }) async {
     try {
       final messageRef = _db.child('support_tickets/$ticketId/messages').push();
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       await messageRef.set({
         'senderId': adminId,
         'senderName': adminName,
@@ -124,11 +108,7 @@ class SupportService {
         'updatedAt': ServerValue.timestamp,
         'assignedTo': adminId,
       };
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (markInProgress) {
         updates['status'] = 'in_progress';
       }
@@ -138,17 +118,9 @@ class SupportService {
       // Create notification for user
       final ticketSnapshot = await _db.child('support_tickets/$ticketId').get();
       if (ticketSnapshot.exists) {
-<<<<<<< HEAD
-        final ticketData = Map<String, dynamic>.from(
-          ticketSnapshot.value as Map,
-        );
-        final userId = ticketData['userId'];
-
-=======
         final ticketData = Map<String, dynamic>.from(ticketSnapshot.value as Map);
         final userId = ticketData['userId'];
         
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         await _db.child('notifications/$userId').push().set({
           'type': 'support_reply',
           'title': 'Support Reply',
@@ -192,58 +164,18 @@ class SupportService {
     }
   }
 
-<<<<<<< HEAD
-  /// Mark ticket as read by admin
-  Future<bool> markTicketAsRead(String ticketId, {String? adminId}) async {
-    try {
-      await _db.child('support_tickets/$ticketId').update({
-        'adminRead': true,
-        'readAt': ServerValue.timestamp,
-        'readBy': adminId,
-      });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  /// Mark ticket as unread (for admin to follow up later)
-  Future<bool> markTicketAsUnread(String ticketId) async {
-    try {
-      await _db.child('support_tickets/$ticketId').update({
-        'adminRead': false,
-        'readAt': null,
-      });
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-
-=======
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
   /// Get all tickets (for admin)
   Future<List<Map<String, dynamic>>> getAllTickets({
     String? statusFilter,
     String? categoryFilter,
     String? priorityFilter,
-<<<<<<< HEAD
-    String? readFilter, // 'read', 'unread', null for all
-=======
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     int limit = 50,
   }) async {
     try {
       Query query = _db.child('support_tickets').orderByChild('createdAt');
-<<<<<<< HEAD
-
-      final snapshot = await query.limitToLast(limit).get();
-
-=======
       
       final snapshot = await query.limitToLast(limit).get();
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (!snapshot.exists || snapshot.value == null) {
         return [];
       }
@@ -260,28 +192,10 @@ class SupportService {
         tickets = tickets.where((t) => t['status'] == statusFilter).toList();
       }
       if (categoryFilter != null) {
-<<<<<<< HEAD
-        tickets = tickets
-            .where((t) => t['category'] == categoryFilter)
-            .toList();
-      }
-      if (priorityFilter != null) {
-        tickets = tickets
-            .where((t) => t['priority'] == priorityFilter)
-            .toList();
-      }
-      if (readFilter != null) {
-        if (readFilter == 'read') {
-          tickets = tickets.where((t) => t['adminRead'] == true).toList();
-        } else if (readFilter == 'unread') {
-          tickets = tickets.where((t) => t['adminRead'] != true).toList();
-        }
-=======
         tickets = tickets.where((t) => t['category'] == categoryFilter).toList();
       }
       if (priorityFilter != null) {
         tickets = tickets.where((t) => t['priority'] == priorityFilter).toList();
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       }
 
       // Sort by updatedAt descending
@@ -300,20 +214,11 @@ class SupportService {
   /// Get tickets for a specific user
   Future<List<Map<String, dynamic>>> getUserTickets(String userId) async {
     try {
-<<<<<<< HEAD
-      final snapshot = await _db
-          .child('support_tickets')
-          .orderByChild('userId')
-          .equalTo(userId)
-          .get();
-
-=======
       final snapshot = await _db.child('support_tickets')
           .orderByChild('userId')
           .equalTo(userId)
           .get();
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (!snapshot.exists || snapshot.value == null) {
         return [];
       }
@@ -342,11 +247,7 @@ class SupportService {
   Future<Map<String, dynamic>?> getTicket(String ticketId) async {
     try {
       final snapshot = await _db.child('support_tickets/$ticketId').get();
-<<<<<<< HEAD
-
-=======
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       if (!snapshot.exists || snapshot.value == null) {
         return null;
       }
@@ -356,33 +257,19 @@ class SupportService {
 
       // Convert messages to list and sort
       if (ticket['messages'] != null) {
-<<<<<<< HEAD
-        final messagesMap = Map<String, dynamic>.from(
-          ticket['messages'] as Map,
-        );
-=======
         final messagesMap = Map<String, dynamic>.from(ticket['messages'] as Map);
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         final messagesList = messagesMap.entries.map((e) {
           final msg = Map<String, dynamic>.from(e.value as Map);
           msg['id'] = e.key;
           return msg;
         }).toList();
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         messagesList.sort((a, b) {
           final aTime = a['timestamp'] ?? 0;
           final bTime = b['timestamp'] ?? 0;
           return aTime.compareTo(bTime);
         });
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         ticket['messagesList'] = messagesList;
       }
 
@@ -396,21 +283,9 @@ class SupportService {
   Future<Map<String, int>> getTicketCounts() async {
     try {
       final snapshot = await _db.child('support_tickets').get();
-<<<<<<< HEAD
-
-      if (!snapshot.exists || snapshot.value == null) {
-        return {
-          'open': 0,
-          'in_progress': 0,
-          'resolved': 0,
-          'closed': 0,
-          'total': 0,
-        };
-=======
       
       if (!snapshot.exists || snapshot.value == null) {
         return {'open': 0, 'in_progress': 0, 'resolved': 0, 'closed': 0, 'total': 0};
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       }
 
       final data = Map<String, dynamic>.from(snapshot.value as Map);
@@ -419,11 +294,7 @@ class SupportService {
       for (final entry in data.entries) {
         final ticket = Map<String, dynamic>.from(entry.value as Map);
         final status = ticket['status'] ?? 'open';
-<<<<<<< HEAD
-
-=======
         
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         switch (status) {
           case 'open':
             open++;
@@ -448,36 +319,18 @@ class SupportService {
         'total': data.length,
       };
     } catch (e) {
-<<<<<<< HEAD
-      return {
-        'open': 0,
-        'in_progress': 0,
-        'resolved': 0,
-        'closed': 0,
-        'total': 0,
-      };
-=======
       return {'open': 0, 'in_progress': 0, 'resolved': 0, 'closed': 0, 'total': 0};
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     }
   }
 
   /// Listen to tickets stream (for real-time updates)
   Stream<List<Map<String, dynamic>>> ticketsStream() {
-<<<<<<< HEAD
-    return _db.child('support_tickets').orderByChild('updatedAt').onValue.map((
-      event,
-    ) {
-      if (event.snapshot.value == null) return [];
-
-=======
     return _db.child('support_tickets')
         .orderByChild('updatedAt')
         .onValue
         .map((event) {
       if (event.snapshot.value == null) return [];
       
->>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       final data = Map<String, dynamic>.from(event.snapshot.value as Map);
       final tickets = data.entries.map((e) {
         final ticket = Map<String, dynamic>.from(e.value as Map);

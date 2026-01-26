@@ -8,9 +8,7 @@ import 'admin_course_detail_screen.dart';
 /// Admin All Courses Screen - Course Content Management Module
 /// Features: Pagination, filtering, search, audit logging
 class AdminAllCoursesScreen extends StatefulWidget {
-  final bool showBackButton;
-  
-  const AdminAllCoursesScreen({super.key, this.showBackButton = false});
+  const AdminAllCoursesScreen({super.key});
 
   @override
   State<AdminAllCoursesScreen> createState() => _AdminAllCoursesScreenState();
@@ -215,16 +213,13 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-        leading: widget.showBackButton
-            ? IconButton(
-                icon: Icon(
-                  Icons.arrow_back,
-                  color: AppTheme.getTextPrimary(context),
-                ),
-                onPressed: () => Navigator.of(context).pop(),
-              )
-            : null,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back,
+            color: AppTheme.getTextPrimary(context),
+          ),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
         title: Text(
           'Course Management',
           style: TextStyle(
