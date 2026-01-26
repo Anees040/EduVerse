@@ -1,5 +1,8 @@
 {
   "rules": {
+    // Helper: Check if user is an admin
+    // Usage: root.child('admin').child(auth.uid).child('role').val() === 'admin'
+    
     "admin": {
       ".read": "auth != null",
       "$uid": {
@@ -7,6 +10,7 @@
         ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
       }
     },
+    
     "student": {
       ".read": "auth != null",
       "$uid": {
@@ -14,6 +18,7 @@
         ".write": "$uid === auth.uid || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
       }
     },
+    
     "teacher": {
       ".read": "auth != null",
       "$uid": {
@@ -47,11 +52,12 @@
         }
       }
     },
+    
     "courses": {
       ".read": "auth != null",
       "$courseId": {
         ".read": "auth != null",
-        ".write": "auth != null",
+        ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
         "enrolledStudents": {
           ".read": "auth != null",
           "$studentUid": {
@@ -72,9 +78,18 @@
             ".read": "auth != null",
             ".write": "auth != null"
           }
+        },
+        "videos": {
+          ".read": "auth != null",
+          ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+          "$videoId": {
+            ".read": "auth != null",
+            ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+          }
         }
       }
     },
+    
     "qa": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -87,9 +102,78 @@
         }
       }
     },
+    
+    // Moderation node - Admin full access, authenticated users can write
     "moderation": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null"
+    },
+    
+    // Content reports - Anyone authenticated can report, admin can read all
+    "content_reports": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$reportId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "user_reports": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null"
+    },
+    "support_tickets": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$ticketId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    "admin_logs": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "payments": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$paymentId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['userId', 'courseId', 'amount', 'timestamp']) && newData.child('userId').val() === auth.uid"
+      }
+    },
+    "reports": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$reportId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['reporterId', 'reason', 'targetId']) && newData.child('reporterId').val() === auth.uid"
+      }
+    },
+    "flags": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$flagId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['reporterId', 'reason']) && newData.child('reporterId').val() === auth.uid"
+      }
+    },
+    "revenue": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$transactionId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null"
+      }
+    },
+    "userPreferences": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
+      }
     },
     "bookmarks": {
       ".read": "auth != null",

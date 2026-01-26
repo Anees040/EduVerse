@@ -1,6 +1,5 @@
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
@@ -189,7 +188,9 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
                         : Text(
                             '${index + 1}',
                             style: TextStyle(
-                              color: isCurrent ? Colors.white : Colors.grey,
+                              color: isCurrent 
+                                  ? Colors.white 
+                                  : (isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary),
                               fontWeight: FontWeight.bold,
                             ),
                           ),
@@ -287,40 +288,33 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
                           : Colors.grey.shade300,
                       width: 2,
                     ),
-                    image: _profileImage != null
-                        ? DecorationImage(
-                            image: kIsWeb
-                                ? NetworkImage(_profileImage!.path)
-                                : FileImage(File(_profileImage!.path))
-                                      as ImageProvider,
-                            fit: BoxFit.cover,
-                          )
-                        : null,
                   ),
-                  child: _profileImage == null
-                      ? Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.camera_alt_rounded,
-                              size: 32,
-                              color: isDark
-                                  ? AppTheme.darkTextTertiary
-                                  : Colors.grey,
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Add Photo',
-                              style: TextStyle(
+                  child: ClipOval(
+                    child: _profileImage != null
+                        ? _buildProfileImageWidget(_profileImage!, isDark)
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.camera_alt_rounded,
+                                size: 32,
                                 color: isDark
                                     ? AppTheme.darkTextTertiary
                                     : Colors.grey,
-                                fontSize: 12,
                               ),
-                            ),
-                          ],
-                        )
-                      : null,
+                              const SizedBox(height: 4),
+                              Text(
+                                'Add Photo',
+                                style: TextStyle(
+                                  color: isDark
+                                      ? AppTheme.darkTextTertiary
+                                      : Colors.grey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -1303,26 +1297,93 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
     }
   }
 
-  Future<void> _pickProfileImage() async {
-    final XFile? image = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-      maxWidth: 512,
-      maxHeight: 512,
-      imageQuality: 80,
+  /// Build profile image widget with proper error handling
+  Widget _buildProfileImageWidget(XFile imageFile, bool isDark) {
+    return FutureBuilder<Uint8List>(
+      future: imageFile.readAsBytes(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+            ),
+          );
+        }
+        
+        if (snapshot.hasError || !snapshot.hasData) {
+          return Center(
+            child: Icon(
+              Icons.error_outline,
+              color: isDark ? AppTheme.darkError : AppTheme.error,
+              size: 32,
+            ),
+          );
+        }
+
+        return Image.memory(
+          snapshot.data!,
+          fit: BoxFit.cover,
+          width: 120,
+          height: 120,
+          errorBuilder: (context, error, stackTrace) {
+            return Center(
+              child: Icon(
+                Icons.broken_image,
+                color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
+                size: 32,
+              ),
+            );
+          },
+        );
+      },
     );
-    if (image != null) {
-      setState(() => _profileImage = image);
+  }
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final XFile? image = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 512,
+        maxHeight: 512,
+        imageQuality: 80,
+      );
+      if (image != null && mounted) {
+        setState(() => _profileImage = image);
+      }
+    } catch (e) {
+      debugPrint('Error picking profile image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not pick image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
   Future<void> _pickDocument() async {
-    final XFile? file = await _imagePicker.pickImage(
-      source: ImageSource.gallery,
-    );
-    if (file != null) {
-      setState(() {
-        _credentialDocuments.add(file);
-      });
+    try {
+      final XFile? file = await _imagePicker.pickImage(
+        source: ImageSource.gallery,
+      );
+      if (file != null && mounted) {
+        setState(() {
+          _credentialDocuments.add(file);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking document: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Could not pick document: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 

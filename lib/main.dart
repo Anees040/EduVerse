@@ -13,7 +13,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    // Initialize Firebase and dotenv in parallel for faster startup
+    // Initialize Firebase and dotenv in parallel for faster startups
     await Future.wait([
       Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
       dotenv.load(fileName: ".env").catchError((error) {

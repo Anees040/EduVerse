@@ -109,29 +109,39 @@ class ModerationService {
     required String contentPath,
     required String reason,
     String? reportedBy,
+    String? contentText,
+    String? contentAuthorId,
+    String? contentAuthorName,
+    String? reporterRole,
   }) async {
     try {
       final currentUser = FirebaseAuth.instance.currentUser;
+      final reporterId = reportedBy ?? currentUser?.uid;
       
-      // Update the content with flagged status
-      await _db.child(contentPath).update({
-        'isReported': true,
-        'flagged': true,
-        'reportedBy': reportedBy ?? currentUser?.uid,
-        'reportReason': reason,
-        'reportedAt': ServerValue.timestamp,
-      });
-
-      // Add to moderation queue
-      await _db.child('moderation/queue').push().set({
+      // Add to moderation queue (users have write access to moderation)
+      await _db.child('moderation').push().set({
         'contentId': contentId,
         'contentType': contentType,
         'contentPath': contentPath,
         'reason': reason,
-        'reportedBy': reportedBy ?? currentUser?.uid,
+        'reportedBy': reporterId,
+        'reporterRole': reporterRole ?? 'unknown',
+        'contentText': contentText,
+        'contentAuthorId': contentAuthorId,
+        'contentAuthorName': contentAuthorName,
         'timestamp': ServerValue.timestamp,
         'status': 'pending',
       });
+
+      // Try to update the content with flagged status (may fail for non-owners)
+      try {
+        await _db.child(contentPath).update({
+          'isReported': true,
+          'flagged': true,
+        });
+      } catch (e) {
+        // Expected to fail if user doesn't own the content - the moderation entry is what matters
+      }
 
       return true;
     } catch (e) {

@@ -252,6 +252,18 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
             .toList();
       }
     }
+    
+    // Also check credentialDocuments (from registration wizard) as fallback
+    final rawCredentialDocs = _profile!['credentialDocuments'];
+    List<String>? credentialDocUrls;
+    if (rawCredentialDocs != null) {
+      if (rawCredentialDocs is List) {
+        credentialDocUrls = rawCredentialDocs
+            .whereType<String>()
+            .where((url) => url.isNotEmpty)
+            .toList();
+      }
+    }
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20),
@@ -661,6 +673,117 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                   ),
                 ),
               ),
+            ),
+          ],
+
+          // Credential documents from registration wizard (URLs only)
+          if (credentialDocUrls != null && credentialDocUrls.isNotEmpty && (credentials == null || credentials.isEmpty)) ...[
+            const SizedBox(height: 24),
+            _buildSectionHeader('Verified Documents', Icons.folder_special),
+            const SizedBox(height: 12),
+            ...credentialDocUrls.asMap().entries.map(
+              (entry) {
+                final index = entry.key;
+                final url = entry.value;
+                return GestureDetector(
+                  onTap: () => _showCertificateImage(
+                    context,
+                    url,
+                    'Document ${index + 1}',
+                  ),
+                  child: Container(
+                    margin: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: widget.isDark
+                          ? AppTheme.darkElevated
+                          : Colors.grey.shade50,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: widget.isDark
+                            ? AppTheme.darkSuccess.withOpacity(0.3)
+                            : AppTheme.success.withOpacity(0.3),
+                        width: 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        // Document thumbnail
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            url,
+                            width: 50,
+                            height: 50,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              width: 50,
+                              height: 50,
+                              decoration: BoxDecoration(
+                                color: (widget.isDark
+                                        ? AppTheme.darkWarning
+                                        : AppTheme.warning)
+                                    .withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                Icons.description,
+                                size: 24,
+                                color: widget.isDark
+                                    ? AppTheme.darkWarning
+                                    : AppTheme.warning,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Certificate ${index + 1}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                  color: AppTheme.getTextPrimary(context),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.verified,
+                                    size: 14,
+                                    color: widget.isDark
+                                        ? AppTheme.darkSuccess
+                                        : AppTheme.success,
+                                  ),
+                                  const SizedBox(width: 4),
+                                  Text(
+                                    'Tap to view document',
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: widget.isDark
+                                          ? AppTheme.darkSuccess
+                                          : AppTheme.success,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        Icon(
+                          Icons.chevron_right,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
             ),
           ],
 
