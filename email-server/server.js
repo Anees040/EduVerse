@@ -540,7 +540,7 @@ If you did NOT make this change, please reset your password immediately.
             res.writeHead(500, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: false, error: error }));
           } else {
-            console.log(\`📧 Admin email (${emailType}) sent to ${to}\`);
+            console.log(`📧 Admin email (${emailType}) sent to ${to}`);
             res.writeHead(200, { 'Content-Type': 'application/json' });
             res.end(JSON.stringify({ success: true, message: 'Email sent!' }));
           }
