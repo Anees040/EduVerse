@@ -6,7 +6,9 @@ import 'package:eduverse/services/support_service.dart';
 
 /// Admin Support Screen - Handle user support tickets
 class AdminSupportScreen extends StatefulWidget {
-  const AdminSupportScreen({super.key});
+  final bool showBackButton;
+
+  const AdminSupportScreen({super.key, this.showBackButton = false});
 
   @override
   State<AdminSupportScreen> createState() => _AdminSupportScreenState();
@@ -15,10 +17,11 @@ class AdminSupportScreen extends StatefulWidget {
 class _AdminSupportScreenState extends State<AdminSupportScreen> {
   final SupportService _supportService = SupportService();
   final TextEditingController _searchController = TextEditingController();
-  
+
   String _statusFilter = 'all';
   String _categoryFilter = 'all';
   String _priorityFilter = 'all';
+  String _readFilter = 'all'; // 'all', 'read', 'unread'
   List<Map<String, dynamic>> _tickets = [];
   Map<String, int> _ticketCounts = {};
   bool _isLoading = true;
@@ -31,15 +34,16 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
 
   Future<void> _loadTickets() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final tickets = await _supportService.getAllTickets(
         statusFilter: _statusFilter == 'all' ? null : _statusFilter,
         categoryFilter: _categoryFilter == 'all' ? null : _categoryFilter,
         priorityFilter: _priorityFilter == 'all' ? null : _priorityFilter,
+        readFilter: _readFilter == 'all' ? null : _readFilter,
       );
       final counts = await _supportService.getTicketCounts();
-      
+
       if (mounted) {
         setState(() {
           _tickets = tickets;
@@ -61,13 +65,16 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: AppTheme.getTextPrimary(context),
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.showBackButton
+            ? IconButton(
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: AppTheme.getTextPrimary(context),
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              )
+            : null,
         title: Text(
           'Support Center',
           style: TextStyle(
@@ -79,20 +86,17 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         foregroundColor: AppTheme.getTextPrimary(context),
         elevation: 0,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadTickets,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadTickets),
         ],
       ),
       body: Column(
         children: [
           // Stats Row
           _buildStatsRow(isDark),
-          
+
           // Filters
           _buildFilters(isDark),
-          
+
           // Search
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -112,7 +116,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Tickets List
           Expanded(
             child: _isLoading
@@ -168,9 +172,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkCard : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-          ),
+          border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
           children: [
@@ -203,18 +205,41 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          _buildFilterChip('Status', _statusFilter, ['all', 'open', 'in_progress', 'resolved', 'closed'], (v) {
-            setState(() => _statusFilter = v);
-            _loadTickets();
-          }, isDark),
+          _buildFilterChip(
+            'Status',
+            _statusFilter,
+            ['all', 'open', 'in_progress', 'resolved', 'closed'],
+            (v) {
+              setState(() => _statusFilter = v);
+              _loadTickets();
+            },
+            isDark,
+          ),
           const SizedBox(width: 8),
-          _buildFilterChip('Category', _categoryFilter, ['all', 'account', 'technical', 'billing', 'other'], (v) {
-            setState(() => _categoryFilter = v);
-            _loadTickets();
-          }, isDark),
+          _buildFilterChip(
+            'Category',
+            _categoryFilter,
+            ['all', 'account', 'technical', 'billing', 'other'],
+            (v) {
+              setState(() => _categoryFilter = v);
+              _loadTickets();
+            },
+            isDark,
+          ),
           const SizedBox(width: 8),
-          _buildFilterChip('Priority', _priorityFilter, ['all', 'low', 'medium', 'high', 'urgent'], (v) {
-            setState(() => _priorityFilter = v);
+          _buildFilterChip(
+            'Priority',
+            _priorityFilter,
+            ['all', 'low', 'medium', 'high', 'urgent'],
+            (v) {
+              setState(() => _priorityFilter = v);
+              _loadTickets();
+            },
+            isDark,
+          ),
+          const SizedBox(width: 8),
+          _buildFilterChip('Read', _readFilter, ['all', 'read', 'unread'], (v) {
+            setState(() => _readFilter = v);
             _loadTickets();
           }, isDark),
         ],
@@ -222,24 +247,39 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     );
   }
 
-  Widget _buildFilterChip(String label, String value, List<String> options, Function(String) onChanged, bool isDark) {
+  Widget _buildFilterChip(
+    String label,
+    String value,
+    List<String> options,
+    Function(String) onChanged,
+    bool isDark,
+  ) {
     return PopupMenuButton<String>(
       onSelected: onChanged,
-      itemBuilder: (context) => options.map((o) => PopupMenuItem(
-        value: o,
-        child: Text(o == 'all' ? 'All ${label}s' : _formatFilterLabel(o)),
-      )).toList(),
+      itemBuilder: (context) => options
+          .map(
+            (o) => PopupMenuItem(
+              value: o,
+              child: Text(o == 'all' ? 'All ${label}s' : _formatFilterLabel(o)),
+            ),
+          )
+          .toList(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: value != 'all' 
-              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1)
-              : isDark ? AppTheme.darkCard : Colors.white,
+          color: value != 'all'
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1)
+              : isDark
+              ? AppTheme.darkCard
+              : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: value != 'all'
                 ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                : isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                : isDark
+                ? AppTheme.darkBorder
+                : Colors.grey.shade300,
           ),
         ),
         child: Row(
@@ -251,7 +291,9 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 color: value != 'all'
                     ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
                     : AppTheme.getTextPrimary(context),
-                fontWeight: value != 'all' ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: value != 'all'
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
             const SizedBox(width: 4),
@@ -267,7 +309,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
   }
 
   String _formatFilterLabel(String value) {
-    return value.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+    return value
+        .split('_')
+        .map((w) => w[0].toUpperCase() + w.substring(1))
+        .join(' ');
   }
 
   Widget _buildTicketsList(bool isDark) {
@@ -277,9 +322,9 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       final subject = (t['subject'] ?? '').toString().toLowerCase();
       final userName = (t['userName'] ?? '').toString().toLowerCase();
       final userEmail = (t['userEmail'] ?? '').toString().toLowerCase();
-      return subject.contains(searchQuery) || 
-             userName.contains(searchQuery) || 
-             userEmail.contains(searchQuery);
+      return subject.contains(searchQuery) ||
+          userName.contains(searchQuery) ||
+          userEmail.contains(searchQuery);
     }).toList();
 
     if (filteredTickets.isEmpty) {
@@ -320,6 +365,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     final priority = ticket['priority'] ?? 'medium';
     final createdAt = ticket['createdAt'] as int?;
     final updatedAt = ticket['updatedAt'] as int?;
+    final isUnread = ticket['adminRead'] != true;
 
     Color statusColor;
     switch (status) {
@@ -363,144 +409,177 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+          color: isUnread
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+              : isDark
+              ? AppTheme.darkBorder
+              : Colors.grey.shade200,
+          width: isUnread ? 2 : 1,
         ),
       ),
       child: InkWell(
         onTap: () => _openTicketDetail(ticket),
         borderRadius: BorderRadius.circular(16),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  // Priority Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: priorityColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      priority.toUpperCase(),
-                      style: TextStyle(
-                        color: priorityColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
+        child: Stack(
+          children: [
+            if (isUnread)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                    shape: BoxShape.circle,
                   ),
-                  const SizedBox(width: 8),
-                  // Status Badge
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: statusColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      _formatFilterLabel(status),
-                      style: TextStyle(
-                        color: statusColor,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const Spacer(),
-                  // Category
-                  Text(
-                    _formatFilterLabel(ticket['category'] ?? 'other'),
-                    style: TextStyle(
-                      color: AppTheme.getTextSecondary(context),
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              
-              // Subject
-              Text(
-                ticket['subject'] ?? 'No subject',
-                style: TextStyle(
-                  color: AppTheme.getTextPrimary(context),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: 8),
-              
-              // User info
-              Row(
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CircleAvatar(
-                    radius: 14,
-                    backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                    child: Text(
-                      (ticket['userName'] ?? 'U')[0].toUpperCase(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          ticket['userName'] ?? 'Unknown User',
-                          style: TextStyle(
-                            color: AppTheme.getTextPrimary(context),
-                            fontWeight: FontWeight.w500,
-                            fontSize: 13,
-                          ),
-                        ),
-                        Text(
-                          ticket['userEmail'] ?? '',
-                          style: TextStyle(
-                            color: AppTheme.getTextSecondary(context),
-                            fontSize: 11,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Time
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
+                  Row(
                     children: [
+                      // Priority Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: priorityColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          priority.toUpperCase(),
+                          style: TextStyle(
+                            color: priorityColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      // Status Badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: statusColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          _formatFilterLabel(status),
+                          style: TextStyle(
+                            color: statusColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      // Category
                       Text(
-                        createdAt != null
-                            ? DateFormat('MMM d, y').format(
-                                DateTime.fromMillisecondsSinceEpoch(createdAt))
-                            : '',
+                        _formatFilterLabel(ticket['category'] ?? 'other'),
                         style: TextStyle(
                           color: AppTheme.getTextSecondary(context),
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
-                      if (updatedAt != null && updatedAt != createdAt)
-                        Text(
-                          'Updated ${_getTimeAgo(updatedAt)}',
-                          style: TextStyle(
-                            color: AppTheme.getTextSecondary(context),
-                            fontSize: 10,
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Subject
+                  Text(
+                    ticket['subject'] ?? 'No subject',
+                    style: TextStyle(
+                      color: AppTheme.getTextPrimary(context),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 8),
+
+                  // User info
+                  Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 14,
+                        backgroundColor: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        child: Text(
+                          (ticket['userName'] ?? 'U')[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              ticket['userName'] ?? 'Unknown User',
+                              style: TextStyle(
+                                color: AppTheme.getTextPrimary(context),
+                                fontWeight: FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                            Text(
+                              ticket['userEmail'] ?? '',
+                              style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Time
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          Text(
+                            createdAt != null
+                                ? DateFormat('MMM d, y').format(
+                                    DateTime.fromMillisecondsSinceEpoch(
+                                      createdAt,
+                                    ),
+                                  )
+                                : '',
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                              fontSize: 11,
+                            ),
+                          ),
+                          if (updatedAt != null && updatedAt != createdAt)
+                            Text(
+                              'Updated ${_getTimeAgo(updatedAt)}',
+                              style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 10,
+                              ),
+                            ),
+                        ],
+                      ),
                     ],
                   ),
                 ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -522,11 +601,19 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     }
   }
 
-  void _openTicketDetail(Map<String, dynamic> ticket) {
+  void _openTicketDetail(Map<String, dynamic> ticket) async {
+    final ticketId = ticket['id'] ?? ticket['ticketId'];
+
+    // Mark ticket as read
+    final currentUser = FirebaseAuth.instance.currentUser;
+    await _supportService.markTicketAsRead(ticketId, adminId: currentUser?.uid);
+
+    if (!mounted) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _TicketDetailScreen(ticketId: ticket['id'] ?? ticket['ticketId']),
+        builder: (context) => _TicketDetailScreen(ticketId: ticketId),
       ),
     ).then((_) => _loadTickets());
   }
@@ -545,7 +632,7 @@ class _TicketDetailScreen extends StatefulWidget {
 class _TicketDetailScreenState extends State<_TicketDetailScreen> {
   final SupportService _supportService = SupportService();
   final TextEditingController _replyController = TextEditingController();
-  
+
   Map<String, dynamic>? _ticket;
   bool _isLoading = true;
   bool _isSending = false;
@@ -558,9 +645,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
 
   Future<void> _loadTicket() async {
     setState(() => _isLoading = true);
-    
+
     final ticket = await _supportService.getTicket(widget.ticketId);
-    
+
     if (mounted) {
       setState(() {
         _ticket = ticket;
@@ -584,14 +671,14 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
 
     if (mounted) {
       setState(() => _isSending = false);
-      
+
       if (success) {
         _replyController.clear();
         _loadTicket();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send reply')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to send reply')));
       }
     }
   }
@@ -615,7 +702,10 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
   }
 
   String _formatLabel(String value) {
-    return value.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+    return value
+        .split('_')
+        .map((w) => w[0].toUpperCase() + w.substring(1))
+        .join(' ');
   }
 
   @override
@@ -634,8 +724,14 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
             icon: const Icon(Icons.more_vert),
             onSelected: _updateStatus,
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'in_progress', child: Text('Mark In Progress')),
-              const PopupMenuItem(value: 'resolved', child: Text('Mark Resolved')),
+              const PopupMenuItem(
+                value: 'in_progress',
+                child: Text('Mark In Progress'),
+              ),
+              const PopupMenuItem(
+                value: 'resolved',
+                child: Text('Mark Resolved'),
+              ),
               const PopupMenuItem(value: 'closed', child: Text('Close Ticket')),
             ],
           ),
@@ -649,12 +745,10 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
               children: [
                 // Ticket Info Header
                 _buildTicketHeader(isDark),
-                
+
                 // Messages
-                Expanded(
-                  child: _buildMessagesList(isDark),
-                ),
-                
+                Expanded(child: _buildMessagesList(isDark)),
+
                 // Reply Input
                 _buildReplyInput(isDark),
               ],
@@ -699,7 +793,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
                 child: Text(
                   (_ticket!['userName'] ?? 'U')[0].toUpperCase(),
                   style: const TextStyle(
@@ -733,7 +829,8 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -821,7 +918,8 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
   }
 
   Widget _buildMessagesList(bool isDark) {
-    final messages = _ticket!['messagesList'] as List<Map<String, dynamic>>? ?? [];
+    final messages =
+        _ticket!['messagesList'] as List<Map<String, dynamic>>? ?? [];
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -829,13 +927,17 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       itemBuilder: (context, index) {
         final message = messages[index];
         final isAdmin = message['senderRole'] == 'admin';
-        
+
         return _buildMessageBubble(message, isAdmin, isDark);
       },
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> message, bool isAdmin, bool isDark) {
+  Widget _buildMessageBubble(
+    Map<String, dynamic> message,
+    bool isAdmin,
+    bool isDark,
+  ) {
     final timestamp = message['timestamp'] as int?;
 
     return Align(
@@ -874,8 +976,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
                 const SizedBox(width: 8),
                 Text(
                   timestamp != null
-                      ? DateFormat('MMM d, h:mm a').format(
-                          DateTime.fromMillisecondsSinceEpoch(timestamp))
+                      ? DateFormat(
+                          'MMM d, h:mm a',
+                        ).format(DateTime.fromMillisecondsSinceEpoch(timestamp))
                       : '',
                   style: TextStyle(
                     color: isAdmin
@@ -890,7 +993,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
             Text(
               message['message'] ?? '',
               style: TextStyle(
-                color: isAdmin ? Colors.white : AppTheme.getTextPrimary(context),
+                color: isAdmin
+                    ? Colors.white
+                    : AppTheme.getTextPrimary(context),
                 fontSize: 14,
               ),
             ),
@@ -925,7 +1030,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
               decoration: InputDecoration(
                 hintText: 'Type your reply...',
                 filled: true,
-                fillColor: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                fillColor: isDark
+                    ? AppTheme.darkElevated
+                    : Colors.grey.shade100,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
