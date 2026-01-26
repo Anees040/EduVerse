@@ -104,6 +104,7 @@
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null"
     },
+<<<<<<< HEAD
     
     "content_reports": {
       ".read": "auth != null",
@@ -123,6 +124,20 @@
       }
     },
     
+=======
+    "content_reports": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$reportId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null"
+      }
+    },
+    "user_reports": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null"
+    },
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     "support_tickets": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -131,17 +146,24 @@
         ".write": "auth != null"
       }
     },
+<<<<<<< HEAD
     
+=======
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     "admin_logs": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
     },
+<<<<<<< HEAD
     
+=======
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
     "payments": {
       ".read": "auth != null",
       ".write": "auth != null",
       "$paymentId": {
         ".read": "auth != null",
+<<<<<<< HEAD
         ".write": "auth != null"
       }
     },
@@ -178,6 +200,35 @@
       ".write": "auth != null",
       "$transactionId": {
         ".read": "auth != null",
+=======
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['userId', 'courseId', 'amount', 'timestamp']) && newData.child('userId').val() === auth.uid"
+      }
+    },
+    "reports": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$reportId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['reporterId', 'reason', 'targetId']) && newData.child('reporterId').val() === auth.uid"
+      }
+    },
+    "flags": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$flagId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['reporterId', 'reason']) && newData.child('reporterId').val() === auth.uid"
+      }
+    },
+    "revenue": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null",
+      "$transactionId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         ".write": "auth != null"
       }
     },

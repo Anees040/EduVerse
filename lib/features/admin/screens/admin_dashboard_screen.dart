@@ -6,6 +6,10 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import '../providers/admin_provider.dart';
 import '../widgets/admin_scaffold.dart';
+<<<<<<< HEAD
+=======
+import '../widgets/modern_kpi_card.dart';
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
 import 'admin_users_screen.dart';
 import 'admin_verification_queue_screen.dart';
 import 'admin_moderation_screen.dart';
@@ -418,11 +422,21 @@ class _DashboardHomeTab extends StatelessWidget {
     final totalTeachers = stats?['totalTeachers'] ?? 0;
     final pendingTeachers = stats?['pendingTeachers'] ?? 0;
     final totalCourses = stats?['totalCourses'] ?? 0;
+<<<<<<< HEAD
     final totalRevenue = (stats?['totalRevenue'] ?? 0).toDouble();
+=======
+    final newCourses = stats?['newCourses'] ?? 0;
+    final totalRevenue = (stats?['totalRevenue'] ?? 0).toDouble();
+
+    // Generate mock sparkline data based on actual stats
+    final userGrowthData = _generateGrowthData(totalUsers, 7);
+    final revenueData = _generateRevenueData(totalRevenue, 6);
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
+<<<<<<< HEAD
 
         // Responsive: 2x2 on larger screens, 1 column on small screens
         final crossAxisCount = screenWidth >= 500 ? 2 : 1;
@@ -480,6 +494,118 @@ class _DashboardHomeTab extends StatelessWidget {
           ),
         ];
 
+=======
+        int crossAxisCount;
+        double cardHeight;
+        double spacing;
+
+        // Responsive breakpoints
+        if (screenWidth >= 900) {
+          crossAxisCount = 4;
+          cardHeight = 180;
+          spacing = 16;
+        } else if (screenWidth >= 600) {
+          crossAxisCount = 2;
+          cardHeight = 180;
+          spacing = 16;
+        } else if (screenWidth >= 400) {
+          crossAxisCount = 2;
+          cardHeight = 170;
+          spacing = 12;
+        } else {
+          crossAxisCount = 1;
+          cardHeight = 160;
+          spacing = 12;
+        }
+
+        final cards = [
+          // Total Users Card
+          SizedBox(
+            height: cardHeight,
+            child: ModernKPICard(
+              title: 'Total Users',
+              value: isLoading ? '...' : '$totalUsers',
+              accentColor: const Color(0xFF4CAF50),
+              buttonText: 'View All',
+              chart: MiniSparklineChart(
+                data: userGrowthData,
+                color: const Color(0xFF4CAF50),
+              ),
+              isLoading: isLoading,
+              onButtonTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(1);
+              },
+            ),
+          ),
+          
+          // Total Teachers Card
+          SizedBox(
+            height: cardHeight,
+            child: ModernKPICard(
+              title: 'Total Teachers',
+              value: isLoading ? '...' : '$totalTeachers',
+              badgeText: pendingTeachers > 0 ? 'Pending Applications: $pendingTeachers' : null,
+              badgeColor: const Color(0xFFFFB300),
+              accentColor: const Color(0xFF26A69A),
+              buttonText: 'Verify',
+              isLoading: isLoading,
+              onButtonTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(2);
+              },
+            ),
+          ),
+          
+          // Total Courses Card
+          SizedBox(
+            height: cardHeight,
+            child: ModernKPICard(
+              title: 'Total Courses',
+              value: isLoading ? '...' : '$totalCourses',
+              badgeText: newCourses > 0 ? 'New Courses: $newCourses' : null,
+              badgeColor: const Color(0xFF7C4DFF),
+              accentColor: const Color(0xFF26A69A),
+              buttonText: 'Manage',
+              isLoading: isLoading,
+              onButtonTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(5);
+              },
+            ),
+          ),
+          
+          // Total Revenue Card
+          SizedBox(
+            height: cardHeight,
+            child: ModernKPICard(
+              title: 'Total Revenue',
+              value: isLoading ? '...' : '\$${totalRevenue.toStringAsFixed(0)}',
+              accentColor: const Color(0xFF26A69A),
+              buttonText: 'Financial Report',
+              chart: MiniBarChart(
+                data: revenueData,
+                color: const Color(0xFF26A69A),
+              ),
+              isLoading: isLoading,
+              onButtonTap: () {
+                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                dashboardState?.navigateToTab(4);
+              },
+            ),
+          ),
+        ];
+
+        if (crossAxisCount == 1) {
+          return Column(
+            children: cards.map((card) => Padding(
+              padding: EdgeInsets.only(bottom: spacing),
+              child: card,
+            )).toList(),
+          );
+        }
+
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         return GridView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -487,15 +613,23 @@ class _DashboardHomeTab extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: spacing,
             mainAxisSpacing: spacing,
+<<<<<<< HEAD
             childAspectRatio: 1.0, // Square tiles
           ),
           itemCount: tiles.length,
           itemBuilder: (context, index) => tiles[index],
+=======
+            mainAxisExtent: cardHeight,
+          ),
+          itemCount: cards.length,
+          itemBuilder: (context, index) => cards[index],
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         );
       },
     );
   }
 
+<<<<<<< HEAD
   Widget _buildSquareTile({
     required IconData icon,
     required String count,
@@ -631,6 +765,39 @@ class _DashboardHomeTab extends StatelessWidget {
         ),
       ),
     );
+=======
+  /// Generate mock growth data for sparkline chart
+  List<double> _generateGrowthData(int currentValue, int points) {
+    final data = <double>[];
+    final random = DateTime.now().millisecond;
+    double value = (currentValue * 0.7).toDouble();
+    
+    for (int i = 0; i < points; i++) {
+      final growth = (random + i * 17) % 10 + 1;
+      value += growth;
+      data.add(value.clamp(0, currentValue.toDouble()));
+    }
+    
+    // Ensure last value is close to current
+    if (data.isNotEmpty) {
+      data[data.length - 1] = currentValue.toDouble();
+    }
+    
+    return data;
+  }
+
+  /// Generate mock revenue data for bar chart
+  List<double> _generateRevenueData(double currentValue, int points) {
+    final data = <double>[];
+    final random = DateTime.now().millisecond;
+    
+    for (int i = 0; i < points; i++) {
+      final factor = 0.3 + ((random + i * 23) % 70) / 100;
+      data.add(currentValue * factor);
+    }
+    
+    return data;
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
   }
 
   Widget _buildQuickActions(
@@ -648,8 +815,12 @@ class _DashboardHomeTab extends StatelessWidget {
           color: isDark ? AppTheme.darkSuccess : AppTheme.success,
           onTap: () {
             // Navigate to Verification tab (index 2)
+<<<<<<< HEAD
             final dashboardState = context
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
+=======
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             if (dashboardState != null) {
               dashboardState.navigateToTab(2);
             }
@@ -664,8 +835,12 @@ class _DashboardHomeTab extends StatelessWidget {
               : null,
           onTap: () {
             // Navigate to Moderation tab (index 3)
+<<<<<<< HEAD
             final dashboardState = context
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
+=======
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             if (dashboardState != null) {
               dashboardState.navigateToTab(3);
             }
@@ -677,8 +852,12 @@ class _DashboardHomeTab extends StatelessWidget {
           color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
           onTap: () {
             // Navigate to Data tab (index 5)
+<<<<<<< HEAD
             final dashboardState = context
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
+=======
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             if (dashboardState != null) {
               dashboardState.navigateToTab(5);
             }
@@ -690,8 +869,12 @@ class _DashboardHomeTab extends StatelessWidget {
           color: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
           onTap: () {
             // Navigate to Analytics tab (index 4)
+<<<<<<< HEAD
             final dashboardState = context
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
+=======
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             if (dashboardState != null) {
               dashboardState.navigateToTab(4);
             }
@@ -703,8 +886,12 @@ class _DashboardHomeTab extends StatelessWidget {
           color: Colors.teal,
           onTap: () {
             // Navigate to Support tab (index 6)
+<<<<<<< HEAD
             final dashboardState = context
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
+=======
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             if (dashboardState != null) {
               dashboardState.navigateToTab(6);
             }
@@ -716,8 +903,12 @@ class _DashboardHomeTab extends StatelessWidget {
           color: Colors.deepPurple,
           onTap: () {
             // Navigate to Courses tab (index 7)
+<<<<<<< HEAD
             final dashboardState = context
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
+=======
+            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
             if (dashboardState != null) {
               dashboardState.navigateToTab(7);
             }

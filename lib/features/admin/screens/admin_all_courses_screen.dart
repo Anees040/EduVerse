@@ -9,7 +9,7 @@ import 'admin_course_detail_screen.dart';
 /// Features: Pagination, filtering, search, audit logging
 class AdminAllCoursesScreen extends StatefulWidget {
   final bool showBackButton;
-
+  
   const AdminAllCoursesScreen({super.key, this.showBackButton = false});
 
   @override
@@ -26,7 +26,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   final Map<String, String> _teacherNames = {};
   bool _isLoading = true;
   bool _isLoadingMore = false;
-
+  
   // Filters
   String _categoryFilter = 'all';
   String _statusFilter = 'all'; // all, published, unpublished
@@ -53,7 +53,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
+    if (_scrollController.position.pixels >= 
         _scrollController.position.maxScrollExtent - 200) {
       if (!_isLoadingMore && _hasMore) {
         _loadMoreCourses();
@@ -70,11 +70,11 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
     try {
       final snapshot = await _db.child('courses').get();
-
+      
       if (snapshot.exists && snapshot.value != null) {
         final data = snapshot.value as Map<dynamic, dynamic>;
         final courses = <Course>[];
-
+        
         for (var entry in data.entries) {
           try {
             final course = Course.fromMap(
@@ -82,7 +82,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
               Map<dynamic, dynamic>.from(entry.value as Map),
             );
             courses.add(course);
-
+            
             // Load teacher name if not cached
             if (!_teacherNames.containsKey(course.teacherUid)) {
               _loadTeacherName(course.teacherUid);
@@ -112,11 +112,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
   Future<void> _loadTeacherName(String teacherUid) async {
     try {
-      final snapshot = await _db
-          .child('teacher')
-          .child(teacherUid)
-          .child('name')
-          .get();
+      final snapshot = await _db.child('teacher').child(teacherUid).child('name').get();
       if (snapshot.exists) {
         setState(() {
           _teacherNames[teacherUid] = snapshot.value.toString();
@@ -129,16 +125,16 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
   Future<void> _loadMoreCourses() async {
     if (_isLoadingMore || !_hasMore) return;
-
+    
     setState(() => _isLoadingMore = true);
-
+    
     // Simulate pagination delay
     await Future.delayed(const Duration(milliseconds: 300));
-
+    
     setState(() {
       _currentPage++;
       _isLoadingMore = false;
-
+      
       // Check if we've loaded all items
       if (_currentPage * _pageSize >= _filteredCourses.length) {
         _hasMore = false;
@@ -148,41 +144,38 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
   void _applyFilters() {
     var filtered = List<Course>.from(_courses);
-
+    
     // Search filter
     final query = _searchController.text.toLowerCase();
     if (query.isNotEmpty) {
       filtered = filtered.where((c) {
         return c.title.toLowerCase().contains(query) ||
-            c.description.toLowerCase().contains(query) ||
-            (_teacherNames[c.teacherUid]?.toLowerCase().contains(query) ??
-                false);
+               c.description.toLowerCase().contains(query) ||
+               (_teacherNames[c.teacherUid]?.toLowerCase().contains(query) ?? false);
       }).toList();
     }
-
+    
     // Category filter
     if (_categoryFilter != 'all') {
-      filtered = filtered
-          .where(
-            (c) => c.category.toLowerCase() == _categoryFilter.toLowerCase(),
-          )
-          .toList();
+      filtered = filtered.where((c) => 
+        c.category.toLowerCase() == _categoryFilter.toLowerCase()
+      ).toList();
     }
-
+    
     // Status filter
     if (_statusFilter == 'published') {
       filtered = filtered.where((c) => c.isPublished).toList();
     } else if (_statusFilter == 'unpublished') {
       filtered = filtered.where((c) => !c.isPublished).toList();
     }
-
+    
     // Price filter
     if (_priceFilter == 'free') {
       filtered = filtered.where((c) => c.isFree).toList();
     } else if (_priceFilter == 'paid') {
       filtered = filtered.where((c) => !c.isFree).toList();
     }
-
+    
     // Sort
     switch (_sortBy) {
       case 'newest':
@@ -198,12 +191,12 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         filtered.sort((a, b) => b.enrolledCount.compareTo(a.enrolledCount));
         break;
       case 'rating':
-        filtered.sort(
-          (a, b) => (b.averageRating ?? 0).compareTo(a.averageRating ?? 0),
+        filtered.sort((a, b) => 
+          (b.averageRating ?? 0).compareTo(a.averageRating ?? 0)
         );
         break;
     }
-
+    
     setState(() {
       _filteredCourses = filtered;
       _currentPage = 0;
@@ -214,12 +207,9 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
-
+    
     // Calculate displayed courses with pagination
-    final displayCount = ((_currentPage + 1) * _pageSize).clamp(
-      0,
-      _filteredCourses.length,
-    );
+    final displayCount = ((_currentPage + 1) * _pageSize).clamp(0, _filteredCourses.length);
     final displayedCourses = _filteredCourses.take(displayCount).toList();
 
     return Scaffold(
@@ -246,27 +236,30 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         foregroundColor: AppTheme.getTextPrimary(context),
         elevation: 0,
         actions: [
-          IconButton(icon: const Icon(Icons.refresh), onPressed: _loadCourses),
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: _loadCourses,
+          ),
         ],
       ),
       body: Column(
         children: [
           // Stats Header
           _buildStatsHeader(isDark),
-
+          
           // Search Bar
           _buildSearchBar(isDark),
-
+          
           // Filters
           _buildFilters(isDark),
-
+          
           // Course List
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : displayedCourses.isEmpty
-                ? _buildEmptyState(isDark)
-                : _buildCourseList(displayedCourses, isDark),
+                    ? _buildEmptyState(isDark)
+                    : _buildCourseList(displayedCourses, isDark),
           ),
         ],
       ),
@@ -277,42 +270,19 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     final totalCourses = _courses.length;
     final publishedCount = _courses.where((c) => c.isPublished).length;
     final freeCount = _courses.where((c) => c.isFree).length;
-    final totalEnrolled = _courses.fold<int>(
-      0,
-      (sum, c) => sum + c.enrolledCount,
-    );
+    final totalEnrolled = _courses.fold<int>(0, (sum, c) => sum + c.enrolledCount);
 
     return Container(
       padding: const EdgeInsets.all(16),
       child: Row(
         children: [
-          _buildStatChip(
-            'Total: $totalCourses',
-            Icons.library_books,
-            Colors.blue,
-            isDark,
-          ),
+          _buildStatChip('Total: $totalCourses', Icons.library_books, Colors.blue, isDark),
           const SizedBox(width: 8),
-          _buildStatChip(
-            'Published: $publishedCount',
-            Icons.check_circle,
-            Colors.green,
-            isDark,
-          ),
+          _buildStatChip('Published: $publishedCount', Icons.check_circle, Colors.green, isDark),
           const SizedBox(width: 8),
-          _buildStatChip(
-            'Free: $freeCount',
-            Icons.card_giftcard,
-            Colors.orange,
-            isDark,
-          ),
+          _buildStatChip('Free: $freeCount', Icons.card_giftcard, Colors.orange, isDark),
           const SizedBox(width: 8),
-          _buildStatChip(
-            'Enrolled: $totalEnrolled',
-            Icons.people,
-            Colors.purple,
-            isDark,
-          ),
+          _buildStatChip('Enrolled: $totalEnrolled', Icons.people, Colors.purple, isDark),
         ],
       ),
     );
@@ -397,7 +367,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
               isDark: isDark,
             ),
             const SizedBox(width: 8),
-
+            
             // Status Filter
             _buildFilterDropdown(
               value: _statusFilter,
@@ -410,7 +380,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
               isDark: isDark,
             ),
             const SizedBox(width: 8),
-
+            
             // Price Filter
             _buildFilterDropdown(
               value: _priceFilter,
@@ -423,7 +393,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
               isDark: isDark,
             ),
             const SizedBox(width: 8),
-
+            
             // Sort
             _buildFilterDropdown(
               value: _sortBy,
@@ -460,25 +430,18 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: value,
-          items: items
-              .map(
-                (item) => DropdownMenuItem(
-                  value: item,
-                  child: Text(
-                    item == 'all' ? 'All ${label}s' : _formatLabel(item),
-                    style: TextStyle(
-                      color: AppTheme.getTextPrimary(context),
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-              )
-              .toList(),
+          items: items.map((item) => DropdownMenuItem(
+            value: item,
+            child: Text(
+              item == 'all' ? 'All ${label}s' : _formatLabel(item),
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontSize: 13,
+              ),
+            ),
+          )).toList(),
           onChanged: onChanged,
-          icon: Icon(
-            Icons.arrow_drop_down,
-            color: AppTheme.getTextSecondary(context),
-          ),
+          icon: Icon(Icons.arrow_drop_down, color: AppTheme.getTextSecondary(context)),
           dropdownColor: isDark ? AppTheme.darkCard : Colors.white,
         ),
       ),
@@ -486,10 +449,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   }
 
   String _formatLabel(String value) {
-    return value
-        .split('_')
-        .map((w) => w[0].toUpperCase() + w.substring(1))
-        .join(' ');
+    return value.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
   }
 
   Widget _buildEmptyState(bool isDark) {
@@ -514,7 +474,9 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
           const SizedBox(height: 8),
           Text(
             'Try adjusting your filters',
-            style: TextStyle(color: AppTheme.getTextSecondary(context)),
+            style: TextStyle(
+              color: AppTheme.getTextSecondary(context),
+            ),
           ),
         ],
       ),
@@ -535,7 +497,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
             ),
           );
         }
-
+        
         final course = courses[index];
         return _buildCourseCard(course, isDark);
       },
@@ -544,9 +506,9 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
   Widget _buildCourseCard(Course course, bool isDark) {
     final teacherName = _teacherNames[course.teacherUid] ?? 'Loading...';
-    final createdDate = DateFormat(
-      'MMM d, yyyy',
-    ).format(DateTime.fromMillisecondsSinceEpoch(course.createdAt));
+    final createdDate = DateFormat('MMM d, yyyy').format(
+      DateTime.fromMillisecondsSinceEpoch(course.createdAt),
+    );
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -576,9 +538,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                   errorBuilder: (_, __, ___) => Container(
                     width: 100,
                     height: 75,
-                    color: isDark
-                        ? AppTheme.darkElevated
-                        : Colors.grey.shade200,
+                    color: isDark ? AppTheme.darkElevated : Colors.grey.shade200,
                     child: Icon(
                       Icons.play_circle_outline,
                       color: AppTheme.getTextSecondary(context),
@@ -587,7 +547,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                 ),
               ),
               const SizedBox(width: 12),
-
+              
               // Course Info
               Expanded(
                 child: Column(
@@ -610,10 +570,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                         ),
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: course.isPublished
                                 ? Colors.green.withOpacity(0.1)
@@ -623,9 +580,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                           child: Text(
                             course.isPublished ? 'Published' : 'Draft',
                             style: TextStyle(
-                              color: course.isPublished
-                                  ? Colors.green
-                                  : Colors.orange,
+                              color: course.isPublished ? Colors.green : Colors.orange,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -634,7 +589,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-
+                    
                     // Teacher
                     Text(
                       'By $teacherName',
@@ -644,24 +599,15 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                       ),
                     ),
                     const SizedBox(height: 6),
-
+                    
                     // Stats Row
                     Row(
                       children: [
-                        _buildMiniStat(
-                          Icons.people,
-                          '${course.enrolledCount}',
-                          isDark,
-                        ),
+                        _buildMiniStat(Icons.people, '${course.enrolledCount}', isDark),
                         const SizedBox(width: 12),
-                        _buildMiniStat(
-                          Icons.video_library,
-                          '${course.videoCount}',
-                          isDark,
-                        ),
+                        _buildMiniStat(Icons.video_library, '${course.videoCount}', isDark),
                         const SizedBox(width: 12),
-                        if (course.averageRating != null &&
-                            course.averageRating! > 0)
+                        if (course.averageRating != null && course.averageRating! > 0)
                           _buildMiniStat(
                             Icons.star,
                             course.averageRating!.toStringAsFixed(1),
@@ -671,29 +617,19 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                         const Spacer(),
                         // Price/Free badge
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: course.isFree
                                 ? Colors.green.withOpacity(0.1)
-                                : (isDark
-                                          ? AppTheme.darkAccent
-                                          : AppTheme.primaryColor)
-                                      .withOpacity(0.1),
+                                : (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
-                            course.isFree
-                                ? 'FREE'
-                                : '\$${course.price.toStringAsFixed(0)}',
+                            course.isFree ? 'FREE' : '\$${course.price.toStringAsFixed(0)}',
                             style: TextStyle(
                               color: course.isFree
                                   ? Colors.green
-                                  : (isDark
-                                        ? AppTheme.darkAccent
-                                        : AppTheme.primaryColor),
+                                  : (isDark ? AppTheme.darkAccent : AppTheme.primaryColor),
                               fontSize: 10,
                               fontWeight: FontWeight.bold,
                             ),
@@ -702,19 +638,14 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                       ],
                     ),
                     const SizedBox(height: 4),
-
+                    
                     // Category and Date
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: isDark
-                                ? AppTheme.darkElevated
-                                : Colors.grey.shade100,
+                            color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
@@ -738,7 +669,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                   ],
                 ),
               ),
-
+              
               // Action Menu
               PopupMenuButton<String>(
                 icon: Icon(
@@ -747,10 +678,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                 ),
                 onSelected: (action) => _handleCourseAction(course, action),
                 itemBuilder: (context) => [
-                  const PopupMenuItem(
-                    value: 'view',
-                    child: Text('View Details'),
-                  ),
+                  const PopupMenuItem(value: 'view', child: Text('View Details')),
                   PopupMenuItem(
                     value: course.isPublished ? 'unpublish' : 'publish',
                     child: Text(course.isPublished ? 'Unpublish' : 'Publish'),
@@ -761,10 +689,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                   ),
                   const PopupMenuItem(
                     value: 'delete',
-                    child: Text(
-                      'Delete Course',
-                      style: TextStyle(color: Colors.red),
-                    ),
+                    child: Text('Delete Course', style: TextStyle(color: Colors.red)),
                   ),
                 ],
               ),
@@ -775,12 +700,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     );
   }
 
-  Widget _buildMiniStat(
-    IconData icon,
-    String value,
-    bool isDark, {
-    Color? iconColor,
-  }) {
+  Widget _buildMiniStat(IconData icon, String value, bool isDark, {Color? iconColor}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -830,32 +750,27 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
   Future<void> _togglePublishStatus(Course course) async {
     final newStatus = !course.isPublished;
-
+    
     try {
       await _db.child('courses').child(course.courseUid).update({
         'isPublished': newStatus,
         'updatedAt': ServerValue.timestamp,
       });
-
+      
       // Also update in teacher's courses
-      await _db
-          .child('teacher')
-          .child(course.teacherUid)
-          .child('courses')
-          .child(course.courseUid)
-          .update({
-            'isPublished': newStatus,
-            'updatedAt': ServerValue.timestamp,
-          });
-
+      await _db.child('teacher').child(course.teacherUid)
+          .child('courses').child(course.courseUid).update({
+        'isPublished': newStatus,
+        'updatedAt': ServerValue.timestamp,
+      });
+      
       // Log action
       await _logAdminAction(
         action: newStatus ? 'publish_course' : 'unpublish_course',
         targetId: course.courseUid,
-        details:
-            'Course "${course.title}" ${newStatus ? 'published' : 'unpublished'}',
+        details: 'Course "${course.title}" ${newStatus ? 'published' : 'unpublished'}',
       );
-
+      
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -866,9 +781,9 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
       }
     }
   }
@@ -878,7 +793,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       context: context,
       builder: (context) => _FlagReasonDialog(),
     );
-
+    
     if (reason != null && reason.isNotEmpty) {
       try {
         await _db.child('flagged_content').child(course.courseUid).set({
@@ -889,13 +804,13 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
           'reason': reason,
           'flaggedAt': ServerValue.timestamp,
         });
-
+        
         await _logAdminAction(
           action: 'flag_course',
           targetId: course.courseUid,
           details: 'Course "${course.title}" flagged: $reason',
         );
-
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Course flagged for review')),
@@ -903,9 +818,9 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
         }
       }
     }
@@ -916,9 +831,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Course'),
-        content: Text(
-          'Are you sure you want to delete "${course.title}"? This action cannot be undone.',
-        ),
+        content: Text('Are you sure you want to delete "${course.title}"? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -932,43 +845,38 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         ],
       ),
     );
-
+    
     if (confirm == true) {
       try {
         // Archive before deleting
-        final courseData =
-            (await _db.child('courses').child(course.courseUid).get()).value;
+        final courseData = (await _db.child('courses').child(course.courseUid).get()).value;
         await _db.child('deleted_courses').child(course.courseUid).set({
           ...Map<String, dynamic>.from(courseData as Map),
           'deletedAt': ServerValue.timestamp,
         });
-
+        
         // Delete from both locations
         await _db.child('courses').child(course.courseUid).remove();
-        await _db
-            .child('teacher')
-            .child(course.teacherUid)
-            .child('courses')
-            .child(course.courseUid)
-            .remove();
-
+        await _db.child('teacher').child(course.teacherUid)
+            .child('courses').child(course.courseUid).remove();
+        
         await _logAdminAction(
           action: 'delete_course',
           targetId: course.courseUid,
           details: 'Course "${course.title}" deleted',
         );
-
+        
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(const SnackBar(content: Text('Course deleted')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Course deleted')),
+          );
           _loadCourses();
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(
-            context,
-          ).showSnackBar(SnackBar(content: Text('Error: $e')));
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error: $e')),
+          );
         }
       }
     }

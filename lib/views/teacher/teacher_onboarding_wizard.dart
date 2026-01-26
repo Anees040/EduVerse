@@ -1424,6 +1424,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   String? _uploadedCredentialUrl;
   bool _isUploading = false;
   bool _isPickingImage = false;
+<<<<<<< HEAD
   int? _selectedYear;
   String? _selectedCategory;
 
@@ -1441,6 +1442,8 @@ class _CredentialDialogState extends State<_CredentialDialog> {
     final currentYear = DateTime.now().year;
     return List.generate(50, (index) => currentYear - index);
   }
+=======
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
 
   @override
   void dispose() {
@@ -1452,6 +1455,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
 
   Future<void> _pickAndUploadImage() async {
     if (_isUploading || _isPickingImage) return;
+<<<<<<< HEAD
 
     setState(() => _isPickingImage = true);
 
@@ -1461,12 +1465,24 @@ class _CredentialDialogState extends State<_CredentialDialog> {
       // Use a slight delay to let the dialog settle before opening picker
       await Future.delayed(const Duration(milliseconds: 100));
 
+=======
+    
+    setState(() => _isPickingImage = true);
+    
+    try {
+      final picker = ImagePicker();
+      
+      // Use a slight delay to let the dialog settle before opening picker
+      await Future.delayed(const Duration(milliseconds: 100));
+      
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 1200,
         maxHeight: 1200,
         imageQuality: 85,
       );
+<<<<<<< HEAD
 
       if (!mounted) return;
 
@@ -1476,6 +1492,17 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         final bytes = await picked.readAsBytes();
         if (!mounted) return;
 
+=======
+      
+      if (!mounted) return;
+      
+      setState(() => _isPickingImage = false);
+      
+      if (picked != null) {
+        final bytes = await picked.readAsBytes();
+        if (!mounted) return;
+        
+>>>>>>> 3425158b508e9f53808be2e5b956e6357df71687
         setState(() {
           _credentialImageBytes = bytes;
           _isUploading = true;
