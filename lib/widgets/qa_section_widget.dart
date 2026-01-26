@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:eduverse/services/qa_service.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/moderation_service.dart';
+import 'package:eduverse/services/content_filter_service.dart';
 import 'package:eduverse/features/admin/services/admin_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:intl/intl.dart';
@@ -39,6 +40,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
     with AutomaticKeepAliveClientMixin {
   final QAService _qaService = QAService();
   final ModerationService _moderationService = ModerationService();
+  final ContentFilterService _contentFilter = ContentFilterService();
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
   String? _studentName;
@@ -117,31 +119,36 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
     try {
       final uid = FirebaseAuth.instance.currentUser!.uid;
+      final questionText = _questionController.text.trim();
 
-      // Check for banned words
-      final bannedWords = await _moderationService.checkForBannedWords(
-        _questionController.text,
-      );
+      // Check for inappropriate content with comprehensive filter
+      final filterResult = _contentFilter.checkContent(questionText);
       
-      if (bannedWords.isNotEmpty) {
-        // Log the attempt
-        await _moderationService.logModerationEvent(
+      if (!filterResult.isClean) {
+        // Report user for inappropriate content
+        await _contentFilter.reportUserForInappropriateContent(
           userId: uid,
           userRole: widget.isTeacher ? 'teacher' : 'student',
           contentType: 'question',
-          originalText: _questionController.text,
-          detectedWords: bannedWords,
+          originalText: questionText,
+          detectedWords: filterResult.detectedWords,
+          severity: filterResult.severity,
+          contentLocation: widget.courseUid,
         );
         
         if (mounted) {
           setState(() => _isSubmitting = false);
+          final isDark = AppTheme.isDarkMode(context);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text(
-                'Your message contains inappropriate content and cannot be posted.',
+              content: Text(
+                filterResult.severity >= 2
+                    ? 'This message contains inappropriate content that violates our community guidelines.'
+                    : 'Please keep your language respectful. Some words are not appropriate.',
               ),
-              backgroundColor: AppTheme.error,
+              backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
               behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
             ),
           );
         }
@@ -160,27 +167,34 @@ class _QASectionWidgetState extends State<QASectionWidget>
         videoId: widget.videoId ?? 'general',
         studentUid: uid,
         studentName: _studentName ?? 'Student',
-        question: _questionController.text.trim(),
+        question: questionText,
         videoTimestampSeconds: timestampSeconds,
         videoTitle: widget.videoTitle,
       );
 
       _questionController.clear();
       // StreamBuilder will automatically update with new question
-      // No need to call setState here, avoiding screen refresh
       if (mounted) {
+        final isDark = AppTheme.isDarkMode(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Question submitted! 📝'),
-            backgroundColor: AppTheme.success,
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: const Text('Question submitted! 📝'),
+            backgroundColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
+        final isDark = AppTheme.isDarkMode(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to submit question: $e')),
+          SnackBar(
+            content: Text('Failed to submit question: $e'),
+            backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
         );
       }
     } finally {
@@ -197,11 +211,45 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
     try {
       final teacherUid = FirebaseAuth.instance.currentUser?.uid;
+      final answerText = _answerController.text.trim();
+      final isDark = AppTheme.isDarkMode(context);
+
+      // Check for inappropriate content
+      final filterResult = _contentFilter.checkContent(answerText);
+      
+      if (!filterResult.isClean) {
+        // Report the attempt
+        await _contentFilter.reportUserForInappropriateContent(
+          userId: teacherUid ?? '',
+          userRole: 'teacher',
+          contentType: 'answer',
+          originalText: answerText,
+          detectedWords: filterResult.detectedWords,
+          severity: filterResult.severity,
+          contentLocation: widget.courseUid,
+        );
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                filterResult.severity >= 2
+                    ? 'This response contains inappropriate content that violates our guidelines.'
+                    : 'Please keep your language professional and respectful.',
+              ),
+              backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        return;
+      }
 
       await _qaService.answerQuestion(
         courseUid: widget.courseUid,
         questionId: questionId,
-        answer: _answerController.text.trim(),
+        answer: answerText,
         teacherName: widget.teacherName ?? 'Instructor',
         studentUid: studentUid,
         courseName: courseName,
@@ -211,22 +259,28 @@ class _QASectionWidgetState extends State<QASectionWidget>
       _answerController.clear();
       Navigator.pop(context);
       // StreamBuilder will automatically update with new answer
-      // No setState needed, avoiding screen refresh
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Answer posted! ✅'),
-            backgroundColor: AppTheme.success,
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: const Text('Answer posted! ✅'),
+            backgroundColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
+            duration: const Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Failed to post answer: $e')));
+        final isDark = AppTheme.isDarkMode(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to post answer: $e'),
+            backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     }
   }

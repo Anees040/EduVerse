@@ -39,6 +39,8 @@ class _AdminScaffoldState extends State<AdminScaffold> {
     _NavItem(Icons.shield_rounded, 'Moderation', 'Content Moderation'),
     _NavItem(Icons.analytics_rounded, 'Analytics', 'Reports & Charts'),
     _NavItem(Icons.backup_rounded, 'Data', 'Export & Backup'),
+    _NavItem(Icons.support_agent_rounded, 'Support', 'Ticket Management'),
+    _NavItem(Icons.school_rounded, 'Courses', 'Course Management'),
   ];
 
   @override
