@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/models/course_model.dart';
 import 'admin_course_detail_screen.dart';
@@ -210,35 +212,46 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     final displayCount = ((_currentPage + 1) * _pageSize).clamp(0, _filteredCourses.length);
     final displayedCourses = _filteredCourses.take(displayCount).toList();
 
-    return Scaffold(
-      backgroundColor: AppTheme.getBackgroundColor(context),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: AppTheme.getTextPrimary(context),
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Course Management',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.getTextPrimary(context),
-          ),
-        ),
-        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-        foregroundColor: AppTheme.getTextPrimary(context),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadCourses,
-          ),
-        ],
-      ),
-      body: Column(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with refresh button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Course Management',
+                    style: TextStyle(
+                      color: AppTheme.getTextPrimary(context),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage all courses on the platform',
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.refresh,
+                  color: AppTheme.getTextPrimary(context),
+                ),
+                onPressed: _loadCourses,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
           // Stats Header
           _buildStatsHeader(isDark),
           
@@ -268,7 +281,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     final totalEnrolled = _courses.fold<int>(0, (sum, c) => sum + c.enrolledCount);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
           _buildStatChip('Total: $totalCourses', Icons.library_books, Colors.blue, isDark),
@@ -674,6 +687,27 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                 onSelected: (action) => _handleCourseAction(course, action),
                 itemBuilder: (context) => [
                   const PopupMenuItem(value: 'view', child: Text('View Details')),
+                  const PopupMenuItem(
+                    value: 'view_teacher',
+                    child: Row(
+                      children: [
+                        Icon(Icons.person_outline, size: 18),
+                        SizedBox(width: 8),
+                        Text('View Teacher Profile'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuItem(
+                    value: 'contact_teacher',
+                    child: Row(
+                      children: [
+                        Icon(Icons.mail_outline, size: 18),
+                        SizedBox(width: 8),
+                        Text('Contact Teacher'),
+                      ],
+                    ),
+                  ),
+                  const PopupMenuDivider(),
                   PopupMenuItem(
                     value: course.isPublished ? 'unpublish' : 'publish',
                     child: Text(course.isPublished ? 'Unpublish' : 'Publish'),
@@ -730,6 +764,12 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       case 'view':
         _openCourseDetail(course);
         break;
+      case 'view_teacher':
+        await _viewTeacherProfile(course);
+        break;
+      case 'contact_teacher':
+        await _contactTeacher(course);
+        break;
       case 'publish':
       case 'unpublish':
         await _togglePublishStatus(course);
@@ -741,6 +781,357 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         await _deleteCourse(course);
         break;
     }
+  }
+
+  /// View teacher profile in a dialog
+  Future<void> _viewTeacherProfile(Course course) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    );
+    
+    try {
+      final snapshot = await _db.child('teacher').child(course.teacherUid).get();
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      if (!snapshot.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Teacher profile not found')),
+        );
+        return;
+      }
+      
+      final teacherData = Map<String, dynamic>.from(snapshot.value as Map);
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor).withOpacity(0.1),
+                backgroundImage: teacherData['photoUrl'] != null 
+                    ? NetworkImage(teacherData['photoUrl']) 
+                    : null,
+                child: teacherData['photoUrl'] == null
+                    ? Text(
+                        (teacherData['name'] ?? 'T')[0].toUpperCase(),
+                        style: TextStyle(
+                          color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      teacherData['name'] ?? 'Unknown Teacher',
+                      style: TextStyle(
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        fontSize: 18,
+                      ),
+                    ),
+                    if (teacherData['headline'] != null)
+                      Text(
+                        teacherData['headline'],
+                        style: TextStyle(
+                          color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildProfileRow('Email', teacherData['email'] ?? '-', isDark),
+                _buildProfileRow(
+                  'Status',
+                  teacherData['isVerified'] == true ? 'Verified ✓' : 'Pending Verification',
+                  isDark,
+                ),
+                if (teacherData['bio'] != null && teacherData['bio'].toString().isNotEmpty)
+                  _buildProfileRow('Bio', teacherData['bio'], isDark),
+                if (teacherData['subject'] != null)
+                  _buildProfileRow('Subject', teacherData['subject'], isDark),
+                if (teacherData['experience'] != null)
+                  _buildProfileRow('Experience', '${teacherData['experience']} years', isDark),
+                _buildProfileRow(
+                  'Courses',
+                  '${_courses.where((c) => c.teacherUid == course.teacherUid).length} on platform',
+                  isDark,
+                ),
+                _buildProfileRow(
+                  'Joined',
+                  teacherData['createdAt'] != null
+                      ? DateFormat('MMM dd, yyyy').format(
+                          DateTime.fromMillisecondsSinceEpoch(teacherData['createdAt']))
+                      : 'Unknown',
+                  isDark,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _contactTeacher(course);
+              },
+              icon: const Icon(Icons.mail_outline, size: 18),
+              label: const Text('Contact'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading teacher: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildProfileRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Contact teacher via email dialog
+  Future<void> _contactTeacher(Course course) async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subjectController = TextEditingController(
+      text: 'Regarding your course: ${course.title}',
+    );
+    final messageController = TextEditingController();
+    
+    // First fetch teacher email
+    String? teacherEmail;
+    String teacherName = _teacherNames[course.teacherUid] ?? 'Teacher';
+    
+    try {
+      final snapshot = await _db.child('teacher').child(course.teacherUid).child('email').get();
+      if (snapshot.exists) {
+        teacherEmail = snapshot.value.toString();
+      }
+      final nameSnapshot = await _db.child('teacher').child(course.teacherUid).child('name').get();
+      if (nameSnapshot.exists) {
+        teacherName = nameSnapshot.value.toString();
+      }
+    } catch (e) {
+      debugPrint('Error fetching teacher email: $e');
+    }
+    
+    if (!mounted) return;
+    
+    if (teacherEmail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Teacher email not found')),
+      );
+      return;
+    }
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.mail_outline,
+              color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Contact Teacher',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'To: $teacherName ($teacherEmail)',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: subjectController,
+                  decoration: InputDecoration(
+                    labelText: 'Subject',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: isDark 
+                        ? Colors.grey[800]!.withOpacity(0.3) 
+                        : Colors.grey[100],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: messageController,
+                  maxLines: 6,
+                  decoration: InputDecoration(
+                    labelText: 'Message',
+                    hintText: 'Enter your message to the teacher...',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: isDark 
+                        ? Colors.grey[800]!.withOpacity(0.3) 
+                        : Colors.grey[100],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (messageController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a message')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            icon: const Icon(Icons.send, size: 18),
+            label: const Text('Send'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && mounted) {
+      // Send email via server
+      try {
+        final response = await http.post(
+          Uri.parse('http://localhost:3001/send-admin-email'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'to': teacherEmail,
+            'name': teacherName,
+            'subject': subjectController.text,
+            'emailType': 'admin_message',
+            'message': messageController.text,
+          }),
+        );
+        
+        if (mounted) {
+          if (response.statusCode == 200) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Email sent successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            
+            // Log the action
+            await _logAdminAction(
+              action: 'contact_teacher',
+              targetId: course.teacherUid,
+              details: 'Contacted teacher $teacherName regarding course "${course.title}"',
+            );
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to send email: ${response.body}')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error sending email: $e')),
+          );
+        }
+      }
+    }
+    
+    subjectController.dispose();
+    messageController.dispose();
   }
 
   Future<void> _togglePublishStatus(Course course) async {
@@ -765,6 +1156,17 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         targetId: course.courseUid,
         details: 'Course "${course.title}" ${newStatus ? 'published' : 'unpublished'}',
       );
+      
+      // Send notification to teacher when course is unpublished
+      if (!newStatus) {
+        await _sendTeacherNotification(
+          teacherUid: course.teacherUid,
+          title: 'Course Unpublished',
+          message: 'Your course "${course.title}" has been unpublished by an administrator. Please contact support for more information.',
+          type: 'course_unpublished',
+          courseId: course.courseUid,
+        );
+      }
       
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -861,6 +1263,15 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
           details: 'Course "${course.title}" deleted',
         );
         
+        // Send notification to teacher about course deletion
+        await _sendTeacherNotification(
+          teacherUid: course.teacherUid,
+          title: 'Course Deleted',
+          message: 'Your course "${course.title}" has been removed by an administrator. If you believe this was an error, please contact support.',
+          type: 'course_deleted',
+          courseId: course.courseUid,
+        );
+        
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Course deleted')),
@@ -888,6 +1299,52 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       'details': details,
       'timestamp': ServerValue.timestamp,
     });
+  }
+
+  /// Send notification to teacher about course actions
+  Future<void> _sendTeacherNotification({
+    required String teacherUid,
+    required String title,
+    required String message,
+    required String type,
+    required String courseId,
+  }) async {
+    try {
+      // Add notification to teacher's notifications node
+      await _db.child('notifications').child(teacherUid).push().set({
+        'title': title,
+        'message': message,
+        'type': type,
+        'courseId': courseId,
+        'isRead': false,
+        'createdAt': ServerValue.timestamp,
+      });
+
+      // Also send email notification to teacher
+      final teacherSnapshot = await _db.child('teacher').child(teacherUid).get();
+      if (teacherSnapshot.exists) {
+        final teacherData = Map<String, dynamic>.from(teacherSnapshot.value as Map);
+        final email = teacherData['email'];
+        final name = teacherData['name'] ?? 'Teacher';
+        
+        if (email != null) {
+          await http.post(
+            Uri.parse('http://localhost:3001/send-admin-email'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'to': email,
+              'name': name,
+              'subject': 'EduVerse: $title',
+              'emailType': 'course_notification',
+              'message': message,
+              'notificationType': type,
+            }),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error sending teacher notification: $e');
+    }
   }
 }
 

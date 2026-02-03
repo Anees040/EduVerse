@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/models/course_model.dart';
 
@@ -232,6 +234,27 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           icon: const Icon(Icons.more_vert),
           onSelected: _handleAction,
           itemBuilder: (context) => [
+            const PopupMenuItem(
+              value: 'view_teacher',
+              child: Row(
+                children: [
+                  Icon(Icons.person_outline, size: 20),
+                  SizedBox(width: 8),
+                  Text('View Teacher Profile'),
+                ],
+              ),
+            ),
+            const PopupMenuItem(
+              value: 'contact_teacher',
+              child: Row(
+                children: [
+                  Icon(Icons.mail_outline, size: 20),
+                  SizedBox(width: 8),
+                  Text('Contact Teacher'),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
             PopupMenuItem(
               value: widget.course.isPublished ? 'unpublish' : 'publish',
               child: Row(
@@ -563,8 +586,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   Widget _buildVideoCard(Map<String, dynamic> video, int number, bool isDark) {
     final isHidden = video['isHidden'] == true;
-    final duration = video['duration'] ?? 0;
-    final durationStr = Duration(seconds: duration).toString().split('.')[0];
+    // Handle duration as either int or double
+    final durationValue = video['duration'];
+    final duration = durationValue is int 
+        ? durationValue 
+        : (durationValue is double ? durationValue.toInt() : 0);
+    final durationStr = _formatDuration(duration);
 
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
@@ -1003,6 +1030,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   void _handleAction(String action) async {
     switch (action) {
+      case 'view_teacher':
+        await _viewTeacherProfile();
+        break;
+      case 'contact_teacher':
+        await _contactTeacher();
+        break;
       case 'publish':
       case 'unpublish':
         await _togglePublish();
@@ -1029,12 +1062,363 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     
     await _logAction(newStatus ? 'publish_course' : 'unpublish_course');
     
+    // Send notification to teacher when course is unpublished
+    if (!newStatus) {
+      await _sendTeacherNotification(
+        title: 'Course Unpublished',
+        message: 'Your course "${widget.course.title}" has been unpublished by an administrator. Please contact support for more information.',
+        type: 'course_unpublished',
+      );
+    }
+    
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Course ${newStatus ? 'published' : 'unpublished'}')),
       );
       Navigator.pop(context);
     }
+  }
+
+  /// View teacher profile in a dialog
+  Future<void> _viewTeacherProfile() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    );
+    
+    try {
+      final snapshot = await _db.child('teacher').child(widget.course.teacherUid).get();
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading dialog
+      
+      if (!snapshot.exists) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Teacher profile not found')),
+        );
+        return;
+      }
+      
+      final teacherData = Map<String, dynamic>.from(snapshot.value as Map);
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              CircleAvatar(
+                backgroundColor: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor).withOpacity(0.1),
+                backgroundImage: teacherData['photoUrl'] != null 
+                    ? NetworkImage(teacherData['photoUrl']) 
+                    : null,
+                child: teacherData['photoUrl'] == null
+                    ? Text(
+                        (teacherData['name'] ?? 'T')[0].toUpperCase(),
+                        style: TextStyle(
+                          color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                    : null,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      teacherData['name'] ?? 'Unknown Teacher',
+                      style: TextStyle(
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        fontSize: 18,
+                      ),
+                    ),
+                    if (teacherData['headline'] != null)
+                      Text(
+                        teacherData['headline'],
+                        style: TextStyle(
+                          color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.normal,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildTeacherProfileRow('Email', teacherData['email'] ?? '-', isDark),
+                _buildTeacherProfileRow(
+                  'Status',
+                  teacherData['isVerified'] == true ? 'Verified ✓' : 'Pending Verification',
+                  isDark,
+                ),
+                if (teacherData['bio'] != null && teacherData['bio'].toString().isNotEmpty)
+                  _buildTeacherProfileRow('Bio', teacherData['bio'], isDark),
+                if (teacherData['subject'] != null)
+                  _buildTeacherProfileRow('Subject', teacherData['subject'], isDark),
+                if (teacherData['experience'] != null)
+                  _buildTeacherProfileRow('Experience', '${teacherData['experience']} years', isDark),
+                _buildTeacherProfileRow(
+                  'Joined',
+                  teacherData['createdAt'] != null
+                      ? DateFormat('MMM dd, yyyy').format(
+                          DateTime.fromMillisecondsSinceEpoch(teacherData['createdAt']))
+                      : 'Unknown',
+                  isDark,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+            TextButton.icon(
+              onPressed: () {
+                Navigator.pop(context);
+                _contactTeacher();
+              },
+              icon: const Icon(Icons.mail_outline, size: 18),
+              label: const Text('Contact'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // Close loading dialog
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading teacher: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildTeacherProfileRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Contact teacher via email dialog
+  Future<void> _contactTeacher() async {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final subjectController = TextEditingController(
+      text: 'Regarding your course: ${widget.course.title}',
+    );
+    final messageController = TextEditingController();
+    
+    // First fetch teacher email
+    String? teacherEmail;
+    String teacherName = _teacherName ?? 'Teacher';
+    
+    try {
+      final snapshot = await _db.child('teacher').child(widget.course.teacherUid).child('email').get();
+      if (snapshot.exists) {
+        teacherEmail = snapshot.value.toString();
+      }
+      final nameSnapshot = await _db.child('teacher').child(widget.course.teacherUid).child('name').get();
+      if (nameSnapshot.exists) {
+        teacherName = nameSnapshot.value.toString();
+      }
+    } catch (e) {
+      debugPrint('Error fetching teacher email: $e');
+    }
+    
+    if (!mounted) return;
+    
+    if (teacherEmail == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Teacher email not found')),
+      );
+      return;
+    }
+    
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.mail_outline,
+              color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Contact Teacher',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'To: $teacherName ($teacherEmail)',
+                  style: TextStyle(
+                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: subjectController,
+                  decoration: InputDecoration(
+                    labelText: 'Subject',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: isDark 
+                        ? Colors.grey[800]!.withOpacity(0.3) 
+                        : Colors.grey[100],
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: messageController,
+                  maxLines: 6,
+                  decoration: InputDecoration(
+                    labelText: 'Message',
+                    hintText: 'Enter your message to the teacher...',
+                    alignLabelWithHint: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: isDark 
+                        ? Colors.grey[800]!.withOpacity(0.3) 
+                        : Colors.grey[100],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(
+              'Cancel',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              if (messageController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Please enter a message')),
+                );
+                return;
+              }
+              Navigator.pop(context, true);
+            },
+            icon: const Icon(Icons.send, size: 18),
+            label: const Text('Send'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+            ),
+          ),
+        ],
+      ),
+    );
+    
+    if (result == true && mounted) {
+      // Send email via server
+      try {
+        final response = await http.post(
+          Uri.parse('http://localhost:3001/send-admin-email'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'to': teacherEmail,
+            'name': teacherName,
+            'subject': subjectController.text,
+            'emailType': 'admin_message',
+            'message': messageController.text,
+          }),
+        );
+        
+        if (mounted) {
+          if (response.statusCode == 200) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Email sent successfully'),
+                backgroundColor: Colors.green,
+              ),
+            );
+            
+            // Log the action
+            await _logAction('contact_teacher');
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Failed to send email: ${response.body}')),
+            );
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error sending email: $e')),
+          );
+        }
+      }
+    }
+    
+    subjectController.dispose();
+    messageController.dispose();
   }
 
   Future<void> _flagCourse() async {
@@ -1068,6 +1452,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       
       await _logAction('delete_course');
       
+      // Send notification to teacher about course deletion
+      await _sendTeacherNotification(
+        title: 'Course Deleted',
+        message: 'Your course "${widget.course.title}" has been removed by an administrator. If you believe this was an error, please contact support.',
+        type: 'course_deleted',
+      );
+      
       if (mounted) {
         Navigator.pop(context);
       }
@@ -1079,7 +1470,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     
     switch (action) {
       case 'preview':
-        // Open video player
+        // Open video player dialog
+        final videoUrl = video['url'] ?? video['videoUrl'];
+        if (videoUrl != null && videoUrl.toString().isNotEmpty) {
+          _showVideoPreviewDialog(video, videoUrl.toString());
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No video URL available')),
+          );
+        }
         break;
       case 'hide':
       case 'show':
@@ -1109,10 +1508,28 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ),
         );
         if (confirm == true) {
-          await _db.child('courses').child(widget.course.courseUid)
-              .child('videos').child(videoId).remove();
-          await _logAction('delete_video', videoId);
-          _loadVideos();
+          try {
+            // Delete from both courses node and teacher's courses node
+            await _db.child('courses').child(widget.course.courseUid)
+                .child('videos').child(videoId).remove();
+            await _db.child('teacher').child(widget.course.teacherUid)
+                .child('courses').child(widget.course.courseUid)
+                .child('videos').child(videoId).remove();
+            await _logAction('delete_video', videoId);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Video deleted successfully')),
+              );
+            }
+            _loadVideos();
+          } catch (e) {
+            debugPrint('Error deleting video: $e');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to delete video: $e')),
+              );
+            }
+          }
         }
         break;
     }
@@ -1183,10 +1600,6 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     }
   }
 
-  void _viewTeacherProfile() {
-    // Navigate to teacher profile
-  }
-
   Future<void> _logAction(String action, [String? targetId]) async {
     await _db.child('admin_logs').push().set({
       'action': action,
@@ -1194,6 +1607,192 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       'targetId': targetId,
       'timestamp': ServerValue.timestamp,
     });
+  }
+
+  /// Send notification to teacher about course actions
+  Future<void> _sendTeacherNotification({
+    required String title,
+    required String message,
+    required String type,
+  }) async {
+    try {
+      // Add notification to teacher's notifications node
+      await _db.child('notifications').child(widget.course.teacherUid).push().set({
+        'title': title,
+        'message': message,
+        'type': type,
+        'courseId': widget.course.courseUid,
+        'isRead': false,
+        'createdAt': ServerValue.timestamp,
+      });
+
+      // Also send email notification to teacher
+      final teacherSnapshot = await _db.child('teacher').child(widget.course.teacherUid).get();
+      if (teacherSnapshot.exists) {
+        final teacherData = Map<String, dynamic>.from(teacherSnapshot.value as Map);
+        final email = teacherData['email'];
+        final name = teacherData['name'] ?? 'Teacher';
+        
+        if (email != null) {
+          await http.post(
+            Uri.parse('http://localhost:3001/send-admin-email'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({
+              'to': email,
+              'name': name,
+              'subject': 'EduVerse: $title',
+              'emailType': 'course_notification',
+              'message': message,
+              'notificationType': type,
+            }),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Error sending teacher notification: $e');
+    }
+  }
+
+  /// Format duration in a human-readable way
+  String _formatDuration(int seconds) {
+    if (seconds <= 0) return '0:00';
+    
+    final hours = seconds ~/ 3600;
+    final minutes = (seconds % 3600) ~/ 60;
+    final secs = seconds % 60;
+    
+    if (hours > 0) {
+      return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
+    }
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  /// Show video preview dialog
+  void _showVideoPreviewDialog(Map<String, dynamic> video, String videoUrl) {
+    final isDark = AppTheme.isDarkMode(context);
+    
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Container(
+          width: MediaQuery.of(context).size.width * 0.8,
+          constraints: const BoxConstraints(maxWidth: 800),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      video['title'] ?? 'Video Preview',
+                      style: TextStyle(
+                        color: AppTheme.getTextPrimary(context),
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              
+              // Video info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildInfoRow('URL', videoUrl, Icons.link),
+                    const SizedBox(height: 8),
+                    _buildInfoRow(
+                      'Duration', 
+                      _formatDuration(
+                        video['duration'] is int 
+                            ? video['duration'] 
+                            : (video['duration'] is double 
+                                ? (video['duration'] as double).toInt() 
+                                : 0)
+                      ),
+                      Icons.schedule,
+                    ),
+                    if (video['description'] != null && video['description'].toString().isNotEmpty) ...[
+                      const SizedBox(height: 8),
+                      _buildInfoRow('Description', video['description'].toString(), Icons.description),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              
+              // Open in browser button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    // Open video URL - in a real app you'd use url_launcher
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Video URL: $videoUrl')),
+                    );
+                  },
+                  icon: const Icon(Icons.play_circle_outline),
+                  label: const Text('Open Video URL'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoRow(String label, String value, IconData icon) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 16, color: AppTheme.getTextSecondary(context)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 11,
+                ),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontSize: 13,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

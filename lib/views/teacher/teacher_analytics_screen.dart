@@ -627,10 +627,10 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
       }).toList();
     }
 
-    // Filter by course
+    // Filter by course - use toString() to ensure type-safe comparison
     if (_selectedCourseReviewFilter != null) {
       filtered = filtered.where((r) {
-        return r['courseId'] == _selectedCourseReviewFilter;
+        return r['courseId']?.toString() == _selectedCourseReviewFilter;
       }).toList();
     }
 

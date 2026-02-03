@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import '../providers/admin_provider.dart';
 import '../widgets/admin_scaffold.dart';
@@ -231,8 +232,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
 }
 
 /// Dashboard Home Tab - KPI Overview
-class _DashboardHomeTab extends StatelessWidget {
+class _DashboardHomeTab extends StatefulWidget {
   const _DashboardHomeTab();
+
+  @override
+  State<_DashboardHomeTab> createState() => _DashboardHomeTabState();
+}
+
+class _DashboardHomeTabState extends State<_DashboardHomeTab> {
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
 
   @override
   Widget build(BuildContext context) {
@@ -288,19 +296,53 @@ class _DashboardHomeTab extends StatelessWidget {
                 _buildQuickActions(context, isDark, provider),
                 const SizedBox(height: 32),
 
-                // Recent Users Preview
-                Text(
-                  'Recent Users',
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextPrimary
-                        : AppTheme.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 18,
-                  ),
+                // Recent Activity Preview (Real-time)
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Recent Activity',
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Colors.green,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Live',
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 16),
-                _buildRecentUsersPreview(provider, isDark),
+                _buildRecentActivityStream(isDark),
               ],
             ),
           ),
@@ -395,32 +437,32 @@ class _DashboardHomeTab extends StatelessWidget {
       builder: (context, constraints) {
         final screenWidth = constraints.maxWidth;
         int crossAxisCount;
-        double cardHeight;
+        double aspectRatio;
         double spacing;
 
-        // Responsive breakpoints
+        // Responsive breakpoints - Using aspect ratio for consistent sizing
         if (screenWidth >= 900) {
           crossAxisCount = 4;
-          cardHeight = 180;
+          aspectRatio = 1.1; // Slightly taller than wide
           spacing = 16;
         } else if (screenWidth >= 600) {
           crossAxisCount = 2;
-          cardHeight = 180;
+          aspectRatio = 1.4; // Wider on tablets for 2x2 grid
           spacing = 16;
         } else if (screenWidth >= 400) {
           crossAxisCount = 2;
-          cardHeight = 170;
+          aspectRatio = 1.0; // Square on small screens
           spacing = 12;
         } else {
           crossAxisCount = 1;
-          cardHeight = 160;
+          aspectRatio = 2.0; // Wide cards on mobile
           spacing = 12;
         }
 
         final cards = [
           // Total Users Card
-          SizedBox(
-            height: cardHeight,
+          AspectRatio(
+            aspectRatio: aspectRatio,
             child: ModernKPICard(
               title: 'Total Users',
               value: isLoading ? '...' : '$totalUsers',
@@ -439,8 +481,8 @@ class _DashboardHomeTab extends StatelessWidget {
           ),
           
           // Total Teachers Card
-          SizedBox(
-            height: cardHeight,
+          AspectRatio(
+            aspectRatio: aspectRatio,
             child: ModernKPICard(
               title: 'Total Teachers',
               value: isLoading ? '...' : '$totalTeachers',
@@ -457,8 +499,8 @@ class _DashboardHomeTab extends StatelessWidget {
           ),
           
           // Total Courses Card
-          SizedBox(
-            height: cardHeight,
+          AspectRatio(
+            aspectRatio: aspectRatio,
             child: ModernKPICard(
               title: 'Total Courses',
               value: isLoading ? '...' : '$totalCourses',
@@ -475,8 +517,8 @@ class _DashboardHomeTab extends StatelessWidget {
           ),
           
           // Total Revenue Card
-          SizedBox(
-            height: cardHeight,
+          AspectRatio(
+            aspectRatio: aspectRatio,
             child: ModernKPICard(
               title: 'Total Revenue',
               value: isLoading ? '...' : '\$${totalRevenue.toStringAsFixed(0)}',
@@ -511,7 +553,7 @@ class _DashboardHomeTab extends StatelessWidget {
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: spacing,
             mainAxisSpacing: spacing,
-            mainAxisExtent: cardHeight,
+            childAspectRatio: aspectRatio,
           ),
           itemCount: cards.length,
           itemBuilder: (context, index) => cards[index],
@@ -641,104 +683,195 @@ class _DashboardHomeTab extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentUsersPreview(AdminProvider provider, bool isDark) {
-    final users = provider.state.users.take(5).toList();
-
-    if (users.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(
-          color: isDark ? AppTheme.darkCard : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-          ),
-        ),
-        child: Center(
-          child: Text(
-            'No users yet',
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-        ),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
-        itemCount: users.length,
-        separatorBuilder: (_, __) => Divider(
-          height: 1,
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-        ),
-        itemBuilder: (context, index) {
-          final user = users[index];
-          return ListTile(
-            leading: CircleAvatar(
-              backgroundColor:
-                  (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                      .withOpacity(0.1),
-              child: Text(
-                (user['name'] ?? 'U')[0].toUpperCase(),
-                style: TextStyle(
-                  color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-                  fontWeight: FontWeight.bold,
+  /// Build real-time activity stream using StreamBuilder
+  Widget _buildRecentActivityStream(bool isDark) {
+    // Listen to both students and teachers for real-time updates
+    return StreamBuilder<DatabaseEvent>(
+      stream: _db.child('student').orderByChild('createdAt').limitToLast(10).onValue,
+      builder: (context, studentSnapshot) {
+        return StreamBuilder<DatabaseEvent>(
+          stream: _db.child('teacher').orderByChild('createdAt').limitToLast(10).onValue,
+          builder: (context, teacherSnapshot) {
+            // Combine and sort users from both streams
+            final List<Map<String, dynamic>> activities = [];
+            
+            if (studentSnapshot.hasData && studentSnapshot.data?.snapshot.value != null) {
+              final data = Map<String, dynamic>.from(studentSnapshot.data!.snapshot.value as Map);
+              for (var entry in data.entries) {
+                final user = Map<String, dynamic>.from(entry.value as Map);
+                user['uid'] = entry.key;
+                user['role'] = 'student';
+                user['activityType'] = 'signup';
+                activities.add(user);
+              }
+            }
+            
+            if (teacherSnapshot.hasData && teacherSnapshot.data?.snapshot.value != null) {
+              final data = Map<String, dynamic>.from(teacherSnapshot.data!.snapshot.value as Map);
+              for (var entry in data.entries) {
+                final user = Map<String, dynamic>.from(entry.value as Map);
+                user['uid'] = entry.key;
+                user['role'] = 'teacher';
+                user['activityType'] = 'signup';
+                activities.add(user);
+              }
+            }
+            
+            // Sort by createdAt (most recent first) and take top 6
+            activities.sort((a, b) {
+              final aTime = a['createdAt'] ?? 0;
+              final bTime = b['createdAt'] ?? 0;
+              return bTime.compareTo(aTime);
+            });
+            
+            final recentActivities = activities.take(6).toList();
+            
+            if (recentActivities.isEmpty) {
+              return Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                  ),
                 ),
-              ),
-            ),
-            title: Text(
-              user['name'] ?? 'Unknown',
-              style: TextStyle(
-                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            subtitle: Text(
-              user['email'] ?? '',
-              style: TextStyle(
-                color: isDark
-                    ? AppTheme.darkTextSecondary
-                    : AppTheme.textSecondary,
-                fontSize: 12,
-              ),
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(
+                        Icons.history,
+                        size: 40,
+                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'No recent activity',
+                        style: TextStyle(
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : AppTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+            
+            return Container(
               decoration: BoxDecoration(
-                color: user['role'] == 'teacher'
-                    ? (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
-                          .withOpacity(0.1)
-                    : (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                          .withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                (user['role'] ?? 'User').toString().toUpperCase(),
-                style: TextStyle(
-                  color: user['role'] == 'teacher'
-                      ? (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
-                      : (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor),
-                  fontWeight: FontWeight.w600,
-                  fontSize: 10,
+                color: isDark ? AppTheme.darkCard : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
                 ),
               ),
-            ),
-          );
-        },
-      ),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: recentActivities.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                ),
+                itemBuilder: (context, index) {
+                  final activity = recentActivities[index];
+                  final role = activity['role'] ?? 'user';
+                  final name = activity['name'] ?? activity['fullName'] ?? 'Unknown';
+                  final createdAt = activity['createdAt'];
+                  
+                  // Activity icon and color based on type
+                  IconData activityIcon = Icons.person_add;
+                  Color activityColor = role == 'teacher' 
+                      ? (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
+                      : (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor);
+                  String activityText = 'New ${role == 'teacher' ? 'teacher' : 'student'} signed up';
+                  
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: activityColor.withOpacity(0.1),
+                      child: Icon(
+                        activityIcon,
+                        color: activityColor,
+                        size: 20,
+                      ),
+                    ),
+                    title: Text(
+                      name,
+                      style: TextStyle(
+                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    subtitle: Text(
+                      activityText,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                    trailing: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text(
+                          _getTimeAgo(createdAt),
+                          style: TextStyle(
+                            color: isDark
+                                ? AppTheme.darkTextTertiary
+                                : Colors.grey.shade500,
+                            fontSize: 11,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: activityColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: Text(
+                            role.toUpperCase(),
+                            style: TextStyle(
+                              color: activityColor,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+            );
+          },
+        );
+      },
     );
+  }
+
+  String _getTimeAgo(dynamic timestamp) {
+    if (timestamp == null) return '';
+    
+    final now = DateTime.now();
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp is int ? timestamp : 0);
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) {
+      return 'Just now';
+    } else if (diff.inMinutes < 60) {
+      return '${diff.inMinutes}m ago';
+    } else if (diff.inHours < 24) {
+      return '${diff.inHours}h ago';
+    } else if (diff.inDays < 7) {
+      return '${diff.inDays}d ago';
+    } else {
+      return DateFormat('MMM d').format(date);
+    }
   }
 }
 

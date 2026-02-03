@@ -110,10 +110,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                   const SizedBox(height: 20),
                   _buildRevenueChart(isDark),
                 ],
-                const SizedBox(height: 20),
-                
-                // User type split chart
-                _buildRevenueSplitChart(provider, isDark),
               ],
             ),
           ),
@@ -289,7 +285,39 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                      isDark ? AppTheme.darkAccent : AppTheme.accentColor,
+                    ],
+                  ),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'New User Signups',
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           SizedBox(
             height: 250,
             child: isLoading
@@ -542,205 +570,6 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     );
   }
 
-  Widget _buildRevenueSplitChart(AdminProvider provider, bool isDark) {
-    final data = provider.state.revenueData;
-    final isLoading = data.isEmpty;
-
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkCard : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                      .withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  Icons.bar_chart_rounded,
-                  color: isDark ? AppTheme.darkSuccess : AppTheme.success,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                'Monthly Revenue',
-                style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Revenue trends over the past months',
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-          const SizedBox(height: 24),
-          SizedBox(
-            height: 250,
-            child: isLoading
-                ? _buildLoadingChart(isDark)
-                : _buildRevenueBarChart(data, isDark),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRevenueBarChart(List<Map<String, dynamic>> data, bool isDark) {
-    if (data.isEmpty) {
-      return _buildNoDataState(isDark);
-    }
-
-    final maxRevenue = data.fold<double>(0, (max, item) {
-      final revenue = (item['revenue'] ?? 0).toDouble();
-      return revenue > max ? revenue : max;
-    });
-
-    final currencyFormat = NumberFormat.compactCurrency(symbol: '\$');
-
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxRevenue * 1.2,
-        minY: 0,
-        barTouchData: BarTouchData(
-          enabled: true,
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (_) =>
-                isDark ? AppTheme.darkElevated : Colors.white,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              final month = data[group.x.toInt()]['month'] as String;
-              return BarTooltipItem(
-                '${currencyFormat.format(rod.toY)}\n$month',
-                TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextPrimary
-                      : AppTheme.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 12,
-                ),
-              );
-            },
-          ),
-        ),
-        titlesData: FlTitlesData(
-          show: true,
-          bottomTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index >= 0 && index < data.length) {
-                  final month = data[index]['month'] as String;
-                  // Show only month abbreviation
-                  final parts = month.split('-');
-                  if (parts.length >= 2) {
-                    final monthNum = int.tryParse(parts[1]) ?? 1;
-                    const monthNames = [
-                      'J',
-                      'F',
-                      'M',
-                      'A',
-                      'M',
-                      'J',
-                      'J',
-                      'A',
-                      'S',
-                      'O',
-                      'N',
-                      'D',
-                    ];
-                    return Text(
-                      monthNames[monthNum - 1],
-                      style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextTertiary
-                            : AppTheme.textSecondary,
-                        fontSize: 10,
-                      ),
-                    );
-                  }
-                }
-                return const SizedBox();
-              },
-              reservedSize: 20,
-            ),
-          ),
-          leftTitles: AxisTitles(
-            sideTitles: SideTitles(
-              showTitles: true,
-              reservedSize: 50,
-              getTitlesWidget: (value, meta) {
-                return Text(
-                  currencyFormat.format(value),
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextTertiary
-                        : AppTheme.textSecondary,
-                    fontSize: 10,
-                  ),
-                );
-              },
-            ),
-          ),
-          topTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-          rightTitles: const AxisTitles(
-            sideTitles: SideTitles(showTitles: false),
-          ),
-        ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-            strokeWidth: 1,
-          ),
-        ),
-        borderData: FlBorderData(show: false),
-        barGroups: List.generate(data.length, (index) {
-          final revenue = (data[index]['revenue'] ?? 0).toDouble();
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: revenue,
-                color: isDark ? AppTheme.darkSuccess : AppTheme.success,
-                width: 20,
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(4),
-                ),
-              ),
-            ],
-          );
-        }),
-      ),
-    );
-  }
-
   Widget _buildLoadingChart(bool isDark) {
     return Center(
       child: Column(
@@ -988,21 +817,50 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 16),
+          
+          // Legend
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 12,
+                height: 12,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF10B981), Color(0xFF34D399)],
+                  ),
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Platform Revenue (20% commission)',
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
           
           // Chart
           SizedBox(
             height: 200,
             child: _isLoadingRevenue
                 ? _buildLoadingChart(isDark)
-                : _buildRevenueBarChartFromStats(dataPoints, isDark),
+                : _buildRevenueAreaChartFromStats(dataPoints, isDark),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRevenueBarChartFromStats(List<RevenueDataPoint> data, bool isDark) {
+  Widget _buildRevenueAreaChartFromStats(List<RevenueDataPoint> data, bool isDark) {
     if (data.isEmpty) return _buildNoDataState(isDark);
     
     final maxRevenue = data.fold<double>(
@@ -1010,31 +868,28 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       (max, item) => item.amount > max ? item.amount : max,
     ) * 1.2;
 
-    return BarChart(
-      BarChartData(
-        alignment: BarChartAlignment.spaceAround,
-        maxY: maxRevenue,
-        barTouchData: BarTouchData(
-          touchTooltipData: BarTouchTooltipData(
-            getTooltipColor: (group) => isDark ? AppTheme.darkCard : Colors.white,
-            tooltipPadding: const EdgeInsets.all(8),
-            tooltipMargin: 8,
-            getTooltipItem: (group, groupIndex, rod, rodIndex) {
-              return BarTooltipItem(
-                '\$${rod.toY.toStringAsFixed(2)}',
-                const TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                ),
-              );
-            },
+    // Create spots for line chart
+    final spots = data.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value.amount);
+    }).toList();
+
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200).withOpacity(0.5),
+            strokeWidth: 1,
+            dashArray: [5, 5],
           ),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 50,
+              reservedSize: 55,
               interval: maxRevenue > 4 ? maxRevenue / 4 : 1,
               getTitlesWidget: (value, meta) {
                 if (value == meta.max || value == meta.min) return const SizedBox();
@@ -1045,6 +900,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     style: TextStyle(
                       color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
                       fontSize: 10,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 );
@@ -1054,17 +910,27 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 30,
+              reservedSize: 35,
+              interval: data.length > 12 ? (data.length / 6).ceilToDouble() : 
+                        data.length > 6 ? 2 : 1,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
                 if (index >= 0 && index < data.length) {
+                  final interval = data.length > 12 ? (data.length / 6).ceil() : 
+                                   data.length > 6 ? 2 : 1;
+                  final showLabel = index == 0 || 
+                                    index == data.length - 1 || 
+                                    index % interval == 0;
+                  if (!showLabel) return const SizedBox();
+                  
                   return Padding(
                     padding: const EdgeInsets.only(top: 8),
                     child: Text(
                       data[index].label,
                       style: TextStyle(
                         color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
-                        fontSize: 10,
+                        fontSize: 9,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   );
@@ -1076,38 +942,117 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
         ),
-        gridData: FlGridData(
-          show: true,
-          drawVerticalLine: false,
-          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
-          getDrawingHorizontalLine: (value) => FlLine(
-            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-            strokeWidth: 1,
-          ),
-        ),
         borderData: FlBorderData(show: false),
-        barGroups: List.generate(data.length, (index) {
-          final revenue = data[index].amount;
-          return BarChartGroupData(
-            x: index,
-            barRods: [
-              BarChartRodData(
-                toY: revenue,
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    Colors.green.shade400,
-                    Colors.green.shade600,
-                  ],
-                ),
-                width: 20,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(6)),
+        minX: 0,
+        maxX: (data.length - 1).toDouble(),
+        minY: 0,
+        maxY: maxRevenue > 0 ? maxRevenue : 10,
+        lineBarsData: [
+          LineChartBarData(
+            spots: spots,
+            isCurved: true,
+            curveSmoothness: 0.35,
+            preventCurveOverShooting: true,
+            gradient: const LinearGradient(
+              colors: [
+                Color(0xFF10B981), // Green-500
+                Color(0xFF34D399), // Green-400
+              ],
+            ),
+            barWidth: 3,
+            isStrokeCapRound: true,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) {
+                return FlDotCirclePainter(
+                  radius: 5,
+                  color: const Color(0xFF10B981),
+                  strokeWidth: 2.5,
+                  strokeColor: isDark ? AppTheme.darkCard : Colors.white,
+                );
+              },
+            ),
+            belowBarData: BarAreaData(
+              show: true,
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF10B981).withOpacity(0.3),
+                  const Color(0xFF10B981).withOpacity(0.1),
+                  Colors.transparent,
+                ],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: const [0.0, 0.5, 1.0],
               ),
-            ],
-          );
-        }),
+            ),
+          ),
+        ],
+        lineTouchData: LineTouchData(
+          enabled: true,
+          handleBuiltInTouches: true,
+          touchTooltipData: LineTouchTooltipData(
+            maxContentWidth: 150,
+            getTooltipColor: (_) => isDark ? AppTheme.darkElevated : Colors.white,
+            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            tooltipBorder: BorderSide(
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            ),
+            getTooltipItems: (touchedSpots) {
+              return touchedSpots.map((spot) {
+                final index = spot.x.toInt();
+                String label = '';
+                if (index >= 0 && index < data.length) {
+                  label = data[index].label;
+                }
+                return LineTooltipItem(
+                  '\$${spot.y.toStringAsFixed(2)}\n',
+                  const TextStyle(
+                    color: Color(0xFF10B981),
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: label,
+                      style: TextStyle(
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
+                        fontWeight: FontWeight.normal,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                );
+              }).toList();
+            },
+          ),
+          getTouchedSpotIndicator: (barData, spotIndexes) {
+            return spotIndexes.map((index) {
+              return TouchedSpotIndicatorData(
+                FlLine(
+                  color: const Color(0xFF10B981).withOpacity(0.3),
+                  strokeWidth: 2,
+                  dashArray: [5, 5],
+                ),
+                FlDotData(
+                  show: true,
+                  getDotPainter: (spot, percent, barData, index) {
+                    return FlDotCirclePainter(
+                      radius: 7,
+                      color: const Color(0xFF10B981),
+                      strokeWidth: 3,
+                      strokeColor: isDark ? AppTheme.darkCard : Colors.white,
+                    );
+                  },
+                ),
+              );
+            }).toList();
+          },
+        ),
       ),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
     );
   }
 }

@@ -1337,6 +1337,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   }
 
   Future<void> _performLogout() async {
+    // Cancel the auto-refresh timer first to prevent any background operations
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+    
+    // Store mounted state before any async operations
+    final wasMounted = mounted;
+    
     try {
       // Clear ALL static caches to prevent data leakage between users
       // Do this BEFORE signing out so we still have user context if needed
@@ -1352,27 +1359,27 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         // Continue with logout even if cache clearing fails
       }
 
-      // Sign out from Firebase
+      // Navigate FIRST, then sign out to avoid provider access issues
+      if (wasMounted && mounted) {
+        // Use pushAndRemoveUntil to navigate away before sign out
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const SigninScreen()),
+          (route) => false,
+        );
+      }
+      
+      // Sign out from Firebase AFTER navigation
+      // This prevents any provider rebuild errors
       try {
         await FirebaseAuth.instance.signOut();
       } catch (signOutError) {
         debugPrint('Sign out error: $signOutError');
-        // Continue to navigate away even if signout throws
+        // Already navigated, so this is fine
       }
-
-      if (!mounted) return;
-
-      // Navigate to sign in screen and remove all previous routes
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const SigninScreen()),
-        (route) => false,
-      );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+      debugPrint('Logout error: $e');
+      // Don't show snackbar since we might not have a valid context
     }
   }
 

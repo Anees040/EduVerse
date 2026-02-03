@@ -1,7 +1,5 @@
 {
   "rules": {
-    // Helper: Check if user is an admin
-    // Usage: root.child('admin').child(auth.uid).child('role').val() === 'admin'
     
     "admin": {
       ".read": "auth != null",
@@ -90,6 +88,15 @@
       }
     },
     
+    "flagged_content": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      "$flagId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    
     "qa": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -103,13 +110,13 @@
       }
     },
     
-    // Moderation node - Admin full access, authenticated users can write
+    
     "moderation": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null"
     },
     
-    // Content reports - Anyone authenticated can report, admin can read all
+    
     "content_reports": {
       ".read": "auth != null",
       ".write": "auth != null",
