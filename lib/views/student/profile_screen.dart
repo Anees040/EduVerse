@@ -46,6 +46,10 @@ class _ProfileScreenState extends State<ProfileScreen>
   String userName = "...";
   String userRole = "student";
   String email = "...";
+  String? photoUrl;
+  String? headline;
+  String? bio;
+  List<String>? interests;
   int? enrolledCourses;
   int? joinedDate;
   int completedCourses = 0;
@@ -72,6 +76,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         ProfileScreen.cachedProfileData != null) {
       userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
       email = ProfileScreen.cachedProfileData!['email'] ?? "...";
+      photoUrl = ProfileScreen.cachedProfileData!['photoUrl'];
+      headline = ProfileScreen.cachedProfileData!['headline'];
+      bio = ProfileScreen.cachedProfileData!['bio'];
+      interests = ProfileScreen.cachedProfileData!['interests'] != null
+          ? List<String>.from(ProfileScreen.cachedProfileData!['interests'])
+          : null;
       userRole = widget.role;
       joinedDate = ProfileScreen.cachedProfileData!['joinedDate'];
       enrolledCourses = ProfileScreen.cachedProfileData!['enrolledCourses'];
@@ -118,6 +128,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           userName = ProfileScreen.cachedProfileData!['userName'] ?? "...";
           email = ProfileScreen.cachedProfileData!['email'] ?? "...";
+          photoUrl = ProfileScreen.cachedProfileData!['photoUrl'];
+          headline = ProfileScreen.cachedProfileData!['headline'];
+          bio = ProfileScreen.cachedProfileData!['bio'];
+          interests = ProfileScreen.cachedProfileData!['interests'] != null
+              ? List<String>.from(ProfileScreen.cachedProfileData!['interests'])
+              : null;
           userRole = widget.role;
           joinedDate = ProfileScreen.cachedProfileData!['joinedDate'];
           enrolledCourses = ProfileScreen.cachedProfileData!['enrolledCourses'];
@@ -143,6 +159,12 @@ class _ProfileScreenState extends State<ProfileScreen>
           setState(() {
             userName = cachedData['userName'] ?? "...";
             email = cachedData['email'] ?? "...";
+            photoUrl = cachedData['photoUrl'];
+            headline = cachedData['headline'];
+            bio = cachedData['bio'];
+            interests = cachedData['interests'] != null
+                ? List<String>.from(cachedData['interests'])
+                : null;
             userRole = widget.role;
             joinedDate = cachedData['joinedDate'];
             enrolledCourses = cachedData['enrolledCourses'];
@@ -205,10 +227,14 @@ class _ProfileScreenState extends State<ProfileScreen>
 
         if (!mounted) return;
 
-        // Cache the data
+        // Cache the data including photoUrl and profile fields
         final profileData = {
           'userName': userData['name'],
           'email': userData['email'],
+          'photoUrl': userData['photoUrl'],
+          'headline': userData['headline'],
+          'bio': userData['bio'],
+          'interests': userData['interests'],
           'joinedDate': userData['createdAt'],
           'enrolledCourses': enrolledCoursesList.length,
           'completedCourses': completed,
@@ -219,11 +245,18 @@ class _ProfileScreenState extends State<ProfileScreen>
 
         // Update static cache
         ProfileScreen.cachedProfileData = profileData;
+        ProfileScreen.cachedUid = uid;
         ProfileScreen.hasLoadedOnce = true;
 
         setState(() {
           userName = userData['name'] ?? "...";
           email = userData['email'] ?? "...";
+          photoUrl = userData['photoUrl'];
+          headline = userData['headline'];
+          bio = userData['bio'];
+          interests = userData['interests'] != null
+              ? List<String>.from(userData['interests'] as List)
+              : null;
           userRole = widget.role;
           joinedDate = userData['createdAt'];
           enrolledCourses = enrolledCoursesList.length;
@@ -283,6 +316,10 @@ class _ProfileScreenState extends State<ProfileScreen>
       final profileData = {
         'userName': userData['name'],
         'email': userData['email'],
+        'photoUrl': userData['photoUrl'],
+        'headline': userData['headline'],
+        'bio': userData['bio'],
+        'interests': userData['interests'],
         'joinedDate': userData['createdAt'],
         'enrolledCourses': enrolledCoursesList.length,
         'completedCourses': completed,
@@ -300,6 +337,12 @@ class _ProfileScreenState extends State<ProfileScreen>
         setState(() {
           userName = userData['name'] ?? "...";
           email = userData['email'] ?? "...";
+          photoUrl = userData['photoUrl'];
+          headline = userData['headline'];
+          bio = userData['bio'];
+          interests = userData['interests'] != null
+              ? List<String>.from(userData['interests'] as List)
+              : null;
           joinedDate = userData['createdAt'];
           enrolledCourses = enrolledCoursesList.length;
           completedCourses = completed;
@@ -809,7 +852,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               ),
               child: Column(
                 children: [
-                  // Avatar
+                  // Avatar with profile picture support
                   Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
@@ -819,14 +862,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                     child: CircleAvatar(
                       radius: 50,
                       backgroundColor: Colors.white.withOpacity(0.2),
-                      child: Text(
-                        userName.isNotEmpty ? userName[0].toUpperCase() : "?",
-                        style: const TextStyle(
-                          fontSize: 40,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
+                      backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
+                          ? (photoUrl!.startsWith('data:')
+                              ? MemoryImage(
+                                  Uri.parse(photoUrl!).data!.contentAsBytes(),
+                                )
+                              : NetworkImage(photoUrl!) as ImageProvider)
+                          : null,
+                      child: photoUrl == null || photoUrl!.isEmpty
+                          ? Text(
+                              userName.isNotEmpty ? userName[0].toUpperCase() : "?",
+                              style: const TextStyle(
+                                fontSize: 40,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            )
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -838,6 +890,17 @@ class _ProfileScreenState extends State<ProfileScreen>
                       color: Colors.white,
                     ),
                   ),
+                  if (headline != null && headline!.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      headline!,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                   const SizedBox(height: 4),
                   Container(
                     padding: const EdgeInsets.symmetric(
@@ -884,6 +947,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               decoration: AppTheme.getCardDecoration(context),
               padding: const EdgeInsets.all(20),
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildInfoRow(Icons.email_outlined, "Email", email),
                   Divider(height: 24, color: AppTheme.getBorderColor(context)),
@@ -896,6 +960,114 @@ class _ProfileScreenState extends State<ProfileScreen>
                           ).toLocal().toString().split(' ')[0]
                         : "N/A",
                   ),
+                  // Bio section
+                  if (bio != null && bio!.isNotEmpty) ...[
+                    Divider(height: 24, color: AppTheme.getBorderColor(context)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.description_outlined,
+                            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Bio",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.getTextSecondary(context),
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                bio!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: AppTheme.getTextPrimary(context),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  // Interests section
+                  if (interests != null && interests!.isNotEmpty) ...[
+                    Divider(height: 24, color: AppTheme.getBorderColor(context)),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.interests_outlined,
+                            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                "Interests",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: AppTheme.getTextSecondary(context),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 8,
+                                children: interests!.map((interest) => Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                                        .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(16),
+                                    border: Border.all(
+                                      color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                                          .withOpacity(0.3),
+                                    ),
+                                  ),
+                                  child: Text(
+                                    interest,
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w500,
+                                      color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                                    ),
+                                  ),
+                                )).toList(),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1293,6 +1465,13 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Future<void> _performLogout() async {
+    // Cancel the auto-refresh timer first to prevent any background operations
+    _autoRefreshTimer?.cancel();
+    _autoRefreshTimer = null;
+    
+    // Store mounted state before any async operations
+    final wasMounted = mounted;
+    
     try {
       // Clear all static caches to prevent data leakage between users
       // Do this BEFORE signing out so we still have user context if needed
@@ -1307,27 +1486,27 @@ class _ProfileScreenState extends State<ProfileScreen>
         // Continue with logout even if cache clearing fails
       }
 
-      // Sign out from Firebase
+      // Navigate FIRST, then sign out to avoid provider access issues
+      if (wasMounted && mounted) {
+        // Use pushAndRemoveUntil to navigate away before sign out
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (context) => const SigninScreen()),
+          (route) => false,
+        );
+      }
+      
+      // Sign out from Firebase AFTER navigation
+      // This prevents any provider rebuild errors
       try {
         await FirebaseAuth.instance.signOut();
       } catch (signOutError) {
         debugPrint('Sign out error: $signOutError');
-        // Continue to navigate away even if signout throws
+        // Already navigated, so this is fine
       }
-
-      if (!mounted) return;
-
-      // Navigate to sign in screen and remove all previous routes
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (context) => const SigninScreen()),
-        (route) => false,
-      );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Logout failed: $e")));
+      debugPrint('Logout error: $e');
+      // Don't show snackbar since we might not have a valid context
     }
   }
 

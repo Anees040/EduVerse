@@ -13,23 +13,76 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isSignedIn() && 
+        exists(/databases/$(database)/documents/admin/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/admin/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Admin collection - admins only
+    match /admin/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
     // Student collection
     match /student/{userId} {
-      allow read: if isSignedIn() && isOwner(userId);
-      allow write: if isSignedIn() && isOwner(userId);
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
     
     // Teacher collection
     match /teacher/{userId} {
-      allow read: if isSignedIn() && isOwner(userId);
-      allow write: if isSignedIn() && isOwner(userId);
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
     
     // Courses collection
     match /courses/{courseId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn() && exists(/databases/$(database)/documents/teacher/$(request.auth.uid));
-      allow update, delete: if isSignedIn() && resource.data.teacherId == request.auth.uid;
+      allow update, delete: if isSignedIn() && (resource.data.teacherId == request.auth.uid || isAdmin());
+    }
+    
+    // Content Reports - Any authenticated user can create reports
+    match /content_reports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Flagged Content - Admin full access, authenticated users can write
+    match /flagged_content/{flagId} {
+      allow read: if isAdmin();
+      allow write: if isSignedIn();
+    }
+    
+    // Flags - Any authenticated user can create, admin can manage
+    match /flags/{flagId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
+    }
+    
+    // Payments - Authenticated users can create their own payments
+    match /payments/{paymentId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Support Tickets - Users can create and read their own, admins can access all
+    match /support_tickets/{ticketId} {
+      allow read: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+    
+    // Notifications collection
+    match /notifications/{userId} {
+      allow read, write: if isSignedIn() && (isOwner(userId) || isAdmin());
     }
     
     // Bookmarks collection
@@ -42,15 +95,23 @@ service cloud.firestore {
       allow read, write: if isSignedIn() && isOwner(userId);
     }
     
-    // Notifications collection
-    match /notifications/{userId} {
-      allow read, write: if isSignedIn() && isOwner(userId);
-    }
-    
     // Verification codes (temporary storage)
     match /verification_codes/{emailKey} {
       allow read: if false;
       allow write: if true; // Anyone can write for email verification
+    }
+    
+    // Moderation queue - Admin access only
+    match /moderation/{itemId} {
+      allow read: if isAdmin();
+      allow write: if isSignedIn();
+    }
+    
+    // User Reports - Any authenticated user can create
+    match /user_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin();
     }
     
     // Default deny all

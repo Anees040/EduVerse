@@ -350,7 +350,8 @@ class CourseService {
         final reviews = tData['reviews'] as Map<dynamic, dynamic>;
         reviews.forEach((k, v) {
           final review = Map<String, dynamic>.from(v);
-          if (review['courseUid'] == courseUid) {
+          // Use toString() for type-safe comparison (handles int/String mismatch)
+          if (review['courseUid']?.toString() == courseUid) {
             total += (review['rating'] as num?)?.toDouble() ?? 0.0;
             count++;
           }
@@ -1250,7 +1251,8 @@ class CourseService {
             final teacherReviews = tData['reviews'] as Map<dynamic, dynamic>;
             teacherReviews.forEach((key, value) {
               final review = Map<String, dynamic>.from(value as Map);
-              if (review['courseUid'] == courseUid) {
+              // Use toString() for type-safe comparison (handles int/String mismatch)
+              if (review['courseUid']?.toString() == courseUid) {
                 reviews.add({'reviewId': key.toString(), ...review});
               }
             });

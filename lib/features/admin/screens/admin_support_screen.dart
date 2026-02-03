@@ -58,35 +58,46 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
 
-    return Scaffold(
-      backgroundColor: AppTheme.getBackgroundColor(context),
-      appBar: AppBar(
-        leading: IconButton(
-          icon: Icon(
-            Icons.arrow_back,
-            color: AppTheme.getTextPrimary(context),
-          ),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Text(
-          'Support Center',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.getTextPrimary(context),
-          ),
-        ),
-        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-        foregroundColor: AppTheme.getTextPrimary(context),
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadTickets,
-          ),
-        ],
-      ),
-      body: Column(
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with refresh button
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Support Center',
+                    style: TextStyle(
+                      color: AppTheme.getTextPrimary(context),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Manage user support tickets',
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                  ),
+                ],
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.refresh,
+                  color: AppTheme.getTextPrimary(context),
+                ),
+                onPressed: _loadTickets,
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          
           // Stats Row
           _buildStatsRow(isDark),
           
@@ -95,7 +106,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
           
           // Search
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 0),
             child: TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -126,7 +137,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
 
   Widget _buildStatsRow(bool isDark) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(bottom: 16),
       child: Row(
         children: [
           _buildStatCard(
