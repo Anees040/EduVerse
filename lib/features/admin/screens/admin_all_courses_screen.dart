@@ -608,13 +608,14 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                     ),
                     const SizedBox(height: 6),
                     
-                    // Stats Row
-                    Row(
+                    // Stats Row - Made responsive with Wrap
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         _buildMiniStat(Icons.people, '${course.enrolledCount}', isDark),
-                        const SizedBox(width: 12),
                         _buildMiniStat(Icons.video_library, '${course.videoCount}', isDark),
-                        const SizedBox(width: 12),
                         if (course.averageRating != null && course.averageRating! > 0)
                           _buildMiniStat(
                             Icons.star,
@@ -622,7 +623,6 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                             isDark,
                             iconColor: Colors.amber,
                           ),
-                        const Spacer(),
                         // Price/Free badge
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -647,8 +647,11 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                     ),
                     const SizedBox(height: 4),
                     
-                    // Category and Date
-                    Row(
+                    // Category and Date - Made responsive with Wrap
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
@@ -664,7 +667,6 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
                             ),
                           ),
                         ),
-                        const Spacer(),
                         Text(
                           createdDate,
                           style: TextStyle(
