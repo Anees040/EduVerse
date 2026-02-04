@@ -151,6 +151,19 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     }
   }
 
+  /// Convert a full Firebase UID to a short, friendly ID format
+  /// Example: "-NxAbc123DefGhi" -> "ABC-123"
+  String _getFriendlyId(String fullId) {
+    if (fullId.isEmpty) return '-';
+    // Remove leading dash if present (Firebase push IDs start with -)
+    final cleanId = fullId.startsWith('-') ? fullId.substring(1) : fullId;
+    // Take first 6 chars and format as XXX-XXX
+    final shortId = cleanId.length >= 6 
+        ? '${cleanId.substring(0, 3).toUpperCase()}-${cleanId.substring(3, 6).toUpperCase()}'
+        : cleanId.toUpperCase();
+    return shortId;
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
@@ -499,8 +512,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           isDark: isDark,
           child: Column(
             children: [
-              _buildDetailRow('Course ID', widget.course.courseUid, isDark),
-              _buildDetailRow('Teacher ID', widget.course.teacherUid, isDark),
+              _buildDetailRow('Course ID', _getFriendlyId(widget.course.courseUid), isDark),
+              _buildDetailRow('Teacher ID', _getFriendlyId(widget.course.teacherUid), isDark),
               _buildDetailRow('Created', createdDate, isDark),
               if (updatedDate != null)
                 _buildDetailRow('Last Updated', updatedDate, isDark),
@@ -1430,7 +1443,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Course'),
-        content: const Text('Are you sure? This cannot be undone.'),
+        content: Text('Are you sure you want to delete "${widget.course.title}"? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1446,21 +1459,52 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     );
     
     if (confirm == true) {
-      await _db.child('courses').child(widget.course.courseUid).remove();
-      await _db.child('teacher').child(widget.course.teacherUid)
-          .child('courses').child(widget.course.courseUid).remove();
-      
-      await _logAction('delete_course');
-      
-      // Send notification to teacher about course deletion
-      await _sendTeacherNotification(
-        title: 'Course Deleted',
-        message: 'Your course "${widget.course.title}" has been removed by an administrator. If you believe this was an error, please contact support.',
-        type: 'course_deleted',
-      );
-      
-      if (mounted) {
-        Navigator.pop(context);
+      try {
+        // Archive course before deleting for recovery purposes
+        final courseData = (await _db.child('courses').child(widget.course.courseUid).get()).value;
+        if (courseData != null) {
+          await _db.child('deleted_courses').child(widget.course.courseUid).set({
+            ...Map<String, dynamic>.from(courseData as Map),
+            'deletedAt': ServerValue.timestamp,
+          });
+        }
+        
+        // Delete from courses collection
+        await _db.child('courses').child(widget.course.courseUid).remove();
+        // Delete from teacher's courses
+        await _db.child('teacher').child(widget.course.teacherUid)
+            .child('courses').child(widget.course.courseUid).remove();
+        // Remove from any enrolled students' data (cascade)
+        final enrolledSnapshot = await _db.child('student').get();
+        if (enrolledSnapshot.exists && enrolledSnapshot.value != null) {
+          final students = Map<String, dynamic>.from(enrolledSnapshot.value as Map);
+          for (var studentId in students.keys) {
+            // Remove from enrolled courses
+            await _db.child('student/$studentId/enrolledCourses/${widget.course.courseUid}').remove();
+          }
+        }
+        
+        await _logAction('delete_course');
+        
+        // Send notification to teacher about course deletion
+        await _sendTeacherNotification(
+          title: 'Course Deleted',
+          message: 'Your course "${widget.course.title}" has been removed by an administrator. If you believe this was an error, please contact support.',
+          type: 'course_deleted',
+        );
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Course deleted successfully')),
+          );
+          Navigator.pop(context);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error deleting course: $e')),
+          );
+        }
       }
     }
   }

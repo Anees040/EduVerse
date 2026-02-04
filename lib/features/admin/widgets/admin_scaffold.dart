@@ -220,6 +220,96 @@ class _AdminScaffoldState extends State<AdminScaffold> {
             },
           ),
         if (widget.actions != null) ...widget.actions!,
+        // User profile menu
+        PopupMenuButton<String>(
+          offset: const Offset(0, 40),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          icon: CircleAvatar(
+            radius: isNarrow ? 14 : 16,
+            backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+            child: Icon(
+              Icons.admin_panel_settings,
+              size: isNarrow ? 14 : 16,
+              color: Colors.white,
+            ),
+          ),
+          onSelected: (value) {
+            switch (value) {
+              case 'logout':
+                _showLogoutDialog(context, isDark);
+                break;
+              case 'theme':
+                context.read<ThemeService>().toggleTheme();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              enabled: false,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Admin',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Text(
+                    FirebaseAuth.instance.currentUser?.email ?? 'admin@eduverse.com',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const PopupMenuDivider(),
+            if (isNarrow)
+              PopupMenuItem(
+                value: 'theme',
+                child: Consumer<ThemeService>(
+                  builder: (context, themeService, child) {
+                    return Row(
+                      children: [
+                        Icon(
+                          themeService.isDarkMode
+                              ? Icons.light_mode_rounded
+                              : Icons.dark_mode_rounded,
+                          size: 20,
+                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(themeService.isDarkMode ? 'Light Mode' : 'Dark Mode'),
+                      ],
+                    );
+                  },
+                ),
+              ),
+            if (isNarrow) const PopupMenuDivider(),
+            PopupMenuItem(
+              value: 'logout',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.logout_rounded,
+                    size: 20,
+                    color: isDark ? AppTheme.darkError : AppTheme.error,
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Logout',
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkError : AppTheme.error,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
         SizedBox(width: isNarrow ? 4 : 8),
       ],
     );

@@ -429,9 +429,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
     final newCourses = stats?['newCourses'] ?? 0;
     final totalRevenue = (stats?['totalRevenue'] ?? 0).toDouble();
 
-    // Generate mock sparkline data based on actual stats
-    final userGrowthData = _generateGrowthData(totalUsers, 7);
-    final revenueData = _generateRevenueData(totalRevenue, 6);
+    // NOTE: Real-time sparkline charts removed - they were showing mock data.
+    // For accurate trending, implement Firebase Analytics or historical data tracking.
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -440,7 +439,10 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         double aspectRatio;
         double spacing;
 
-        // Responsive breakpoints - Using aspect ratio for consistent sizing
+        // Responsive breakpoints - Mobile-first approach
+        // Desktop (>=900): 4 columns in a row
+        // Tablet (>=600): 2x2 grid 
+        // Mobile (< 600): 2x2 grid with smaller cards
         if (screenWidth >= 900) {
           crossAxisCount = 4;
           aspectRatio = 1.1; // Slightly taller than wide
@@ -449,14 +451,11 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           crossAxisCount = 2;
           aspectRatio = 1.4; // Wider on tablets for 2x2 grid
           spacing = 16;
-        } else if (screenWidth >= 400) {
-          crossAxisCount = 2;
-          aspectRatio = 1.0; // Square on small screens
-          spacing = 12;
         } else {
-          crossAxisCount = 1;
-          aspectRatio = 2.0; // Wide cards on mobile
-          spacing = 12;
+          // Mobile: Always 2x2 grid
+          crossAxisCount = 2;
+          aspectRatio = screenWidth >= 360 ? 1.0 : 0.9; // Slightly taller on very small screens
+          spacing = 8;
         }
 
         final cards = [
@@ -468,10 +467,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               value: isLoading ? '...' : '$totalUsers',
               accentColor: const Color(0xFF4CAF50),
               buttonText: 'View All',
-              chart: MiniSparklineChart(
-                data: userGrowthData,
-                color: const Color(0xFF4CAF50),
-              ),
+              // Sparkline chart removed - was showing mock data
               isLoading: isLoading,
               onButtonTap: () {
                 final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
@@ -511,7 +507,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               isLoading: isLoading,
               onButtonTap: () {
                 final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
-                dashboardState?.navigateToTab(5);
+                dashboardState?.navigateToTab(7); // Tab 7 = All Courses
               },
             ),
           ),
@@ -524,10 +520,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               value: isLoading ? '...' : '\$${totalRevenue.toStringAsFixed(0)}',
               accentColor: const Color(0xFF26A69A),
               buttonText: 'Financial Report',
-              chart: MiniBarChart(
-                data: revenueData,
-                color: const Color(0xFF26A69A),
-              ),
+              // Bar chart removed - was showing mock data
               isLoading: isLoading,
               onButtonTap: () {
                 final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
@@ -560,39 +553,6 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         );
       },
     );
-  }
-
-  /// Generate mock growth data for sparkline chart
-  List<double> _generateGrowthData(int currentValue, int points) {
-    final data = <double>[];
-    final random = DateTime.now().millisecond;
-    double value = (currentValue * 0.7).toDouble();
-    
-    for (int i = 0; i < points; i++) {
-      final growth = (random + i * 17) % 10 + 1;
-      value += growth;
-      data.add(value.clamp(0, currentValue.toDouble()));
-    }
-    
-    // Ensure last value is close to current
-    if (data.isNotEmpty) {
-      data[data.length - 1] = currentValue.toDouble();
-    }
-    
-    return data;
-  }
-
-  /// Generate mock revenue data for bar chart
-  List<double> _generateRevenueData(double currentValue, int points) {
-    final data = <double>[];
-    final random = DateTime.now().millisecond;
-    
-    for (int i = 0; i < points; i++) {
-      final factor = 0.3 + ((random + i * 23) % 70) / 100;
-      data.add(currentValue * factor);
-    }
-    
-    return data;
   }
 
   Widget _buildQuickActions(
