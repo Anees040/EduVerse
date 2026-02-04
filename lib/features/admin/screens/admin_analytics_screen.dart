@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
-import '../providers/admin_provider.dart';
-import 'package:eduverse/services/payment_service.dart';
 
-/// Admin Analytics Screen - Platform analytics with charts
+/// Admin Analytics Screen - Professional Platform Analytics with Real Data
+/// Features: User Growth & Revenue Charts with Functional Filters
 class AdminAnalyticsScreen extends StatefulWidget {
   const AdminAnalyticsScreen({super.key});
 
@@ -15,43 +14,336 @@ class AdminAnalyticsScreen extends StatefulWidget {
 }
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
-  // Time filter for user growth chart
-  String _userGrowthFilter = '12months'; // all, year, 12months, 6months, 30days, 7days
-  
-  // Revenue chart data
-  final PaymentService _paymentService = PaymentService();
-  RevenueStats? _revenueStats;
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+
+  // User Growth State
+  String _userGrowthFilter = '12months';
+  List<UserGrowthPoint> _userGrowthData = [];
+  bool _isLoadingUserGrowth = true;
+  int _totalSignups = 0;
+
+  // Revenue State
+  String _revenueFilter = 'year';
+  List<RevenuePoint> _revenueData = [];
   bool _isLoadingRevenue = true;
-  String _revenueFilter = 'all'; // all, year, month, week
+  double _platformCommission = 0.0;
 
   @override
   void initState() {
     super.initState();
-    // Load analytics data
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final provider = Provider.of<AdminProvider>(context, listen: false);
-      if (provider.state.userGrowthData.isEmpty) {
-        provider.loadAnalyticsData();
-      }
-      _loadRevenueData();
-    });
+    _loadUserGrowthData();
+    _loadRevenueData();
   }
 
+  /// Load user growth data based on filter
+  Future<void> _loadUserGrowthData() async {
+    setState(() => _isLoadingUserGrowth = true);
+
+    try {
+      final now = DateTime.now();
+      List<int> allTimestamps = [];
+
+      // Fetch all users from both student and teacher nodes
+      for (String role in ['student', 'teacher']) {
+        final snapshot = await _db.child(role).get();
+        if (snapshot.exists && snapshot.value != null) {
+          final usersMap = Map<String, dynamic>.from(snapshot.value as Map);
+          for (var entry in usersMap.entries) {
+            final user = Map<String, dynamic>.from(entry.value as Map);
+            final createdAt = user['createdAt'];
+            if (createdAt != null && createdAt is int) {
+              allTimestamps.add(createdAt);
+            }
+          }
+        }
+      }
+
+      List<UserGrowthPoint> growthData = [];
+      int totalCount = 0;
+
+      switch (_userGrowthFilter) {
+        case 'all':
+          // Group by year
+          growthData = _groupByYear(allTimestamps, now);
+          break;
+        case '12months':
+          // Group by month for last 12 months
+          growthData = _groupByMonth(allTimestamps, now, 12);
+          break;
+        case '6months':
+          // Group by month for last 6 months
+          growthData = _groupByMonth(allTimestamps, now, 6);
+          break;
+        case '30days':
+          // Group by day for last 30 days
+          growthData = _groupByDay(allTimestamps, now, 30);
+          break;
+        case '7days':
+          // Group by day for last 7 days
+          growthData = _groupByDay(allTimestamps, now, 7);
+          break;
+      }
+
+      totalCount = growthData.fold(0, (sum, point) => sum + point.count);
+
+      setState(() {
+        _userGrowthData = growthData;
+        _totalSignups = totalCount;
+        _isLoadingUserGrowth = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading user growth: $e');
+      setState(() => _isLoadingUserGrowth = false);
+    }
+  }
+
+  /// Group timestamps by year
+  List<UserGrowthPoint> _groupByYear(List<int> timestamps, DateTime now) {
+    if (timestamps.isEmpty) return [];
+
+    // Find earliest year
+    final earliestYear = timestamps
+        .map((t) => DateTime.fromMillisecondsSinceEpoch(t).year)
+        .reduce((a, b) => a < b ? a : b);
+
+    List<UserGrowthPoint> data = [];
+    for (int year = earliestYear; year <= now.year; year++) {
+      final yearStart = DateTime(year, 1, 1).millisecondsSinceEpoch;
+      final yearEnd = DateTime(year + 1, 1, 1).millisecondsSinceEpoch;
+      final count = timestamps
+          .where((t) => t >= yearStart && t < yearEnd)
+          .length;
+      data.add(
+        UserGrowthPoint(
+          label: year.toString(),
+          count: count,
+          date: DateTime(year, 1, 1),
+        ),
+      );
+    }
+    return data;
+  }
+
+  /// Group timestamps by month
+  List<UserGrowthPoint> _groupByMonth(
+    List<int> timestamps,
+    DateTime now,
+    int months,
+  ) {
+    List<UserGrowthPoint> data = [];
+    for (int i = months - 1; i >= 0; i--) {
+      final date = DateTime(now.year, now.month - i, 1);
+      final monthStart = date.millisecondsSinceEpoch;
+      final monthEnd = DateTime(
+        date.year,
+        date.month + 1,
+        1,
+      ).millisecondsSinceEpoch;
+      final count = timestamps
+          .where((t) => t >= monthStart && t < monthEnd)
+          .length;
+      data.add(
+        UserGrowthPoint(
+          label: DateFormat("MMM ''yy").format(date),
+          count: count,
+          date: date,
+        ),
+      );
+    }
+    return data;
+  }
+
+  /// Group timestamps by day
+  List<UserGrowthPoint> _groupByDay(
+    List<int> timestamps,
+    DateTime now,
+    int days,
+  ) {
+    List<UserGrowthPoint> data = [];
+    for (int i = days - 1; i >= 0; i--) {
+      final date = DateTime(now.year, now.month, now.day - i);
+      final dayStart = date.millisecondsSinceEpoch;
+      final dayEnd = dayStart + 86400000;
+      final count = timestamps.where((t) => t >= dayStart && t < dayEnd).length;
+      data.add(
+        UserGrowthPoint(
+          label: DateFormat('MMM d').format(date),
+          count: count,
+          date: date,
+        ),
+      );
+    }
+    return data;
+  }
+
+  /// Load revenue data based on filter with 20% commission calculation
   Future<void> _loadRevenueData() async {
     setState(() => _isLoadingRevenue = true);
+
     try {
-      final stats = await _paymentService.getPlatformRevenueStats(filter: _revenueFilter);
-      if (mounted) {
-        setState(() {
-          _revenueStats = stats;
-          _isLoadingRevenue = false;
-        });
+      final now = DateTime.now();
+      List<EnrollmentRecord> allEnrollments = [];
+
+      // Fetch all courses and their enrollments
+      final coursesSnapshot = await _db.child('courses').get();
+      if (coursesSnapshot.exists && coursesSnapshot.value != null) {
+        final coursesMap = Map<String, dynamic>.from(
+          coursesSnapshot.value as Map,
+        );
+
+        for (var courseEntry in coursesMap.entries) {
+          final course = Map<String, dynamic>.from(courseEntry.value as Map);
+          final price = (course['price'] ?? 0).toDouble();
+          final isFree = course['isFree'] == true || price == 0;
+
+          if (!isFree && price > 0) {
+            // Check enrolledStudents node
+            if (course['enrolledStudents'] != null) {
+              final enrolled = Map<String, dynamic>.from(
+                course['enrolledStudents'] as Map,
+              );
+              for (var enrollEntry in enrolled.entries) {
+                final enrollData = enrollEntry.value;
+                int? enrolledAt;
+                if (enrollData is Map) {
+                  enrolledAt = enrollData['enrolledAt'] as int?;
+                } else if (enrollData is int) {
+                  enrolledAt = enrollData;
+                }
+                if (enrolledAt != null) {
+                  allEnrollments.add(
+                    EnrollmentRecord(amount: price, timestamp: enrolledAt),
+                  );
+                }
+              }
+            }
+          }
+        }
       }
+
+      List<RevenuePoint> revenueData = [];
+
+      switch (_revenueFilter) {
+        case 'all':
+          // Group by year
+          revenueData = _groupRevenueByYear(allEnrollments, now);
+          break;
+        case 'year':
+          // Group by month for current year
+          revenueData = _groupRevenueByMonth(allEnrollments, now, 12);
+          break;
+        case 'month':
+          // Group by day for current month
+          final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+          revenueData = _groupRevenueByDay(allEnrollments, now, daysInMonth);
+          break;
+        case 'week':
+          // Group by day for last 7 days
+          revenueData = _groupRevenueByDay(allEnrollments, now, 7);
+          break;
+      }
+
+      // Calculate total platform commission (sum of all points which already have 20% applied)
+      final commission = revenueData.fold(
+        0.0,
+        (sum, point) => sum + point.amount,
+      );
+
+      setState(() {
+        _revenueData = revenueData;
+        _platformCommission = commission;
+        _isLoadingRevenue = false;
+      });
     } catch (e) {
-      if (mounted) {
-        setState(() => _isLoadingRevenue = false);
-      }
+      debugPrint('Error loading revenue: $e');
+      setState(() => _isLoadingRevenue = false);
     }
+  }
+
+  /// Group enrollments by year for revenue
+  List<RevenuePoint> _groupRevenueByYear(
+    List<EnrollmentRecord> enrollments,
+    DateTime now,
+  ) {
+    if (enrollments.isEmpty) {
+      // Return current year with 0
+      return [RevenuePoint(label: now.year.toString(), amount: 0, date: now)];
+    }
+
+    final earliestYear = enrollments
+        .map((e) => DateTime.fromMillisecondsSinceEpoch(e.timestamp).year)
+        .reduce((a, b) => a < b ? a : b);
+
+    List<RevenuePoint> data = [];
+    for (int year = earliestYear; year <= now.year; year++) {
+      final yearStart = DateTime(year, 1, 1).millisecondsSinceEpoch;
+      final yearEnd = DateTime(year + 1, 1, 1).millisecondsSinceEpoch;
+      final amount = enrollments
+          .where((e) => e.timestamp >= yearStart && e.timestamp < yearEnd)
+          .fold(0.0, (sum, e) => sum + e.amount);
+      data.add(
+        RevenuePoint(
+          label: year.toString(),
+          amount: amount * 0.20, // 20% commission
+          date: DateTime(year, 1, 1),
+        ),
+      );
+    }
+    return data;
+  }
+
+  /// Group enrollments by month for revenue
+  List<RevenuePoint> _groupRevenueByMonth(
+    List<EnrollmentRecord> enrollments,
+    DateTime now,
+    int months,
+  ) {
+    List<RevenuePoint> data = [];
+    for (int i = months - 1; i >= 0; i--) {
+      final date = DateTime(now.year, now.month - i, 1);
+      final monthStart = date.millisecondsSinceEpoch;
+      final monthEnd = DateTime(
+        date.year,
+        date.month + 1,
+        1,
+      ).millisecondsSinceEpoch;
+      final amount = enrollments
+          .where((e) => e.timestamp >= monthStart && e.timestamp < monthEnd)
+          .fold(0.0, (sum, e) => sum + e.amount);
+      data.add(
+        RevenuePoint(
+          label: DateFormat('MMM').format(date),
+          amount: amount * 0.20, // 20% commission
+          date: date,
+        ),
+      );
+    }
+    return data;
+  }
+
+  /// Group enrollments by day for revenue
+  List<RevenuePoint> _groupRevenueByDay(
+    List<EnrollmentRecord> enrollments,
+    DateTime now,
+    int days,
+  ) {
+    List<RevenuePoint> data = [];
+    for (int i = days - 1; i >= 0; i--) {
+      final date = DateTime(now.year, now.month, now.day - i);
+      final dayStart = date.millisecondsSinceEpoch;
+      final dayEnd = dayStart + 86400000;
+      final amount = enrollments
+          .where((e) => e.timestamp >= dayStart && e.timestamp < dayEnd)
+          .fold(0.0, (sum, e) => sum + e.amount);
+      data.add(
+        RevenuePoint(
+          label: DateFormat('d').format(date),
+          amount: amount * 0.20, // 20% commission
+          date: date,
+        ),
+      );
+    }
+    return data;
   }
 
   @override
@@ -60,85 +352,56 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isWide = screenWidth >= 1000;
 
-    return Consumer<AdminProvider>(
-      builder: (context, provider, child) {
-        return RefreshIndicator(
-          onRefresh: () async {
-            await provider.loadAnalyticsData();
-            await _loadRevenueData();
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Header
-                Text(
-                  'Platform Analytics',
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextPrimary
-                        : AppTheme.textPrimary,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 24,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Visual insights and performance metrics',
-                  style: TextStyle(
-                    color: isDark
-                        ? AppTheme.darkTextSecondary
-                        : AppTheme.textSecondary,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Charts
-                if (isWide)
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildUserGrowthChart(provider, isDark)),
-                      const SizedBox(width: 20),
-                      Expanded(child: _buildRevenueChart(isDark)),
-                    ],
-                  )
-                else ...[
-                  _buildUserGrowthChart(provider, isDark),
-                  const SizedBox(height: 20),
-                  _buildRevenueChart(isDark),
-                ],
-              ],
-            ),
-          ),
-        );
+    return RefreshIndicator(
+      onRefresh: () async {
+        await _loadUserGrowthData();
+        await _loadRevenueData();
       },
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Text(
+              'Platform Analytics',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.bold,
+                fontSize: 24,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Visual insights and performance metrics',
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
+            ),
+            const SizedBox(height: 24),
+
+            // Charts - Side by side on wide screens
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _buildUserGrowthChart(isDark)),
+                  const SizedBox(width: 20),
+                  Expanded(child: _buildRevenueChart(isDark)),
+                ],
+              )
+            else ...[
+              _buildUserGrowthChart(isDark),
+              const SizedBox(height: 20),
+              _buildRevenueChart(isDark),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildUserGrowthChart(AdminProvider provider, bool isDark) {
-    final allData = provider.state.userGrowthData;
-    final isLoading = allData.isEmpty;
-    
-    // Filter data based on selected time range
-    final data = _filterUserGrowthData(allData);
-
-    // Calculate stats for display
-    int totalUsers = 0;
-    int growthPercent = 0;
-    if (data.isNotEmpty) {
-      totalUsers = data.fold<int>(0, (sum, item) => sum + (item['count'] as int? ?? 0));
-      if (data.length >= 2) {
-        final recent = (data.last['count'] as int? ?? 0);
-        final previous = (data[data.length - 2]['count'] as int? ?? 1);
-        if (previous > 0) {
-          growthPercent = (((recent - previous) / previous) * 100).round();
-        }
-      }
-    }
-
+  /// Build User Growth Chart with working filters
+  Widget _buildUserGrowthChart(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -158,6 +421,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
@@ -180,113 +444,71 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     Text(
                       'User Growth',
                       style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextPrimary
-                            : AppTheme.textPrimary,
+                        color: AppTheme.getTextPrimary(context),
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
                     ),
-                    if (!isLoading) ...[
-                      const SizedBox(height: 2),
-                      Row(
-                        children: [
-                          Text(
-                            '$totalUsers signups',
-                            style: TextStyle(
-                              color: isDark
-                                  ? AppTheme.darkTextSecondary
-                                  : AppTheme.textSecondary,
-                              fontSize: 12,
-                            ),
-                          ),
-                          if (growthPercent != 0) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: (growthPercent > 0
-                                        ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                                        : (isDark ? AppTheme.darkError : AppTheme.error))
-                                    .withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    growthPercent > 0
-                                        ? Icons.arrow_upward_rounded
-                                        : Icons.arrow_downward_rounded,
-                                    size: 12,
-                                    color: growthPercent > 0
-                                        ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                                        : (isDark ? AppTheme.darkError : AppTheme.error),
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    '${growthPercent.abs()}%',
-                                    style: TextStyle(
-                                      color: growthPercent > 0
-                                          ? (isDark ? AppTheme.darkSuccess : AppTheme.success)
-                                          : (isDark ? AppTheme.darkError : AppTheme.error),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ],
+                    const SizedBox(height: 2),
+                    Text(
+                      '$_totalSignups signups',
+                      style: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                        fontSize: 12,
                       ),
-                    ],
+                    ),
                   ],
                 ),
               ),
-              // Refresh button
               IconButton(
-                onPressed: isLoading ? null : () => provider.loadAnalyticsData(),
+                onPressed: _isLoadingUserGrowth ? null : _loadUserGrowthData,
                 icon: Icon(
                   Icons.refresh_rounded,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   size: 20,
                 ),
                 tooltip: 'Refresh data',
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          
+          const SizedBox(height: 16),
+
           // Time filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildTimeFilterChip('All Time', 'all', _userGrowthFilter, (v) {
+                _buildFilterChip('All Time', 'all', _userGrowthFilter, (v) {
                   setState(() => _userGrowthFilter = v);
+                  _loadUserGrowthData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('12 Months', '12months', _userGrowthFilter, (v) {
+                _buildFilterChip('12 Months', '12months', _userGrowthFilter, (
+                  v,
+                ) {
                   setState(() => _userGrowthFilter = v);
+                  _loadUserGrowthData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('6 Months', '6months', _userGrowthFilter, (v) {
+                _buildFilterChip('6 Months', '6months', _userGrowthFilter, (v) {
                   setState(() => _userGrowthFilter = v);
+                  _loadUserGrowthData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('30 Days', '30days', _userGrowthFilter, (v) {
+                _buildFilterChip('30 Days', '30days', _userGrowthFilter, (v) {
                   setState(() => _userGrowthFilter = v);
+                  _loadUserGrowthData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('7 Days', '7days', _userGrowthFilter, (v) {
+                _buildFilterChip('7 Days', '7days', _userGrowthFilter, (v) {
                   setState(() => _userGrowthFilter = v);
+                  _loadUserGrowthData();
                 }, isDark),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -308,9 +530,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               Text(
                 'New User Signups',
                 style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextSecondary
-                      : AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -318,34 +538,32 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 16),
+
+          // Chart
           SizedBox(
             height: 250,
-            child: isLoading
-                ? _buildLoadingChart(isDark)
-                : _buildLineChart(data, isDark),
+            child: _isLoadingUserGrowth
+                ? _buildLoadingState(isDark)
+                : _userGrowthData.isEmpty
+                ? _buildEmptyState(isDark)
+                : _buildUserGrowthLineChart(isDark),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildLineChart(List<Map<String, dynamic>> data, bool isDark) {
-    if (data.isEmpty) {
-      return _buildNoDataState(isDark);
-    }
-
-    final spots = data.asMap().entries.map((entry) {
-      return FlSpot(
-        entry.key.toDouble(),
-        (entry.value['count'] as int).toDouble(),
-      );
+  /// Build User Growth Line Chart
+  Widget _buildUserGrowthLineChart(bool isDark) {
+    final spots = _userGrowthData.asMap().entries.map((entry) {
+      return FlSpot(entry.key.toDouble(), entry.value.count.toDouble());
     }).toList();
 
     final maxY =
-        data.fold<double>(0, (max, item) {
-          final count = (item['count'] as int).toDouble();
-          return count > max ? count : max;
-        }) *
+        _userGrowthData.fold<double>(
+          1.0,
+          (max, point) => point.count > max ? point.count.toDouble() : max,
+        ) *
         1.2;
 
     return LineChart(
@@ -354,33 +572,28 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           show: true,
           drawVerticalLine: false,
           horizontalInterval: maxY > 5 ? maxY / 5 : 1,
-          getDrawingHorizontalLine: (value) {
-            return FlLine(
-              color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200).withOpacity(0.5),
-              strokeWidth: 1,
-              dashArray: [5, 5],
-            );
-          },
+          getDrawingHorizontalLine: (value) => FlLine(
+            color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200)
+                .withOpacity(0.5),
+            strokeWidth: 1,
+            dashArray: [5, 5],
+          ),
         ),
         titlesData: FlTitlesData(
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 45,
+              reservedSize: 40,
               interval: maxY > 5 ? maxY / 5 : 1,
               getTitlesWidget: (value, meta) {
-                if (value == meta.max || value == meta.min) return const SizedBox();
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    value.toInt().toString(),
-                    style: TextStyle(
-                      color: isDark
-                          ? AppTheme.darkTextTertiary
-                          : AppTheme.textSecondary,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                    ),
+                if (value == meta.max || value == meta.min) {
+                  return const SizedBox();
+                }
+                return Text(
+                  value.toInt().toString(),
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 10,
                   ),
                 );
               },
@@ -389,74 +602,47 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 40,
-              // Calculate smart interval based on data length
-              interval: data.length > 12 ? (data.length / 6).ceilToDouble() : 
-                        data.length > 6 ? 2 : 1,
+              reservedSize: 35,
+              interval: _calculateXAxisInterval(),
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
-                if (index < 0 || index >= data.length) return const SizedBox();
-                
-                // Smart label spacing - show first, last, and evenly spaced labels
-                final interval = data.length > 12 ? (data.length / 6).ceil() : 
-                                 data.length > 6 ? 2 : 1;
-                final showLabel = index == 0 || 
-                                  index == data.length - 1 || 
-                                  index % interval == 0;
-                if (!showLabel) return const SizedBox();
-                
-                final dateStr = data[index]['date']?.toString() ?? '';
-                try {
-                  if (dateStr.isNotEmpty) {
-                    final date = DateTime.parse(dateStr);
-                    String label;
-                    
-                    // Format based on filter
-                    if (_userGrowthFilter == '7days' || _userGrowthFilter == '30days') {
-                      label = DateFormat('MMM d').format(date);
-                    } else {
-                      label = DateFormat("MMM ''yy").format(date);
-                    }
-                    
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 8),
-                      child: Text(
-                        label,
-                        style: TextStyle(
-                          color: isDark
-                              ? AppTheme.darkTextTertiary
-                              : AppTheme.textSecondary,
-                          fontSize: 9,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    );
-                  }
-                  return const SizedBox();
-                } catch (_) {
+                if (index < 0 || index >= _userGrowthData.length) {
                   return const SizedBox();
                 }
+
+                // Smart label display
+                if (!_shouldShowLabel(index)) return const SizedBox();
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _userGrowthData[index].label,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 9,
+                    ),
+                  ),
+                );
               },
             ),
           ),
-          rightTitles: const AxisTitles(
+          topTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
-          topTitles: const AxisTitles(
+          rightTitles: const AxisTitles(
             sideTitles: SideTitles(showTitles: false),
           ),
         ),
         borderData: FlBorderData(show: false),
         minX: 0,
-        maxX: (data.length - 1).toDouble(),
+        maxX: (_userGrowthData.length - 1).toDouble(),
         minY: 0,
-        maxY: maxY > 0 ? maxY : 10,
+        maxY: maxY,
         lineBarsData: [
           LineChartBarData(
             spots: spots,
             isCurved: true,
-            curveSmoothness: 0.35,
-            preventCurveOverShooting: true,
+            curveSmoothness: 0.3,
             gradient: LinearGradient(
               colors: [
                 isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
@@ -469,9 +655,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               show: true,
               getDotPainter: (spot, percent, barData, index) {
                 return FlDotCirclePainter(
-                  radius: 5,
+                  radius: 4,
                   color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-                  strokeWidth: 2.5,
+                  strokeWidth: 2,
                   strokeColor: isDark ? AppTheme.darkCard : Colors.white,
                 );
               },
@@ -481,229 +667,67 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               gradient: LinearGradient(
                 colors: [
                   (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                      .withOpacity(0.25),
+                      .withOpacity(0.3),
                   (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                      .withOpacity(0.05),
-                  Colors.transparent,
+                      .withOpacity(0.0),
                 ],
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                stops: const [0.0, 0.5, 1.0],
               ),
             ),
           ),
         ],
         lineTouchData: LineTouchData(
           enabled: true,
-          handleBuiltInTouches: true,
           touchTooltipData: LineTouchTooltipData(
-            maxContentWidth: 150,
             getTooltipColor: (_) =>
                 isDark ? AppTheme.darkElevated : Colors.white,
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             tooltipBorder: BorderSide(
-              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
             ),
             getTooltipItems: (touchedSpots) {
               return touchedSpots.map((spot) {
                 final index = spot.x.toInt();
-                String dateDisplay = '';
-                if (index < data.length) {
-                  final dateStr = data[index]['date']?.toString() ?? '';
-                  try {
-                    if (dateStr.isNotEmpty) {
-                      final date = DateTime.parse(dateStr);
-                      dateDisplay = DateFormat('MMM d, yyyy').format(date);
-                    }
-                  } catch (_) {}
-                }
+                final label = index < _userGrowthData.length
+                    ? _userGrowthData[index].label
+                    : '';
                 return LineTooltipItem(
-                  '${spot.y.toInt()} new users\n',
+                  '${spot.y.toInt()} new users\n$label',
                   TextStyle(
-                    color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                    color: isDark
+                        ? AppTheme.darkPrimary
+                        : AppTheme.primaryColor,
                     fontWeight: FontWeight.bold,
-                    fontSize: 14,
+                    fontSize: 12,
                   ),
-                  children: [
-                    TextSpan(
-                      text: dateDisplay,
-                      style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.textSecondary,
-                        fontWeight: FontWeight.normal,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
                 );
               }).toList();
             },
           ),
-          getTouchedSpotIndicator: (barData, spotIndexes) {
-            return spotIndexes.map((index) {
-              return TouchedSpotIndicatorData(
-                FlLine(
-                  color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                      .withOpacity(0.3),
-                  strokeWidth: 2,
-                  dashArray: [5, 5],
-                ),
-                FlDotData(
-                  show: true,
-                  getDotPainter: (spot, percent, barData, index) {
-                    return FlDotCirclePainter(
-                      radius: 7,
-                      color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-                      strokeWidth: 3,
-                      strokeColor: isDark ? AppTheme.darkCard : Colors.white,
-                    );
-                  },
-                ),
-              );
-            }).toList();
-          },
-        ),
-      ),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
-    );
-  }
-
-  Widget _buildLoadingChart(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          SizedBox(
-            width: 40,
-            height: 40,
-            child: CircularProgressIndicator(
-              strokeWidth: 3,
-              color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Loading data...',
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildNoDataState(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.bar_chart_rounded,
-            size: 48,
-            color: isDark ? AppTheme.darkTextTertiary : Colors.grey.shade400,
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'No data available',
-            style: TextStyle(
-              color: isDark
-                  ? AppTheme.darkTextSecondary
-                  : AppTheme.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Filter user growth data based on selected time range
-  List<Map<String, dynamic>> _filterUserGrowthData(List<Map<String, dynamic>> data) {
-    if (data.isEmpty || _userGrowthFilter == 'all') return data;
-    
-    final now = DateTime.now();
-    int monthsToShow;
-    
-    switch (_userGrowthFilter) {
-      case '12months':
-        monthsToShow = 12;
-        break;
-      case '6months':
-        monthsToShow = 6;
-        break;
-      case '30days':
-        monthsToShow = 1;
-        break;
-      case '7days':
-        monthsToShow = 1;
-        break;
-      default:
-        return data;
-    }
-    
-    final cutoffDate = DateTime(now.year, now.month - monthsToShow, 1);
-    
-    return data.where((item) {
-      final dateStr = item['date']?.toString() ?? '';
-      if (dateStr.isEmpty) return false;
-      try {
-        final date = DateTime.parse(dateStr);
-        return date.isAfter(cutoffDate);
-      } catch (_) {
-        return false;
-      }
-    }).toList();
-  }
-
-  /// Build time filter chip
-  Widget _buildTimeFilterChip(
-    String label,
-    String value,
-    String currentValue,
-    Function(String) onSelected,
-    bool isDark,
-  ) {
-    final isSelected = value == currentValue;
-    
-    return GestureDetector(
-      onTap: () => onSelected(value),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-              : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: isSelected
-                ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: isSelected
-                ? Colors.white
-                : (isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary),
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-          ),
         ),
       ),
     );
   }
 
-  /// Build revenue chart with filters
+  double _calculateXAxisInterval() {
+    final len = _userGrowthData.length;
+    if (len <= 7) return 1;
+    if (len <= 12) return 2;
+    if (len <= 30) return 5;
+    return (len / 6).ceilToDouble();
+  }
+
+  bool _shouldShowLabel(int index) {
+    final len = _userGrowthData.length;
+    if (len <= 7) return true;
+    if (index == 0 || index == len - 1) return true;
+
+    final interval = _calculateXAxisInterval().toInt();
+    return index % interval == 0;
+  }
+
+  /// Build Revenue Chart with working filters
   Widget _buildRevenueChart(bool isDark) {
-    // Get revenue data from payment service
-    final totalRevenue = _revenueStats?.totalRevenue ?? 0.0;
-    final dataPoints = _revenueStats?.dataPoints ?? [];
-
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -723,6 +747,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header
           Row(
             children: [
               Container(
@@ -744,9 +769,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     Text(
                       'Platform Revenue',
                       style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextPrimary
-                            : AppTheme.textPrimary,
+                        color: AppTheme.getTextPrimary(context),
                         fontWeight: FontWeight.bold,
                         fontSize: 18,
                       ),
@@ -755,7 +778,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                     Row(
                       children: [
                         Text(
-                          '\$${totalRevenue.toStringAsFixed(2)}',
+                          '\$${_platformCommission.toStringAsFixed(2)}',
                           style: const TextStyle(
                             color: Colors.green,
                             fontSize: 14,
@@ -763,13 +786,22 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                           ),
                         ),
                         const SizedBox(width: 8),
-                        Text(
-                          '20% commission',
-                          style: TextStyle(
-                            color: isDark
-                                ? AppTheme.darkTextSecondary
-                                : AppTheme.textSecondary,
-                            fontSize: 12,
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                          child: const Text(
+                            '20% commission',
+                            style: TextStyle(
+                              color: Colors.green,
+                              fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ),
                       ],
@@ -781,7 +813,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
                 onPressed: _isLoadingRevenue ? null : _loadRevenueData,
                 icon: Icon(
                   Icons.refresh_rounded,
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   size: 20,
                 ),
                 tooltip: 'Refresh data',
@@ -789,28 +821,28 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Time filter chips
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
               children: [
-                _buildTimeFilterChip('All Time', 'all', _revenueFilter, (v) {
+                _buildFilterChip('All Time', 'all', _revenueFilter, (v) {
                   setState(() => _revenueFilter = v);
                   _loadRevenueData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('This Year', 'year', _revenueFilter, (v) {
+                _buildFilterChip('This Year', 'year', _revenueFilter, (v) {
                   setState(() => _revenueFilter = v);
                   _loadRevenueData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('This Month', 'month', _revenueFilter, (v) {
+                _buildFilterChip('This Month', 'month', _revenueFilter, (v) {
                   setState(() => _revenueFilter = v);
                   _loadRevenueData();
                 }, isDark),
                 const SizedBox(width: 8),
-                _buildTimeFilterChip('This Week', 'week', _revenueFilter, (v) {
+                _buildFilterChip('This Week', 'week', _revenueFilter, (v) {
                   setState(() => _revenueFilter = v);
                   _loadRevenueData();
                 }, isDark),
@@ -818,7 +850,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Legend
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -835,11 +867,9 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               ),
               const SizedBox(width: 6),
               Text(
-                'Platform Revenue (20% commission)',
+                'Platform Commission (20%)',
                 style: TextStyle(
-                  color: isDark
-                      ? AppTheme.darkTextSecondary
-                      : AppTheme.textSecondary,
+                  color: AppTheme.getTextSecondary(context),
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
                 ),
@@ -847,40 +877,41 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Chart
           SizedBox(
             height: 200,
             child: _isLoadingRevenue
-                ? _buildLoadingChart(isDark)
-                : _buildRevenueAreaChartFromStats(dataPoints, isDark),
+                ? _buildLoadingState(isDark)
+                : _revenueData.isEmpty
+                ? _buildEmptyState(isDark)
+                : _buildRevenueBarChart(isDark),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRevenueAreaChartFromStats(List<RevenueDataPoint> data, bool isDark) {
-    if (data.isEmpty) return _buildNoDataState(isDark);
-    
-    final maxRevenue = data.fold<double>(
-      1.0,
-      (max, item) => item.amount > max ? item.amount : max,
-    ) * 1.2;
+  /// Build Revenue Bar Chart
+  Widget _buildRevenueBarChart(bool isDark) {
+    final maxY =
+        _revenueData.fold<double>(
+          10.0,
+          (max, point) => point.amount > max ? point.amount : max,
+        ) *
+        1.2;
 
-    // Create spots for line chart
-    final spots = data.asMap().entries.map((entry) {
-      return FlSpot(entry.key.toDouble(), entry.value.amount);
-    }).toList();
-
-    return LineChart(
-      LineChartData(
+    return BarChart(
+      BarChartData(
+        alignment: BarChartAlignment.spaceAround,
+        maxY: maxY,
         gridData: FlGridData(
           show: true,
           drawVerticalLine: false,
-          horizontalInterval: maxRevenue > 4 ? maxRevenue / 4 : 1,
+          horizontalInterval: maxY > 4 ? maxY / 4 : 1,
           getDrawingHorizontalLine: (value) => FlLine(
-            color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200).withOpacity(0.5),
+            color: (isDark ? AppTheme.darkBorder : Colors.grey.shade200)
+                .withOpacity(0.5),
             strokeWidth: 1,
             dashArray: [5, 5],
           ),
@@ -889,19 +920,15 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 55,
-              interval: maxRevenue > 4 ? maxRevenue / 4 : 1,
+              reservedSize: 50,
+              interval: maxY > 4 ? maxY / 4 : 1,
               getTitlesWidget: (value, meta) {
-                if (value == meta.max || value == meta.min) return const SizedBox();
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: Text(
-                    '\$${value.toInt()}',
-                    style: TextStyle(
-                      color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                    ),
+                if (value == meta.max) return const SizedBox();
+                return Text(
+                  '\$${value.toInt()}',
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 10,
                   ),
                 );
               },
@@ -910,149 +937,199 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              reservedSize: 35,
-              interval: data.length > 12 ? (data.length / 6).ceilToDouble() : 
-                        data.length > 6 ? 2 : 1,
+              reservedSize: 30,
               getTitlesWidget: (value, meta) {
                 final index = value.toInt();
-                if (index >= 0 && index < data.length) {
-                  final interval = data.length > 12 ? (data.length / 6).ceil() : 
-                                   data.length > 6 ? 2 : 1;
-                  final showLabel = index == 0 || 
-                                    index == data.length - 1 || 
-                                    index % interval == 0;
-                  if (!showLabel) return const SizedBox();
-                  
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: Text(
-                      data[index].label,
-                      style: TextStyle(
-                        color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
-                        fontSize: 9,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  );
+                if (index < 0 || index >= _revenueData.length) {
+                  return const SizedBox();
                 }
-                return const SizedBox();
+
+                // Show only some labels if too many
+                final len = _revenueData.length;
+                if (len > 12 &&
+                    index != 0 &&
+                    index != len - 1 &&
+                    index % 3 != 0) {
+                  return const SizedBox();
+                }
+
+                return Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(
+                    _revenueData[index].label,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 9,
+                    ),
+                  ),
+                );
               },
             ),
           ),
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
         ),
         borderData: FlBorderData(show: false),
-        minX: 0,
-        maxX: (data.length - 1).toDouble(),
-        minY: 0,
-        maxY: maxRevenue > 0 ? maxRevenue : 10,
-        lineBarsData: [
-          LineChartBarData(
-            spots: spots,
-            isCurved: true,
-            curveSmoothness: 0.35,
-            preventCurveOverShooting: true,
-            gradient: const LinearGradient(
-              colors: [
-                Color(0xFF10B981), // Green-500
-                Color(0xFF34D399), // Green-400
-              ],
-            ),
-            barWidth: 3,
-            isStrokeCapRound: true,
-            dotData: FlDotData(
-              show: true,
-              getDotPainter: (spot, percent, barData, index) {
-                return FlDotCirclePainter(
-                  radius: 5,
-                  color: const Color(0xFF10B981),
-                  strokeWidth: 2.5,
-                  strokeColor: isDark ? AppTheme.darkCard : Colors.white,
-                );
-              },
-            ),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF10B981).withOpacity(0.3),
-                  const Color(0xFF10B981).withOpacity(0.1),
-                  Colors.transparent,
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                stops: const [0.0, 0.5, 1.0],
-              ),
-            ),
-          ),
-        ],
-        lineTouchData: LineTouchData(
-          enabled: true,
-          handleBuiltInTouches: true,
-          touchTooltipData: LineTouchTooltipData(
-            maxContentWidth: 150,
-            getTooltipColor: (_) => isDark ? AppTheme.darkElevated : Colors.white,
-            tooltipPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            tooltipBorder: BorderSide(
-              color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
-            ),
-            getTooltipItems: (touchedSpots) {
-              return touchedSpots.map((spot) {
-                final index = spot.x.toInt();
-                String label = '';
-                if (index >= 0 && index < data.length) {
-                  label = data[index].label;
-                }
-                return LineTooltipItem(
-                  '\$${spot.y.toStringAsFixed(2)}\n',
-                  const TextStyle(
-                    color: Color(0xFF10B981),
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: label,
-                      style: TextStyle(
-                        color: isDark
-                            ? AppTheme.darkTextSecondary
-                            : AppTheme.textSecondary,
-                        fontWeight: FontWeight.normal,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                );
-              }).toList();
-            },
-          ),
-          getTouchedSpotIndicator: (barData, spotIndexes) {
-            return spotIndexes.map((index) {
-              return TouchedSpotIndicatorData(
-                FlLine(
-                  color: const Color(0xFF10B981).withOpacity(0.3),
-                  strokeWidth: 2,
-                  dashArray: [5, 5],
+        barGroups: _revenueData.asMap().entries.map((entry) {
+          return BarChartGroupData(
+            x: entry.key,
+            barRods: [
+              BarChartRodData(
+                toY: entry.value.amount,
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF10B981), Color(0xFF34D399)],
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
                 ),
-                FlDotData(
-                  show: true,
-                  getDotPainter: (spot, percent, barData, index) {
-                    return FlDotCirclePainter(
-                      radius: 7,
-                      color: const Color(0xFF10B981),
-                      strokeWidth: 3,
-                      strokeColor: isDark ? AppTheme.darkCard : Colors.white,
-                    );
-                  },
+                width: _revenueData.length > 20 ? 8 : 16,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(4),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+        barTouchData: BarTouchData(
+          enabled: true,
+          touchTooltipData: BarTouchTooltipData(
+            getTooltipColor: (_) =>
+                isDark ? AppTheme.darkElevated : Colors.white,
+            tooltipBorder: BorderSide(
+              color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+            ),
+            getTooltipItem: (group, groupIndex, rod, rodIndex) {
+              final label = groupIndex < _revenueData.length
+                  ? _revenueData[groupIndex].label
+                  : '';
+              return BarTooltipItem(
+                '\$${rod.toY.toStringAsFixed(2)}\n$label',
+                const TextStyle(
+                  color: Color(0xFF10B981),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
                 ),
               );
-            }).toList();
-          },
+            },
+          ),
         ),
       ),
-      duration: const Duration(milliseconds: 300),
-      curve: Curves.easeInOut,
     );
   }
+
+  /// Build filter chip
+  Widget _buildFilterChip(
+    String label,
+    String value,
+    String currentValue,
+    Function(String) onSelected,
+    bool isDark,
+  ) {
+    final isSelected = value == currentValue;
+
+    return GestureDetector(
+      onTap: () => onSelected(value),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkElevated : Colors.grey.shade100),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected
+                ? (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkBorder : Colors.grey.shade300),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: isSelected
+                ? Colors.white
+                : AppTheme.getTextSecondary(context),
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadingState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SizedBox(
+            width: 40,
+            height: 40,
+            child: CircularProgressIndicator(
+              strokeWidth: 3,
+              color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Loading data...',
+            style: TextStyle(color: AppTheme.getTextSecondary(context)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.bar_chart_rounded,
+            size: 48,
+            color: AppTheme.getTextSecondary(context).withOpacity(0.5),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'No data available for this period',
+            style: TextStyle(color: AppTheme.getTextSecondary(context)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Data point for user growth chart
+class UserGrowthPoint {
+  final String label;
+  final int count;
+  final DateTime date;
+
+  UserGrowthPoint({
+    required this.label,
+    required this.count,
+    required this.date,
+  });
+}
+
+/// Data point for revenue chart
+class RevenuePoint {
+  final String label;
+  final double amount;
+  final DateTime date;
+
+  RevenuePoint({required this.label, required this.amount, required this.date});
+}
+
+/// Enrollment record for revenue calculation
+class EnrollmentRecord {
+  final double amount;
+  final int timestamp;
+
+  EnrollmentRecord({required this.amount, required this.timestamp});
 }
