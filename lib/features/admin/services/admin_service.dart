@@ -437,7 +437,53 @@ class AdminService {
     try {
       List<Map<String, dynamic>> flaggedItems = [];
 
-      // Check Q&A for reported content
+      // 1. Check the moderation queue (primary source for user-reported content)
+      final moderationSnapshot = await _db.child('moderation').get();
+      if (moderationSnapshot.exists && moderationSnapshot.value != null) {
+        final moderationMap = Map<String, dynamic>.from(moderationSnapshot.value as Map);
+        for (var entry in moderationMap.entries) {
+          final item = Map<String, dynamic>.from(entry.value as Map);
+          // Only include pending items
+          if (item['status'] == 'pending' || item['status'] == null) {
+            flaggedItems.add({
+              'id': entry.key,
+              'type': item['contentType'] ?? 'unknown',
+              'content': item['contentText'] ?? item['reason'] ?? 'Reported content',
+              'reportedBy': item['reportedBy'] ?? 'Unknown',
+              'reportReason': item['reason'] ?? 'Policy violation',
+              'createdAt': item['timestamp'],
+              'contentPath': item['contentPath'],
+              'contentId': item['contentId'],
+              'courseId': item['courseId'],
+              ...item,
+            });
+          }
+        }
+      }
+
+      // 2. Check flagged_content node
+      final flaggedContentSnapshot = await _db.child('flagged_content').get();
+      if (flaggedContentSnapshot.exists && flaggedContentSnapshot.value != null) {
+        final flaggedMap = Map<String, dynamic>.from(flaggedContentSnapshot.value as Map);
+        for (var entry in flaggedMap.entries) {
+          final item = Map<String, dynamic>.from(entry.value as Map);
+          // Check if already added
+          if (!flaggedItems.any((f) => f['id'] == entry.key)) {
+            flaggedItems.add({
+              'id': entry.key,
+              'type': item['type'] ?? 'course',
+              'content': item['title'] ?? item['reason'] ?? 'Flagged content',
+              'reportedBy': item['reportedBy'] ?? 'System',
+              'reportReason': item['reason'] ?? 'Flagged for review',
+              'createdAt': item['createdAt'] ?? item['timestamp'],
+              'courseId': item['courseUid'],
+              ...item,
+            });
+          }
+        }
+      }
+
+      // 3. Check Q&A for reported content (legacy)
       final qaSnapshot = await _db.child('qa').get();
       if (qaSnapshot.exists && qaSnapshot.value != null) {
         final qaMap = Map<String, dynamic>.from(qaSnapshot.value as Map);
@@ -446,22 +492,58 @@ class AdminService {
           for (var qaEntry in courseQa.entries) {
             final qa = Map<String, dynamic>.from(qaEntry.value as Map);
             if (qa['isReported'] == true || qa['flagged'] == true) {
-              flaggedItems.add({
-                'id': qaEntry.key,
-                'courseId': courseEntry.key,
-                'type': 'qa',
-                'content': qa['question'] ?? qa['content'] ?? '',
-                'reportedBy': qa['reportedBy'],
-                'reportReason': qa['reportReason'],
-                'createdAt': qa['createdAt'],
-                ...qa,
-              });
+              final id = '${courseEntry.key}_${qaEntry.key}';
+              if (!flaggedItems.any((f) => f['id'] == id)) {
+                flaggedItems.add({
+                  'id': id,
+                  'originalId': qaEntry.key,
+                  'courseId': courseEntry.key,
+                  'type': 'qa',
+                  'content': qa['question'] ?? qa['content'] ?? '',
+                  'reportedBy': qa['reportedBy'],
+                  'reportReason': qa['reportReason'] ?? 'Reported content',
+                  'createdAt': qa['createdAt'],
+                  ...qa,
+                });
+              }
             }
           }
         }
       }
 
-      // Check reviews for reported content
+      // 4. Check course reviews for reported content
+      final coursesSnapshot = await _db.child('courses').get();
+      if (coursesSnapshot.exists && coursesSnapshot.value != null) {
+        final coursesMap = Map<String, dynamic>.from(coursesSnapshot.value as Map);
+        for (var courseEntry in coursesMap.entries) {
+          final course = Map<String, dynamic>.from(courseEntry.value as Map);
+          if (course['reviews'] != null) {
+            final reviews = Map<String, dynamic>.from(course['reviews'] as Map);
+            for (var reviewEntry in reviews.entries) {
+              final review = Map<String, dynamic>.from(reviewEntry.value as Map);
+              if (review['isReported'] == true || review['flagged'] == true) {
+                final id = '${courseEntry.key}_review_${reviewEntry.key}';
+                if (!flaggedItems.any((f) => f['id'] == id)) {
+                  flaggedItems.add({
+                    'id': id,
+                    'originalId': reviewEntry.key,
+                    'courseId': courseEntry.key,
+                    'type': 'course_review',
+                    'content': review['review'] ?? review['comment'] ?? '',
+                    'rating': review['rating'],
+                    'reportedBy': review['reportedBy'],
+                    'reportReason': review['reportReason'] ?? 'Reported review',
+                    'createdAt': review['createdAt'],
+                    ...review,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // 5. Check teacher reviews for reported content (legacy)
       final teachersSnapshot = await _db.child('teacher').get();
       if (teachersSnapshot.exists && teachersSnapshot.value != null) {
         final teachersMap = Map<String, dynamic>.from(
@@ -478,27 +560,31 @@ class AdminService {
                 reviewEntry.value as Map,
               );
               if (review['isReported'] == true || review['flagged'] == true) {
-                flaggedItems.add({
-                  'id': reviewEntry.key,
-                  'teacherId': teacherEntry.key,
-                  'type': 'review',
-                  'content': review['review'] ?? review['comment'] ?? '',
-                  'rating': review['rating'],
-                  'reportedBy': review['reportedBy'],
-                  'reportReason': review['reportReason'],
-                  'createdAt': review['createdAt'],
-                  ...review,
-                });
+                final id = '${teacherEntry.key}_review_${reviewEntry.key}';
+                if (!flaggedItems.any((f) => f['id'] == id)) {
+                  flaggedItems.add({
+                    'id': id,
+                    'originalId': reviewEntry.key,
+                    'teacherId': teacherEntry.key,
+                    'type': 'review',
+                    'content': review['review'] ?? review['comment'] ?? '',
+                    'rating': review['rating'],
+                    'reportedBy': review['reportedBy'],
+                    'reportReason': review['reportReason'] ?? 'Reported review',
+                    'createdAt': review['createdAt'],
+                    ...review,
+                  });
+                }
               }
             }
           }
         }
       }
 
-      // Sort by reportedAt/createdAt
+      // Sort by timestamp/createdAt (newest first)
       flaggedItems.sort((a, b) {
-        final aTime = a['reportedAt'] ?? a['createdAt'] ?? 0;
-        final bTime = b['reportedAt'] ?? b['createdAt'] ?? 0;
+        final aTime = a['timestamp'] ?? a['reportedAt'] ?? a['createdAt'] ?? 0;
+        final bTime = b['timestamp'] ?? b['reportedAt'] ?? b['createdAt'] ?? 0;
         return bTime.compareTo(aTime);
       });
 

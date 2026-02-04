@@ -372,6 +372,7 @@ class CourseService {
     required String videoUrl,
     required String videoTitle,
     String? videoDescription,
+    int? duration, // Video duration in seconds
   }) async {
     final videoId = _db.push().key;
     final timestamp = DateTime.now().millisecondsSinceEpoch;
@@ -382,6 +383,7 @@ class CourseService {
       "description": videoDescription ?? "",
       "createdAt": timestamp,
       "order": timestamp, // Used for ordering videos
+      "duration": duration ?? 0, // Store duration in seconds
     };
 
     // First, check if this course has a legacy single video that needs migration
@@ -835,6 +837,11 @@ class CourseService {
           final courseData = Map<String, dynamic>.from(
             courseEntry.value as Map,
           );
+
+          // Skip unpublished courses - they should not be visible to students
+          if (courseData['isPublished'] == false) {
+            continue;
+          }
 
           // Get per-course stats (prefer course node reviews)
           final stats = await getCourseRatingStats(courseUid: courseUid);

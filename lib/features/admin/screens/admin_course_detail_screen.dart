@@ -28,6 +28,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   List<Map<String, dynamic>> _reviews = [];
   List<Map<String, dynamic>> _enrolledStudents = [];
   bool _isLoading = true;
+  double _calculatedRating = 0.0;  // Calculated from actual reviews
 
   @override
   void initState() {
@@ -120,7 +121,21 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       // Sort by date descending
       reviews.sort((a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0));
       
-      setState(() => _reviews = reviews);
+      // Calculate average rating from actual reviews
+      double totalRating = 0.0;
+      int ratingCount = 0;
+      for (var review in reviews) {
+        final rating = review['rating'];
+        if (rating != null) {
+          totalRating += (rating is num) ? rating.toDouble() : 0.0;
+          ratingCount++;
+        }
+      }
+      
+      setState(() {
+        _reviews = reviews;
+        _calculatedRating = ratingCount > 0 ? totalRating / ratingCount : 0.0;
+      });
     }
   }
 
@@ -371,7 +386,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               _buildStatItem(Icons.video_library, '${_videos.length}', 'Videos', isDark),
               _buildStatItem(
                 Icons.star,
-                widget.course.averageRating?.toStringAsFixed(1) ?? '0.0',
+                _calculatedRating.toStringAsFixed(1),
                 '${_reviews.length} Reviews',
                 isDark,
                 iconColor: Colors.amber,
@@ -542,19 +557,19 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               _buildActionChip(
                 'Contact Teacher',
                 Icons.email,
-                () {},
+                () => _contactTeacher(),
                 isDark,
               ),
               _buildActionChip(
                 'View Reports',
                 Icons.flag,
-                () {},
+                () => _viewCourseReports(),
                 isDark,
               ),
               _buildActionChip(
                 'View Analytics',
                 Icons.analytics,
-                () {},
+                () => _viewCourseAnalytics(),
                 isDark,
               ),
             ],
@@ -1432,6 +1447,261 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     
     subjectController.dispose();
     messageController.dispose();
+  }
+
+  /// View course reports in a dialog
+  Future<void> _viewCourseReports() async {
+    final isDark = AppTheme.isDarkMode(context);
+    
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkCard : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const CircularProgressIndicator(),
+        ),
+      ),
+    );
+    
+    try {
+      // Check for reports about this course
+      final reportsSnapshot = await _db.child('flagged_content')
+          .orderByChild('courseUid')
+          .equalTo(widget.course.courseUid)
+          .get();
+      
+      if (!mounted) return;
+      Navigator.pop(context); // Close loading
+      
+      List<Map<String, dynamic>> reports = [];
+      if (reportsSnapshot.exists && reportsSnapshot.value != null) {
+        final data = reportsSnapshot.value as Map;
+        for (var entry in data.entries) {
+          reports.add({
+            'id': entry.key,
+            ...Map<String, dynamic>.from(entry.value as Map),
+          });
+        }
+      }
+      
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: Row(
+            children: [
+              Icon(Icons.flag, color: Colors.orange),
+              const SizedBox(width: 8),
+              Text(
+                'Course Reports',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 400,
+            height: 300,
+            child: reports.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.check_circle_outline,
+                          size: 64,
+                          color: Colors.green.withOpacity(0.5),
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No reports for this course',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    itemCount: reports.length,
+                    itemBuilder: (context, index) {
+                      final report = reports[index];
+                      return ListTile(
+                        leading: Icon(Icons.report, color: Colors.red),
+                        title: Text(report['reason'] ?? 'No reason'),
+                        subtitle: Text(
+                          report['createdAt'] != null
+                              ? DateFormat('MMM d, yyyy').format(
+                                  DateTime.fromMillisecondsSinceEpoch(report['createdAt']))
+                              : 'Unknown date',
+                        ),
+                      );
+                    },
+                  ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading reports: $e')),
+        );
+      }
+    }
+  }
+
+  /// View course analytics in a dialog
+  Future<void> _viewCourseAnalytics() async {
+    final isDark = AppTheme.isDarkMode(context);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Row(
+          children: [
+            Icon(
+              Icons.analytics,
+              color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Course Analytics',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              ),
+            ),
+          ],
+        ),
+        content: SizedBox(
+          width: 400,
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildAnalyticsRow(
+                  'Total Students',
+                  '${widget.course.enrolledCount}',
+                  Icons.people,
+                  Colors.blue,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Total Videos',
+                  '${_videos.length}',
+                  Icons.video_library,
+                  Colors.purple,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Average Rating',
+                  _calculatedRating.toStringAsFixed(1),
+                  Icons.star,
+                  Colors.amber,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Total Reviews',
+                  '${_reviews.length}',
+                  Icons.rate_review,
+                  Colors.teal,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Course Price',
+                  widget.course.isFree ? 'Free' : '\$${widget.course.price.toStringAsFixed(2)}',
+                  Icons.attach_money,
+                  Colors.green,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Est. Revenue',
+                  widget.course.isFree 
+                      ? '\$0.00' 
+                      : '\$${(widget.course.price * widget.course.enrolledCount).toStringAsFixed(2)}',
+                  Icons.monetization_on,
+                  Colors.orange,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Platform Commission (20%)',
+                  widget.course.isFree 
+                      ? '\$0.00' 
+                      : '\$${(widget.course.price * widget.course.enrolledCount * 0.2).toStringAsFixed(2)}',
+                  Icons.account_balance,
+                  Colors.indigo,
+                  isDark,
+                ),
+                _buildAnalyticsRow(
+                  'Status',
+                  widget.course.isPublished ? 'Published' : 'Draft',
+                  widget.course.isPublished ? Icons.check_circle : Icons.pending,
+                  widget.course.isPublished ? Colors.green : Colors.orange,
+                  isDark,
+                ),
+              ],
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAnalyticsRow(String label, String value, IconData icon, Color color, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+              ),
+            ),
+          ),
+          Text(
+            value,
+            style: TextStyle(
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _flagCourse() async {
