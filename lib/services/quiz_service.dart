@@ -28,7 +28,7 @@ import 'package:flutter/foundation.dart' show debugPrint;
 ///     quizId: string
 ///     studentId: string
 ///     courseId: string
-///     answers: Map<questionIndex, selectedOptionIndex>
+///     answers: Map of questionIndex to selectedOptionIndex
 ///     score: int
 ///     totalQuestions: int
 ///     percentage: double
@@ -121,8 +121,9 @@ class QuizService {
       if (timeLimit != null) updates['timeLimit'] = timeLimit;
       if (passingScore != null) updates['passingScore'] = passingScore;
       if (maxAttempts != null) updates['maxAttempts'] = maxAttempts;
-      if (shuffleQuestions != null)
+      if (shuffleQuestions != null) {
         updates['shuffleQuestions'] = shuffleQuestions;
+      }
       if (shuffleOptions != null) updates['shuffleOptions'] = shuffleOptions;
       if (showResults != null) updates['showResults'] = showResults;
 

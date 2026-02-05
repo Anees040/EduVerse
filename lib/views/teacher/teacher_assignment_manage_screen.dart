@@ -1,10 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:intl/intl.dart';
 import 'package:eduverse/services/assignment_service.dart';
 import 'package:eduverse/services/uploadToCloudinary.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 
 /// Assignment Management Screen for Teachers
 /// Create, edit, and manage assignments for a course
@@ -617,9 +619,18 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Assignment' : 'Create Assignment'),
+        title: Text(
+          _isEditing ? 'Edit Assignment' : 'Create Assignment',
+          style: TextStyle(
+            color: isDark ? Colors.white : AppTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-        foregroundColor: AppTheme.getTextPrimary(context),
+        foregroundColor: isDark ? Colors.white : AppTheme.primaryColor,
+        iconTheme: IconThemeData(
+          color: isDark ? Colors.white : AppTheme.primaryColor,
+        ),
         elevation: 0,
         actions: [
           if (_isSaving)
@@ -636,8 +647,17 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
           else
             TextButton.icon(
               onPressed: _saveAssignment,
-              icon: const Icon(Icons.save),
-              label: const Text('Save'),
+              icon: Icon(
+                Icons.save,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              label: Text(
+                'Save',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
@@ -1013,31 +1033,133 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
 
   Future<void> _addAttachment() async {
     try {
-      final picker = ImagePicker();
-      final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+      // Show options dialog
+      final type = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: AppTheme.getCardColor(context),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            'Add Attachment',
+            style: TextStyle(color: AppTheme.getTextPrimary(context)),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                leading: Icon(Icons.image, color: AppTheme.primaryColor),
+                title: Text(
+                  'Image',
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                ),
+                onTap: () => Navigator.pop(ctx, 'image'),
+              ),
+              ListTile(
+                leading: Icon(
+                  Icons.insert_drive_file,
+                  color: AppTheme.primaryColor,
+                ),
+                title: Text(
+                  'Document (PDF, Word, etc.)',
+                  style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                ),
+                onTap: () => Navigator.pop(ctx, 'document'),
+              ),
+            ],
+          ),
+        ),
+      );
 
-      if (pickedFile != null) {
-        setState(() => _isUploading = true);
+      if (type == null) return;
 
-        final url = await uploadToCloudinaryWithSimulatedProgress(
-          pickedFile,
-          onProgress: (progress) {},
+      setState(() => _isUploading = true);
+
+      if (type == 'image') {
+        // Use image picker for images
+        final picker = ImagePicker();
+        final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+
+        if (pickedFile != null) {
+          final url = await uploadToCloudinaryFromXFile(pickedFile);
+
+          if (url != null && mounted) {
+            final fileSize = kIsWeb ? 0 : await File(pickedFile.path).length();
+            setState(() {
+              _attachments.add({
+                'name': pickedFile.name,
+                'url': url,
+                'type': 'image',
+                'size': fileSize,
+              });
+            });
+          }
+        }
+      } else {
+        // Use file picker for documents
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          allowedExtensions: [
+            'pdf',
+            'doc',
+            'docx',
+            'txt',
+            'xlsx',
+            'xls',
+            'ppt',
+            'pptx',
+          ],
         );
 
-        if (url != null) {
-          final fileSize = await File(pickedFile.path).length();
-          setState(() {
-            _attachments.add({
-              'name': pickedFile.name,
-              'url': url,
-              'type': pickedFile.path.split('.').last,
-              'size': fileSize,
-            });
-          });
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
+
+          if (file.path != null) {
+            // Upload the file
+            final xFile = XFile(file.path!);
+            final url = await uploadToCloudinaryFromXFile(xFile);
+
+            if (url != null && mounted) {
+              setState(() {
+                _attachments.add({
+                  'name': file.name,
+                  'url': url,
+                  'type': file.extension ?? 'file',
+                  'size': file.size,
+                });
+              });
+            }
+          } else if (file.bytes != null) {
+            // Web platform - upload from bytes
+            final url = await uploadToCloudinaryFromBytes(
+              file.bytes!,
+              file.name,
+            );
+
+            if (url != null && mounted) {
+              setState(() {
+                _attachments.add({
+                  'name': file.name,
+                  'url': url,
+                  'type': file.extension ?? 'file',
+                  'size': file.size,
+                });
+              });
+            }
+          }
         }
       }
     } catch (e) {
       debugPrint('Error adding attachment: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding attachment: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() => _isUploading = false);
