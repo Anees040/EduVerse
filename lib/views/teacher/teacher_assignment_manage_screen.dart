@@ -1700,7 +1700,7 @@ class _AssignmentSubmissionsScreenState
               Navigator.pop(ctx);
               final success = await _assignmentService.returnSubmission(
                 submissionId: submission['submissionId'] ?? submission['id'],
-                teacherId: '', // TODO: Get from auth
+                teacherId: '', 
                 feedback: feedbackController.text.trim(),
               );
               if (success) _loadData();
@@ -1728,7 +1728,7 @@ class _AssignmentSubmissionsScreenState
               final success = await _assignmentService.gradeSubmission(
                 submissionId: submission['submissionId'] ?? submission['id'],
                 grade: grade,
-                teacherId: '', // TODO: Get from auth
+                teacherId: '', 
                 feedback: feedbackController.text.trim(),
               );
               if (success) {
