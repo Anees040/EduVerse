@@ -102,18 +102,22 @@ class _StudentAssignmentListScreenState
         children: [
           // Filter chips
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             color: isDark ? AppTheme.darkSurface : Colors.white,
-            child: Row(
-              children: [
-                _buildFilterChip('all', 'All', isDark),
-                const SizedBox(width: 8),
-                _buildFilterChip('pending', 'Pending', isDark),
-                const SizedBox(width: 8),
-                _buildFilterChip('submitted', 'Submitted', isDark),
-                const SizedBox(width: 8),
-                _buildFilterChip('graded', 'Graded', isDark),
-              ],
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  _buildFilterChip('all', 'All', isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('pending', 'Pending', isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('submitted', 'Submitted', isDark),
+                  const SizedBox(width: 8),
+                  _buildFilterChip('graded', 'Graded', isDark),
+                ],
+              ),
             ),
           ),
 

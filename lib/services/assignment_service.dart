@@ -15,8 +15,8 @@ import 'package:eduverse/services/notification_service.dart';
 ///     instructions: string
 ///     dueDate: timestamp
 ///     totalPoints: int
-///     attachments: List<{name, url, type}>
-///     allowedFileTypes: List<string> (pdf, doc, image, etc)
+///     attachments: List of {name, url, type}
+///     allowedFileTypes: List of strings (pdf, doc, image, etc)
 ///     maxFileSize: int (MB)
 ///     isPublished: bool
 ///     allowLateSubmission: bool
@@ -133,13 +133,16 @@ class AssignmentService {
       if (dueDate != null) updates['dueDate'] = dueDate;
       if (totalPoints != null) updates['totalPoints'] = totalPoints;
       if (attachments != null) updates['attachments'] = attachments;
-      if (allowedFileTypes != null)
+      if (allowedFileTypes != null) {
         updates['allowedFileTypes'] = allowedFileTypes;
+      }
       if (maxFileSize != null) updates['maxFileSize'] = maxFileSize;
-      if (allowLateSubmission != null)
+      if (allowLateSubmission != null) {
         updates['allowLateSubmission'] = allowLateSubmission;
-      if (latePenaltyPercent != null)
+      }
+      if (latePenaltyPercent != null) {
         updates['latePenaltyPercent'] = latePenaltyPercent;
+      }
 
       await _db.child('assignments').child(assignmentId).update(updates);
 

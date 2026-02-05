@@ -84,7 +84,59 @@
             ".read": "auth != null",
             ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
           }
+        },
+        "quizzes": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "$quizId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
+        },
+        "assignments": {
+          ".read": "auth != null",
+          ".write": "auth != null",
+          "$assignmentId": {
+            ".read": "auth != null",
+            ".write": "auth != null"
+          }
         }
+      }
+    },
+    
+    "quizzes": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$quizId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "quiz_attempts": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$attemptId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "assignments": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$assignmentId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
+      }
+    },
+    
+    "assignment_submissions": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$submissionId": {
+        ".read": "auth != null",
+        ".write": "auth != null"
       }
     },
     

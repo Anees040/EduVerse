@@ -574,9 +574,18 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
-        title: Text(_isEditing ? 'Edit Quiz' : 'Create Quiz'),
+        title: Text(
+          _isEditing ? 'Edit Quiz' : 'Create Quiz',
+          style: TextStyle(
+            color: isDark ? Colors.white : AppTheme.primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
         backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
-        foregroundColor: AppTheme.getTextPrimary(context),
+        foregroundColor: isDark ? Colors.white : AppTheme.primaryColor,
+        iconTheme: IconThemeData(
+          color: isDark ? Colors.white : AppTheme.primaryColor,
+        ),
         elevation: 0,
         actions: [
           if (_isSaving)
@@ -593,8 +602,17 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
           else
             TextButton.icon(
               onPressed: _saveQuiz,
-              icon: const Icon(Icons.save),
-              label: const Text('Save'),
+              icon: Icon(
+                Icons.save,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              label: Text(
+                'Save',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
         ],
       ),
