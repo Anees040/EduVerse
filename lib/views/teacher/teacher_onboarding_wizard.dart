@@ -1485,47 +1485,82 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   }
 
   Future<void> _pickAndUploadImage() async {
-    if (_isUploading || _isPickingImage || !mounted) return;
+    // Prevent multiple calls
+    if (_isUploading || _isPickingImage) return;
+    
+    // Capture context before async gap
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     
     try {
-      setState(() => _isPickingImage = true);
+      if (mounted) {
+        setState(() => _isPickingImage = true);
+      }
       
       final picker = ImagePicker();
       
-      // Small delay to ensure UI updates
-      await Future.delayed(const Duration(milliseconds: 100));
-      
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 85,
-      );
-      
-      if (!mounted) return;
-      
-      setState(() => _isPickingImage = false);
-      
-      if (picked == null) return;
-      
-      // Read and validate image bytes
-      final bytes = await picked.readAsBytes();
-      if (bytes.isEmpty) {
+      // Pick image with error handling
+      XFile? picked;
+      try {
+        picked = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          imageQuality: 85,
+        );
+      } catch (pickerError) {
+        debugPrint('Picker error: $pickerError');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Invalid image file')),
-          );
+          setState(() => _isPickingImage = false);
+        }
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Could not open image picker')),
+        );
+        return;
+      }
+      
+      // User cancelled
+      if (picked == null) {
+        if (mounted) {
+          setState(() => _isPickingImage = false);
         }
         return;
       }
       
-      if (!mounted) return;
+      // Read bytes with error handling
+      Uint8List bytes;
+      try {
+        bytes = await picked.readAsBytes();
+      } catch (readError) {
+        debugPrint('Read bytes error: $readError');
+        if (mounted) {
+          setState(() => _isPickingImage = false);
+        }
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Could not read image file')),
+        );
+        return;
+      }
       
-      setState(() {
-        _credentialImageBytes = bytes;
-        _isUploading = true;
-      });
+      if (bytes.isEmpty) {
+        if (mounted) {
+          setState(() => _isPickingImage = false);
+        }
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(content: Text('Invalid image file')),
+        );
+        return;
+      }
+      
+      // Update state with image bytes
+      if (mounted) {
+        setState(() {
+          _credentialImageBytes = bytes;
+          _isPickingImage = false;
+          _isUploading = true;
+        });
+      }
 
+      // Upload to Cloudinary
       try {
         final url = await uploadToCloudinaryFromXFile(picked);
         if (mounted) {
@@ -1533,26 +1568,35 @@ class _CredentialDialogState extends State<_CredentialDialog> {
             _uploadedCredentialUrl = url;
             _isUploading = false;
           });
+          if (url != null) {
+            scaffoldMessenger.showSnackBar(
+              const SnackBar(
+                content: Text('Certificate uploaded successfully!'),
+                backgroundColor: Colors.green,
+              ),
+            );
+          }
         }
-      } catch (e) {
+      } catch (uploadError) {
+        debugPrint('Upload error: $uploadError');
         if (mounted) {
           setState(() => _isUploading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Upload failed: $e')),
-          );
         }
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Upload failed: $uploadError')),
+        );
       }
     } catch (e) {
-      debugPrint('Image picker error: $e');
+      debugPrint('Image picker general error: $e');
       if (mounted) {
         setState(() {
           _isPickingImage = false;
           _isUploading = false;
         });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error selecting image: $e')),
-        );
       }
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
     }
   }
 

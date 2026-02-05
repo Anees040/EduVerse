@@ -446,6 +446,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
               ),
               const SizedBox(height: 8),
               
+              // Message preview
+              _buildMessagePreview(ticket, isDark),
+              const SizedBox(height: 12),
+              
               // User info
               Row(
                 children: [
@@ -531,6 +535,68 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     } else {
       return DateFormat('MMM d').format(date);
     }
+  }
+  
+  Widget _buildMessagePreview(Map<String, dynamic> ticket, bool isDark) {
+    // Extract first message from the messages map
+    String messagePreview = '';
+    
+    if (ticket['messages'] != null && ticket['messages'] is Map) {
+      final messages = Map<String, dynamic>.from(ticket['messages'] as Map);
+      // Sort by key (assuming '0' is first) or by timestamp
+      final sortedEntries = messages.entries.toList();
+      if (sortedEntries.isNotEmpty) {
+        // Get first message
+        for (var entry in sortedEntries) {
+          if (entry.value is Map) {
+            final msg = Map<String, dynamic>.from(entry.value as Map);
+            if (msg['message'] != null) {
+              messagePreview = msg['message'].toString();
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    if (messagePreview.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkBackground.withOpacity(0.5) : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(
+            Icons.message_outlined,
+            size: 14,
+            color: AppTheme.getTextSecondary(context),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              messagePreview,
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 13,
+                height: 1.4,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _openTicketDetail(Map<String, dynamic> ticket) {
