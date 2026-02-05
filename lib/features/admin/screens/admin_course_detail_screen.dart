@@ -1305,9 +1305,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       return;
     }
     
+    final parentContext = context;
     final result = await showDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
@@ -1376,7 +1377,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(
               'Cancel',
               style: TextStyle(
@@ -1387,12 +1388,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ElevatedButton.icon(
             onPressed: () {
               if (messageController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
+                ScaffoldMessenger.of(parentContext).showSnackBar(
                   const SnackBar(content: Text('Please enter a message')),
                 );
                 return;
               }
-              Navigator.pop(context, true);
+              Navigator.pop(dialogContext, true);
             },
             icon: const Icon(Icons.send, size: 18),
             label: const Text('Send'),

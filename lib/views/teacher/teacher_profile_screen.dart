@@ -257,112 +257,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     }
   }
 
-  void _showEditProfileDialog() {
-    _nameController.text = userName;
-    final isDark = AppTheme.isDarkMode(context);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppTheme.getCardColor(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(
-              Icons.edit,
-              color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
-            ),
-            const SizedBox(width: 10),
-            Text(
-              'Edit Profile',
-              style: TextStyle(color: AppTheme.getTextPrimary(context)),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _nameController,
-              style: TextStyle(color: AppTheme.getTextPrimary(context)),
-              decoration: InputDecoration(
-                labelText: 'Full Name',
-                labelStyle: TextStyle(
-                  color: AppTheme.getTextSecondary(context),
-                ),
-                prefixIcon: Icon(
-                  Icons.person_outline,
-                  color: AppTheme.getTextSecondary(context),
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: AppTheme.getBorderColor(context),
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(
-                    color: isDark
-                        ? AppTheme.darkPrimaryLight
-                        : AppTheme.primaryColor,
-                    width: 2,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppTheme.getTextSecondary(context)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              try {
-                await UserService().updateUserName(
-                  uid: widget.uid,
-                  role: widget.role,
-                  name: _nameController.text.trim(),
-                );
-                Navigator.pop(ctx);
-                fetchUserData();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Profile updated successfully!'),
-                    backgroundColor: AppTheme.success,
-                  ),
-                );
-              } catch (e) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to update profile: $e')),
-                );
-              }
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: isDark
-                  ? AppTheme.darkAccent
-                  : AppTheme.primaryColor,
-              foregroundColor: const Color(0xFFF0F8FF),
-              elevation: 6,
-              shadowColor:
-                  (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                      .withOpacity(0.5),
-            ),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-  }
-
   void _showChangePasswordDialog() {
     _currentPasswordController.clear();
     _newPasswordController.clear();
@@ -846,10 +740,14 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                           child: CircleAvatar(
                             radius: 50,
                             backgroundColor: Colors.white.withOpacity(0.2),
-                            backgroundImage: profilePicture != null && profilePicture!.isNotEmpty
+                            backgroundImage:
+                                profilePicture != null &&
+                                    profilePicture!.isNotEmpty
                                 ? NetworkImage(profilePicture!)
                                 : null,
-                            child: profilePicture == null || profilePicture!.isEmpty
+                            child:
+                                profilePicture == null ||
+                                    profilePicture!.isEmpty
                                 ? Text(
                                     userName.isNotEmpty
                                         ? userName[0].toUpperCase()
@@ -894,7 +792,20 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                         ),
                         const SizedBox(height: 16),
                         OutlinedButton.icon(
-                          onPressed: _showEditProfileDialog,
+                          onPressed: () async {
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => TeacherOnboardingWizard(
+                                  isFirstTime: false,
+                                  onComplete: () {
+                                    fetchUserData(forceRefresh: true);
+                                  },
+                                ),
+                              ),
+                            );
+                            fetchUserData(forceRefresh: true);
+                          },
                           icon: const Icon(
                             Icons.edit,
                             color: Colors.white,
@@ -992,33 +903,6 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                     decoration: AppTheme.getCardDecoration(context),
                     child: Column(
                       children: [
-                        // Edit Teacher Profile
-                        _buildActionTile(
-                          Icons.edit_rounded,
-                          "Edit Profile",
-                          "Update bio, credentials & achievements",
-                          () async {
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    TeacherOnboardingWizard(
-                                      isFirstTime: false,
-                                      onComplete: () {
-                                        // Force refresh profile data after editing
-                                        fetchUserData(forceRefresh: true);
-                                      },
-                                    ),
-                              ),
-                            );
-                            // Also refresh when returning from wizard
-                            fetchUserData(forceRefresh: true);
-                          },
-                        ),
-                        Divider(
-                          height: 1,
-                          color: AppTheme.getBorderColor(context),
-                        ),
                         // Dark Mode Toggle
                         Consumer<ThemeService>(
                           builder: (context, themeService, child) {
@@ -1340,10 +1224,10 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     // Cancel the auto-refresh timer first to prevent any background operations
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = null;
-    
+
     // Store mounted state before any async operations
     final wasMounted = mounted;
-    
+
     try {
       // Clear ALL static caches to prevent data leakage between users
       // Do this BEFORE signing out so we still have user context if needed
@@ -1368,7 +1252,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           (route) => false,
         );
       }
-      
+
       // Sign out from Firebase AFTER navigation
       // This prevents any provider rebuild errors
       try {
