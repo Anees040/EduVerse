@@ -14,6 +14,8 @@ import 'package:eduverse/widgets/qa_section_widget.dart';
 import 'package:eduverse/widgets/upload_progress_widget.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/video_thumbnail_widget.dart';
+import 'package:eduverse/views/teacher/teacher_quiz_manage_screen.dart';
+import 'package:eduverse/views/teacher/teacher_assignment_manage_screen.dart';
 
 /// Teacher Course Management Screen - Add/Manage videos
 class TeacherCourseManageScreen extends StatefulWidget {
@@ -855,14 +857,13 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
                       cancellableUpload = CancellableUpload();
 
                       try {
-                        final uploadResult =
-                            await uploadVideoWithDuration(
-                              selectedVideo!,
-                              onProgress: (progress) {
-                                setDialogState(() => uploadProgress = progress);
-                              },
-                              cancellable: cancellableUpload,
-                            );
+                        final uploadResult = await uploadVideoWithDuration(
+                          selectedVideo!,
+                          onProgress: (progress) {
+                            setDialogState(() => uploadProgress = progress);
+                          },
+                          cancellable: cancellableUpload,
+                        );
 
                         if (cancellableUpload?.isCancelled ?? false) return;
 
@@ -1699,16 +1700,13 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
                         try {
                           final data = videoDataList[i];
 
-                          final uploadResult =
-                              await uploadVideoWithDuration(
-                                data['file'],
-                                onProgress: (progress) {
-                                  setDialogState(
-                                    () => uploadProgress = progress,
-                                  );
-                                },
-                                cancellable: cancellableUpload,
-                              );
+                          final uploadResult = await uploadVideoWithDuration(
+                            data['file'],
+                            onProgress: (progress) {
+                              setDialogState(() => uploadProgress = progress);
+                            },
+                            cancellable: cancellableUpload,
+                          );
 
                           if (cancellableUpload?.isCancelled ?? false) return;
 
@@ -1837,6 +1835,9 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
                     ),
                   ),
           ],
+
+          // Quiz & Assignment Management Section
+          SliverToBoxAdapter(child: _buildQuizAssignmentSection()),
 
           // Q&A Section
           SliverToBoxAdapter(
@@ -2213,6 +2214,160 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuizAssignmentSection() {
+    final teacherId = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Row(
+            children: [
+              Icon(
+                Icons.assignment,
+                color: isDark
+                    ? AppTheme.darkPrimaryLight
+                    : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Assessments',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Quiz and Assignment Cards
+          Row(
+            children: [
+              // Quiz Card
+              Expanded(
+                child: _buildAssessmentCard(
+                  icon: Icons.quiz,
+                  title: 'Quizzes',
+                  subtitle: 'Create & manage',
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TeacherQuizManageScreen(
+                          courseId: widget.courseUid,
+                          courseTitle: widget.courseTitle,
+                          teacherId: teacherId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Assignment Card
+              Expanded(
+                child: _buildAssessmentCard(
+                  icon: Icons.assignment_turned_in,
+                  title: 'Assignments',
+                  subtitle: 'Create & grade',
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => TeacherAssignmentManageScreen(
+                          courseId: widget.courseUid,
+                          courseTitle: widget.courseTitle,
+                          teacherId: teacherId,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAssessmentCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: isDark ? AppTheme.darkCard : Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorderColor : Colors.grey.shade200,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(isDark ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 24),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? AppTheme.darkTextPrimary : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : Colors.grey.shade600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Icon(
+                    Icons.arrow_forward_ios,
+                    size: 14,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : Colors.grey.shade400,
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
     );

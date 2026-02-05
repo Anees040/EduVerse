@@ -1466,7 +1466,6 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   Uint8List? _credentialImageBytes;
   String? _uploadedCredentialUrl;
   bool _isUploading = false;
-  bool _isPickingImage = false;
   bool _hasAttemptedSubmit = false;
 
   // Generate list of years (current year down to 50 years ago)
@@ -1486,64 +1485,36 @@ class _CredentialDialogState extends State<_CredentialDialog> {
 
   Future<void> _pickAndUploadImage() async {
     // Prevent multiple calls
-    if (_isUploading || _isPickingImage) return;
+    if (_isUploading) return;
     
     // Capture context before async gap
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     
     try {
-      if (mounted) {
-        setState(() => _isPickingImage = true);
-      }
-      
       final picker = ImagePicker();
       
-      // Pick image with error handling
-      XFile? picked;
-      try {
-        picked = await picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1200,
-          maxHeight: 1200,
-          imageQuality: 85,
-        );
-      } catch (pickerError) {
-        debugPrint('Picker error: $pickerError');
-        if (mounted) {
-          setState(() => _isPickingImage = false);
-        }
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Could not open image picker')),
-        );
-        return;
-      }
+      // Pick image - don't show loading during picker
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1200,
+        maxHeight: 1200,
+        imageQuality: 85,
+      );
       
       // User cancelled
-      if (picked == null) {
-        if (mounted) {
-          setState(() => _isPickingImage = false);
-        }
-        return;
+      if (picked == null) return;
+      
+      // Show uploading state
+      if (mounted) {
+        setState(() => _isUploading = true);
       }
       
-      // Read bytes with error handling
-      Uint8List bytes;
-      try {
-        bytes = await picked.readAsBytes();
-      } catch (readError) {
-        debugPrint('Read bytes error: $readError');
-        if (mounted) {
-          setState(() => _isPickingImage = false);
-        }
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Could not read image file')),
-        );
-        return;
-      }
+      // Read bytes
+      final bytes = await picked.readAsBytes();
       
       if (bytes.isEmpty) {
         if (mounted) {
-          setState(() => _isPickingImage = false);
+          setState(() => _isUploading = false);
         }
         scaffoldMessenger.showSnackBar(
           const SnackBar(content: Text('Invalid image file')),
@@ -1555,44 +1526,29 @@ class _CredentialDialogState extends State<_CredentialDialog> {
       if (mounted) {
         setState(() {
           _credentialImageBytes = bytes;
-          _isPickingImage = false;
-          _isUploading = true;
         });
       }
 
       // Upload to Cloudinary
-      try {
-        final url = await uploadToCloudinaryFromXFile(picked);
-        if (mounted) {
-          setState(() {
-            _uploadedCredentialUrl = url;
-            _isUploading = false;
-          });
-          if (url != null) {
-            scaffoldMessenger.showSnackBar(
-              const SnackBar(
-                content: Text('Certificate uploaded successfully!'),
-                backgroundColor: Colors.green,
-              ),
-            );
-          }
-        }
-      } catch (uploadError) {
-        debugPrint('Upload error: $uploadError');
-        if (mounted) {
-          setState(() => _isUploading = false);
-        }
-        scaffoldMessenger.showSnackBar(
-          SnackBar(content: Text('Upload failed: $uploadError')),
-        );
-      }
-    } catch (e) {
-      debugPrint('Image picker general error: $e');
+      final url = await uploadToCloudinaryFromXFile(picked);
       if (mounted) {
         setState(() {
-          _isPickingImage = false;
+          _uploadedCredentialUrl = url;
           _isUploading = false;
         });
+        if (url != null) {
+          scaffoldMessenger.showSnackBar(
+            const SnackBar(
+              content: Text('Certificate uploaded successfully!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      debugPrint('Image picker error: $e');
+      if (mounted) {
+        setState(() => _isUploading = false);
       }
       scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -1808,7 +1764,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
               _buildFieldLabel('Certificate Image (Optional)', isDark),
               const SizedBox(height: 6),
               GestureDetector(
-                onTap: (_isUploading || _isPickingImage || _credentialImageBytes != null) ? null : _pickAndUploadImage,
+                onTap: (_isUploading || _credentialImageBytes != null) ? null : _pickAndUploadImage,
                 child: Container(
                   width: double.infinity,
                   height: 120,
@@ -1899,35 +1855,31 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                               ),
                           ],
                         )
-                      : (_isPickingImage
-                          ? const Center(
-                              child: CircularProgressIndicator(),
-                            )
-                          : Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.add_photo_alternate_outlined,
-                                  size: 32,
-                                  color: AppTheme.getTextSecondary(context),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  'Tap to add certificate image',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppTheme.getTextSecondary(context),
-                                  ),
-                                ),
-                                Text(
-                                  'Builds trust with students',
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    color: AppTheme.getTextSecondary(context).withOpacity(0.7),
-                                  ),
-                                ),
-                              ],
-                            )),
+                      : Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 32,
+                              color: AppTheme.getTextSecondary(context),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Tap to add certificate image',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.getTextSecondary(context),
+                              ),
+                            ),
+                            Text(
+                              'Builds trust with students',
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: AppTheme.getTextSecondary(context).withOpacity(0.7),
+                              ),
+                            ),
+                          ],
+                        ),
                 ),
               ),
             ],

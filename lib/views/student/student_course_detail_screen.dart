@@ -5,6 +5,7 @@ import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/bookmark_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/analytics_service.dart';
+import 'package:eduverse/services/certificate_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
@@ -14,6 +15,8 @@ import 'package:eduverse/views/student/certificate_screen.dart';
 import 'package:eduverse/views/student/courses_screen.dart';
 import 'package:eduverse/views/student/profile_screen.dart';
 import 'package:eduverse/views/student/home_tab.dart';
+import 'package:eduverse/views/student/student_quiz_list_screen.dart';
+import 'package:eduverse/views/student/student_assignment_list_screen.dart';
 import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
 import 'package:eduverse/views/teacher/teacher_home_tab.dart';
 import 'package:eduverse/widgets/teacher_public_profile_widget.dart';
@@ -48,6 +51,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   final CourseService _courseService = CourseService();
   final BookmarkService _bookmarkService = BookmarkService();
   final CacheService _cacheService = CacheService();
+  final CertificateService _certificateService = CertificateService();
   final String _studentUid = FirebaseAuth.instance.currentUser!.uid;
   final ScrollController _scrollController = ScrollController();
 
@@ -63,6 +67,7 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   bool _isVideosExpanded = false; // Default to collapsed for consistency
   int _privateVideoCount = 0; // Number of private videos
   bool _isVideoMinimized = false; // For picture-in-picture style
+  bool _certificateAwarded = false; // Track if certificate was just awarded
   bool _isTransitioning = false; // For smooth transition
 
   @override
@@ -386,6 +391,11 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
 
       // Clear all caches so other screens get fresh data
       _clearAllProgressCaches();
+
+      // Check if course is now complete and award certificate
+      if (_overallProgress >= 1.0 && !_certificateAwarded) {
+        await _checkAndAwardCertificate();
+      }
     } catch (_) {
       // ignore save errors here
     }
@@ -394,6 +404,119 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
     if (_currentVideoIndex < _videos.length - 1) {
       setState(() => _currentVideoIndex++);
     }
+  }
+
+  /// Check and award certificate when course is completed
+  Future<void> _checkAndAwardCertificate() async {
+    try {
+      // Get student name
+      final studentSnapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('student')
+          .child(_studentUid)
+          .get();
+
+      String studentName = 'Student';
+      if (studentSnapshot.exists && studentSnapshot.value != null) {
+        final data = Map<String, dynamic>.from(studentSnapshot.value as Map);
+        studentName = data['name'] ?? 'Student';
+      }
+
+      final certificateId = await _certificateService
+          .checkAndAwardCourseCertificate(
+            studentId: _studentUid,
+            courseId: widget.courseUid,
+            courseName: widget.courseTitle,
+            studentName: studentName,
+            completionPercentage: _overallProgress,
+          );
+
+      if (certificateId != null && mounted) {
+        setState(() => _certificateAwarded = true);
+
+        // Show celebration dialog
+        _showCertificateAwardedDialog(studentName);
+      }
+    } catch (e) {
+      // Certificate awarding is non-critical
+    }
+  }
+
+  /// Show a celebration dialog when certificate is awarded
+  void _showCertificateAwardedDialog(String studentName) {
+    final isDark = AppTheme.isDarkMode(context);
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFD700).withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: const Icon(
+                Icons.workspace_premium,
+                size: 64,
+                color: Color(0xFFFFD700),
+              ),
+            ),
+            const SizedBox(height: 24),
+            Text(
+              '🎉 Congratulations! 🎉',
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'You\'ve completed this course!',
+              style: TextStyle(
+                fontSize: 16,
+                color: AppTheme.getTextSecondary(context),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'A certificate has been added to your profile.',
+              style: TextStyle(
+                fontSize: 14,
+                color: AppTheme.getTextSecondary(context),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Later'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(context);
+              _viewCertificate();
+            },
+            icon: const Icon(Icons.workspace_premium),
+            label: const Text('View Certificate'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFFFD700),
+              foregroundColor: Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _playVideo(int index) {
@@ -454,6 +577,9 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                     // Meet Your Instructor section
                     if (_teacherUid != null)
                       SliverToBoxAdapter(child: _buildInstructorSection()),
+
+                    // Quiz & Assignment Section
+                    SliverToBoxAdapter(child: _buildQuizAssignmentSection()),
 
                     // Q&A Section
                     SliverToBoxAdapter(
@@ -1282,6 +1408,156 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildQuizAssignmentSection() {
+    final isDark = AppTheme.isDarkMode(context);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Section Header
+          Row(
+            children: [
+              Icon(
+                Icons.assignment,
+                size: 20,
+                color: isDark
+                    ? AppTheme.darkPrimaryLight
+                    : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Assessments',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: AppTheme.getTextPrimary(context),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Quiz and Assignment Cards
+          Row(
+            children: [
+              // Quiz Card
+              Expanded(
+                child: _buildStudentAssessmentCard(
+                  icon: Icons.quiz,
+                  title: 'Quizzes',
+                  subtitle: 'Test your knowledge',
+                  color: Colors.orange,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => StudentQuizListScreen(
+                          courseId: widget.courseUid,
+                          courseName: widget.courseTitle,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Assignment Card
+              Expanded(
+                child: _buildStudentAssessmentCard(
+                  icon: Icons.assignment_turned_in,
+                  title: 'Assignments',
+                  subtitle: 'Complete tasks',
+                  color: Colors.blue,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => StudentAssignmentListScreen(
+                          courseId: widget.courseUid,
+                          courseName: widget.courseTitle,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStudentAssessmentCard({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    final isDark = AppTheme.isDarkMode(context);
+
+    return Material(
+      color: isDark ? AppTheme.darkCard : Colors.white,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: isDark ? AppTheme.darkBorderColor : Colors.grey.shade200,
+            ),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(isDark ? 0.2 : 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 13,
+                        color: AppTheme.getTextPrimary(context),
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 10,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                size: 12,
+                color: AppTheme.getTextSecondary(context),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -527,17 +527,18 @@ class _AdminModerationScreenState extends State<AdminModerationScreen> {
     final reportReason = item['reportReason'] ?? 'Policy violation';
     final reportedBy = item['reportedBy'];
     final reportedUserId = item['reportedUserId'] ?? item['userId'] ?? item['authorId'];
-    final contentId = item['id'] ?? '';
+    // Use originalId if available, otherwise use contentId or id
+    final contentId = item['originalId'] ?? item['contentId'] ?? item['id'] ?? '';
     final parentId = item['courseId'] ?? item['teacherId'];
     final reportedAt = item['reportedAt'] ?? item['createdAt'];
-    final isSelected = _selectedItems.contains(contentId);
+    final isSelected = _selectedItems.contains(item['id']);
 
     return GestureDetector(
       onLongPress: () {
         if (!_isSelectionMode) {
           setState(() {
             _isSelectionMode = true;
-            _selectedItems.add(contentId);
+            _selectedItems.add(item['id']);
           });
         }
       },
@@ -547,7 +548,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen> {
                 if (isSelected) {
                   _selectedItems.remove(contentId);
                 } else {
-                  _selectedItems.add(contentId);
+                  _selectedItems.add(item['id']);
                 }
               });
             }
@@ -591,9 +592,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen> {
                         onChanged: (value) {
                           setState(() {
                             if (value == true) {
-                              _selectedItems.add(contentId);
+                              _selectedItems.add(item['id']);
                             } else {
-                              _selectedItems.remove(contentId);
+                              _selectedItems.remove(item['id']);
                             }
                           });
                         },

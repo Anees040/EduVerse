@@ -140,7 +140,11 @@ class AdminService {
           final course = Map<String, dynamic>.from(entry.value as Map);
           // Calculate revenue from enrollments if price exists
           final price = (course['price'] ?? 0).toDouble();
-          final enrollments = (course['enrollmentCount'] ?? 0) as int;
+          // Get enrollment count from enrolledStudents map
+          int enrollments = 0;
+          if (course['enrolledStudents'] != null) {
+            enrollments = (course['enrolledStudents'] as Map).length;
+          }
           totalRevenue += price * enrollments;
         }
       }
