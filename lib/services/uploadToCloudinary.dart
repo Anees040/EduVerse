@@ -282,3 +282,152 @@ Future<String?> uploadToCloudinaryWithSimulatedProgress(
     rethrow;
   }
 }
+
+/// Video upload result containing URL and duration
+class VideoUploadResult {
+  final String url;
+  final int durationSeconds;
+  
+  VideoUploadResult({required this.url, required this.durationSeconds});
+}
+
+/// Upload video to Cloudinary and extract duration from response metadata
+/// Returns VideoUploadResult with URL and duration in seconds
+Future<VideoUploadResult?> uploadVideoWithDuration(
+  XFile file, {
+  UploadProgressCallback? onProgress,
+  CancellableUpload? cancellable,
+}) async {
+  const cloudName = "dy5pafu2s";
+  const uploadPreset = "eduverse_uploads";
+
+  final url = Uri.parse(
+    "https://api.cloudinary.com/v1_1/$cloudName/video/upload",
+  );
+
+  try {
+    // Read file bytes first
+    final bytes = await file.readAsBytes();
+    final totalSize = bytes.length;
+
+    // Check if cancelled before starting
+    if (cancellable?.isCancelled ?? false) {
+      return null;
+    }
+
+    // Initial progress: 0% - starting upload
+    onProgress?.call(0.0);
+
+    // Create multipart request
+    final request = http.MultipartRequest("POST", url);
+    request.fields['upload_preset'] = uploadPreset;
+    request.fields['resource_type'] = 'video';
+
+    request.files.add(
+      http.MultipartFile.fromBytes("file", bytes, filename: file.name),
+    );
+
+    // Track upload progress
+    double currentProgress = 0.0;
+    bool uploadComplete = false;
+
+    // Calculate estimated time based on file size
+    final estimatedSeconds = (totalSize / (300 * 1024)).clamp(2.0, 120.0);
+    final totalSteps = (estimatedSeconds * 20).round();
+    final progressPerStep = 0.80 / totalSteps;
+
+    // Start progress simulation timer
+    Timer? progressTimer;
+    int stepCount = 0;
+
+    progressTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (cancellable?.isCancelled ?? false || uploadComplete) {
+        timer.cancel();
+        return;
+      }
+
+      stepCount++;
+      if (currentProgress < 0.80) {
+        final jitter = (stepCount % 5 == 0) ? 0.005 : 0.0;
+        currentProgress = (currentProgress + progressPerStep + jitter).clamp(
+          0.0,
+          0.80,
+        );
+        onProgress?.call(currentProgress);
+      }
+    });
+
+    // Send request
+    final response = await request.send();
+
+    // Mark upload as complete to stop timer
+    uploadComplete = true;
+    progressTimer.cancel();
+
+    // Check if cancelled
+    if (cancellable?.isCancelled ?? false) {
+      return null;
+    }
+
+    // Progress 80% -> 85%: Server received file
+    for (double p = 0.80; p <= 0.85; p += 0.01) {
+      await Future.delayed(const Duration(milliseconds: 30));
+      onProgress?.call(p);
+    }
+
+    if (cancellable?.isCancelled ?? false) {
+      return null;
+    }
+
+    // Read response
+    final List<int> responseBytes = [];
+    int received = 0;
+    final contentLength = response.contentLength ?? 1000;
+
+    await for (final chunk in response.stream) {
+      if (cancellable?.isCancelled ?? false) {
+        return null;
+      }
+
+      responseBytes.addAll(chunk);
+      received += chunk.length;
+
+      final responseProgress = 0.85 + (received / contentLength) * 0.10;
+      onProgress?.call(responseProgress.clamp(0.85, 0.95));
+    }
+
+    final responseBody = utf8.decode(responseBytes);
+
+    onProgress?.call(0.96);
+    await Future.delayed(const Duration(milliseconds: 50));
+    onProgress?.call(0.98);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(responseBody);
+      await Future.delayed(const Duration(milliseconds: 100));
+      onProgress?.call(1.0);
+      
+      // Extract duration from Cloudinary response
+      // Cloudinary returns duration in seconds as a double
+      final durationValue = data['duration'];
+      int durationSeconds = 0;
+      if (durationValue != null) {
+        if (durationValue is num) {
+          durationSeconds = durationValue.round();
+        }
+      }
+      
+      return VideoUploadResult(
+        url: data['secure_url'],
+        durationSeconds: durationSeconds,
+      );
+    } else {
+      return null;
+    }
+  } catch (e) {
+    if (cancellable?.isCancelled ?? false) {
+      return null;
+    }
+    rethrow;
+  }
+}

@@ -855,8 +855,8 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
                       cancellableUpload = CancellableUpload();
 
                       try {
-                        final videoUrl =
-                            await uploadToCloudinaryWithSimulatedProgress(
+                        final uploadResult =
+                            await uploadVideoWithDuration(
                               selectedVideo!,
                               onProgress: (progress) {
                                 setDialogState(() => uploadProgress = progress);
@@ -866,13 +866,14 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
 
                         if (cancellableUpload?.isCancelled ?? false) return;
 
-                        if (videoUrl != null) {
+                        if (uploadResult != null) {
                           await _courseService.addVideoToCourse(
                             teacherUid: FirebaseAuth.instance.currentUser!.uid,
                             courseUid: widget.courseUid,
-                            videoUrl: videoUrl,
+                            videoUrl: uploadResult.url,
                             videoTitle: titleController.text,
                             videoDescription: descriptionController.text,
+                            duration: uploadResult.durationSeconds,
                           );
 
                           if (mounted) {
@@ -1698,8 +1699,8 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
                         try {
                           final data = videoDataList[i];
 
-                          final videoUrl =
-                              await uploadToCloudinaryWithSimulatedProgress(
+                          final uploadResult =
+                              await uploadVideoWithDuration(
                                 data['file'],
                                 onProgress: (progress) {
                                   setDialogState(
@@ -1711,14 +1712,15 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
 
                           if (cancellableUpload?.isCancelled ?? false) return;
 
-                          if (videoUrl != null) {
+                          if (uploadResult != null) {
                             await _courseService.addVideoToCourse(
                               teacherUid:
                                   FirebaseAuth.instance.currentUser!.uid,
                               courseUid: widget.courseUid,
-                              videoUrl: videoUrl,
+                              videoUrl: uploadResult.url,
                               videoTitle: data['title'],
                               videoDescription: data['description'],
+                              duration: uploadResult.durationSeconds,
                             );
                           } else {
                             throw Exception('Failed to upload video');

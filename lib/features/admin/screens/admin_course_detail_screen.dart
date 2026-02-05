@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/models/course_model.dart';
+import 'package:eduverse/widgets/advanced_video_player.dart';
 
 /// Admin Course Detail Screen - Video-level moderation
 /// Features: View all videos, moderate individual videos, audit logging
@@ -1981,9 +1982,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     return '$minutes:${secs.toString().padLeft(2, '0')}';
   }
 
-  /// Show video preview dialog
+  /// Show video preview dialog with actual video player
   void _showVideoPreviewDialog(Map<String, dynamic> video, String videoUrl) {
     final isDark = AppTheme.isDarkMode(context);
+    final videoTitle = video['title']?.toString() ?? 'Video';
     
     showDialog(
       context: context,
@@ -1991,82 +1993,155 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
-          width: MediaQuery.of(context).size.width * 0.8,
-          constraints: const BoxConstraints(maxWidth: 800),
-          padding: const EdgeInsets.all(16),
+          width: MediaQuery.of(context).size.width * 0.85,
+          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 700),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      video['title'] ?? 'Video Preview',
-                      style: TextStyle(
-                        color: AppTheme.getTextPrimary(context),
-                        fontWeight: FontWeight.bold,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              
-              // Video info
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    _buildInfoRow('URL', videoUrl, Icons.link),
-                    const SizedBox(height: 8),
-                    _buildInfoRow(
-                      'Duration', 
-                      _formatDuration(
-                        video['duration'] is int 
-                            ? video['duration'] 
-                            : (video['duration'] is double 
-                                ? (video['duration'] as double).toInt() 
-                                : 0)
-                      ),
-                      Icons.schedule,
+                    Icon(
+                      Icons.play_circle_filled,
+                      color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
                     ),
-                    if (video['description'] != null && video['description'].toString().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      _buildInfoRow('Description', video['description'].toString(), Icons.description),
-                    ],
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            video['title'] ?? 'Video Preview',
+                            style: TextStyle(
+                              color: AppTheme.getTextPrimary(context),
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (video['description'] != null && video['description'].toString().isNotEmpty)
+                            Text(
+                              video['description'].toString(),
+                              style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    // Duration badge
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.schedule,
+                            size: 14,
+                            color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            _formatDuration(
+                              video['duration'] is int 
+                                  ? video['duration'] 
+                                  : (video['duration'] is double 
+                                      ? (video['duration'] as double).toInt() 
+                                      : 0)
+                            ),
+                            style: TextStyle(
+                              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: Icon(
+                        Icons.close,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: 'Close',
+                    ),
                   ],
                 ),
               ),
-              const SizedBox(height: 16),
               
-              // Open in browser button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // Open video URL - in a real app you'd use url_launcher
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Video URL: $videoUrl')),
-                    );
-                  },
-                  icon: const Icon(Icons.play_circle_outline),
-                  label: const Text('Open Video URL'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
+              // Video Player
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 500),
+                  child: AspectRatio(
+                    aspectRatio: 16 / 9,
+                    child: AdvancedVideoPlayer(
+                      videoUrl: videoUrl,
+                      videoTitle: videoTitle,
+                    ),
                   ),
+                ),
+              ),
+              
+              // Footer with video info
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      size: 16,
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Admin Preview Mode - This is how students will see this video',
+                        style: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        // Show video moderation options
+                        _showVideoModerationOptions(video);
+                      },
+                      icon: const Icon(Icons.admin_panel_settings, size: 16),
+                      label: const Text('Moderate'),
+                      style: TextButton.styleFrom(
+                        foregroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
@@ -2075,38 +2150,197 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       ),
     );
   }
-
-  Widget _buildInfoRow(String label, String value, IconData icon) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: AppTheme.getTextSecondary(context)),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: AppTheme.getTextSecondary(context),
-                  fontSize: 11,
-                ),
+  
+  /// Show video moderation options
+  void _showVideoModerationOptions(Map<String, dynamic> video) {
+    final isDark = AppTheme.isDarkMode(context);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Moderation Options',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
               ),
-              Text(
-                value,
-                style: TextStyle(
-                  color: AppTheme.getTextPrimary(context),
-                  fontSize: 13,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              video['title'] ?? 'Video',
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
               ),
-            ],
-          ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: const Icon(Icons.flag, color: Colors.orange),
+              title: const Text('Flag for Review'),
+              subtitle: const Text('Mark this video for content review'),
+              onTap: () {
+                Navigator.pop(context);
+                _flagVideoForReview(video);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.visibility_off, color: Colors.amber),
+              title: Text(video['isPublic'] == false ? 'Make Public' : 'Make Private'),
+              subtitle: Text(video['isPublic'] == false 
+                  ? 'Allow students to access this video' 
+                  : 'Hide this video from students'),
+              onTap: () {
+                Navigator.pop(context);
+                _toggleVideoVisibility(video);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete, color: Colors.red),
+              title: const Text('Delete Video'),
+              subtitle: const Text('Permanently remove this video'),
+              onTap: () {
+                Navigator.pop(context);
+                _confirmDeleteVideo(video);
+              },
+            ),
+          ],
         ),
-      ],
+      ),
     );
+  }
+  
+  void _flagVideoForReview(Map<String, dynamic> video) async {
+    try {
+      await _db.child('moderation').child('videos').push().set({
+        'videoId': video['id'],
+        'courseId': widget.course.courseUid,
+        'title': video['title'],
+        'reason': 'Flagged by admin for review',
+        'flaggedAt': ServerValue.timestamp,
+        'status': 'pending',
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video flagged for review'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+  
+  void _toggleVideoVisibility(Map<String, dynamic> video) async {
+    final newVisibility = !(video['isPublic'] ?? true);
+    
+    try {
+      await _db.child('courses').child(widget.course.courseUid)
+          .child('videos').child(video['id']).update({'isPublic': newVisibility});
+      await _db.child('teacher').child(widget.course.teacherUid)
+          .child('courses').child(widget.course.courseUid)
+          .child('videos').child(video['id']).update({'isPublic': newVisibility});
+      
+      _loadVideos();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(newVisibility ? 'Video is now public' : 'Video is now private'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+  
+  void _confirmDeleteVideo(Map<String, dynamic> video) {
+    final isDark = AppTheme.isDarkMode(context);
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning, color: Colors.red),
+            SizedBox(width: 8),
+            Text('Delete Video'),
+          ],
+        ),
+        content: Text(
+          'Are you sure you want to delete "${video['title']}"? This action cannot be undone.',
+          style: TextStyle(color: AppTheme.getTextPrimary(context)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _deleteVideo(video);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _deleteVideo(Map<String, dynamic> video) async {
+    try {
+      await _db.child('courses').child(widget.course.courseUid)
+          .child('videos').child(video['id']).remove();
+      await _db.child('teacher').child(widget.course.teacherUid)
+          .child('courses').child(widget.course.courseUid)
+          .child('videos').child(video['id']).remove();
+      
+      await _logAction('delete_video', video['id']);
+      _loadVideos();
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Video deleted successfully'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error deleting video: $e')),
+        );
+      }
+    }
   }
 }
 

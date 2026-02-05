@@ -115,8 +115,8 @@ class BackgroundUploadService extends ChangeNotifier {
       task.status = UploadStatus.uploading;
       notifyListeners();
 
-      // Upload to Cloudinary with progress
-      final videoUrl = await uploadToCloudinaryWithSimulatedProgress(
+      // Upload to Cloudinary with progress and get duration
+      final uploadResult = await uploadVideoWithDuration(
         task.videoFile,
         onProgress: (progress) {
           task.progress = progress;
@@ -133,7 +133,7 @@ class BackgroundUploadService extends ChangeNotifier {
         return;
       }
 
-      if (videoUrl == null) {
+      if (uploadResult == null) {
         throw Exception('Failed to upload video to cloud');
       }
 
@@ -151,9 +151,10 @@ class BackgroundUploadService extends ChangeNotifier {
       await _courseService.addVideoToCourse(
         teacherUid: currentUser.uid,
         courseUid: task.courseUid,
-        videoUrl: videoUrl,
+        videoUrl: uploadResult.url,
         videoTitle: task.videoTitle,
         videoDescription: task.videoDescription,
+        duration: uploadResult.durationSeconds,
       );
 
       // Clear caches
