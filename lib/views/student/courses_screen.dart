@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -63,7 +64,7 @@ class _CoursesScreenState extends State<CoursesScreen>
   Map<String, double> courseProgress = {};
 
   Timer? _autoRefreshTimer;
-  static const Duration _refreshInterval = Duration(seconds: 10);
+  static const Duration _refreshInterval = Duration(seconds: 120);
 
   // Keep tab alive
   @override
@@ -1031,40 +1032,14 @@ class _CoursesScreenState extends State<CoursesScreen>
                   child: SizedBox(
                     height: 120,
                     width: double.infinity,
-                    child: Image.network(
-                      course['imageUrl'] ?? '',
+                    child: CachedNetworkImage(
+                      imageUrl: course['imageUrl'] ?? '',
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 120,
-                        color:
-                            (isDark
-                                    ? AppTheme.darkPrimaryLight
-                                    : AppTheme.primaryColor)
-                                .withOpacity(0.1),
-                        child: Icon(
-                          Icons.image,
-                          size: 40,
-                          color: AppTheme.getTextSecondary(context),
-                        ),
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
-                      loadingBuilder: (context, child, loadingProgress) {
-                        if (loadingProgress == null) return child;
-                        return Container(
-                          height: 120,
-                          color:
-                              (isDark
-                                      ? AppTheme.darkPrimaryLight
-                                      : AppTheme.primaryColor)
-                                  .withOpacity(0.1),
-                          child: Center(
-                            child: CircularProgressIndicator(
-                              color: isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor,
-                            ),
-                          ),
-                        );
-                      },
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.broken_image, color: Colors.grey),
                     ),
                   ),
                 ),
@@ -1573,24 +1548,21 @@ class _CoursesScreenState extends State<CoursesScreen>
                           children: [
                             ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                course['imageUrl'] ?? '',
+                              child: CachedNetworkImage(
+                                imageUrl: course['imageUrl'] ?? '',
                                 width: 60,
                                 height: 60,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 60,
-                                  height: 60,
-                                  color:
-                                      (isDark
-                                              ? AppTheme.darkPrimaryLight
-                                              : AppTheme.primaryColor)
-                                          .withOpacity(0.1),
-                                  child: Icon(
-                                    Icons.school,
-                                    color: AppTheme.getTextSecondary(context),
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
                                 ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -1956,7 +1928,11 @@ class _CoursesScreenState extends State<CoursesScreen>
     }
   }
 
-  void _showPaymentSuccessDialog(Map<String, dynamic> course, double amount, PaymentResult paymentResult) {
+  void _showPaymentSuccessDialog(
+    Map<String, dynamic> course,
+    double amount,
+    PaymentResult paymentResult,
+  ) {
     final isDark = AppTheme.isDarkMode(context);
 
     showDialog(
@@ -2230,8 +2206,11 @@ class _CoursesScreenState extends State<CoursesScreen>
 
               return ListView.builder(
                 itemCount: reviews.length,
-                itemBuilder: (ctx, index) =>
-                    _buildFullReviewCard(reviews[index], isDark, course['courseUid']),
+                itemBuilder: (ctx, index) => _buildFullReviewCard(
+                  reviews[index],
+                  isDark,
+                  course['courseUid'],
+                ),
               );
             },
           ),
@@ -2251,7 +2230,11 @@ class _CoursesScreenState extends State<CoursesScreen>
     );
   }
 
-  Widget _buildFullReviewCard(Map<String, dynamic> review, bool isDark, String courseUid) {
+  Widget _buildFullReviewCard(
+    Map<String, dynamic> review,
+    bool isDark,
+    String courseUid,
+  ) {
     final rating = (review['rating'] ?? 0.0) as double;
     final studentName = review['studentName'] ?? 'Student';
     final reviewText = review['reviewText'] ?? '';
@@ -2306,7 +2289,9 @@ class _CoursesScreenState extends State<CoursesScreen>
                 icon: Icon(
                   Icons.flag_outlined,
                   size: 18,
-                  color: isDark ? AppTheme.darkTextTertiary : Colors.grey.shade500,
+                  color: isDark
+                      ? AppTheme.darkTextTertiary
+                      : Colors.grey.shade500,
                 ),
                 tooltip: 'Report review',
                 constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
@@ -2358,7 +2343,11 @@ class _CoursesScreenState extends State<CoursesScreen>
     );
   }
 
-  void _showReportDialog(Map<String, dynamic> review, bool isDark, String courseUid) {
+  void _showReportDialog(
+    Map<String, dynamic> review,
+    bool isDark,
+    String courseUid,
+  ) {
     String selectedReason = 'Inappropriate content';
     final reasons = [
       'Inappropriate content',
@@ -2373,7 +2362,9 @@ class _CoursesScreenState extends State<CoursesScreen>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(
@@ -2384,7 +2375,9 @@ class _CoursesScreenState extends State<CoursesScreen>
               Text(
                 'Report Review',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
                   fontSize: 18,
                 ),
               ),
@@ -2397,28 +2390,36 @@ class _CoursesScreenState extends State<CoursesScreen>
               Text(
                 'Why are you reporting this review?',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),
               const SizedBox(height: 12),
-              ...reasons.map((reason) => RadioListTile<String>(
-                title: Text(
-                  reason,
-                  style: TextStyle(
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                    fontSize: 14,
+              ...reasons.map(
+                (reason) => RadioListTile<String>(
+                  title: Text(
+                    reason,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                      fontSize: 14,
+                    ),
                   ),
+                  value: reason,
+                  groupValue: selectedReason,
+                  activeColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.accentColor,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  onChanged: (value) {
+                    setDialogState(() => selectedReason = value!);
+                  },
                 ),
-                value: reason,
-                groupValue: selectedReason,
-                activeColor: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                onChanged: (value) {
-                  setDialogState(() => selectedReason = value!);
-                },
-              )),
+              ),
             ],
           ),
           actions: [
@@ -2427,7 +2428,9 @@ class _CoursesScreenState extends State<CoursesScreen>
               child: Text(
                 'Cancel',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -2437,7 +2440,7 @@ class _CoursesScreenState extends State<CoursesScreen>
                 final reviewId = review['reviewId'] ?? review['id'] ?? '';
                 final dialogCtx = context;
                 Navigator.pop(dialogCtx);
-                
+
                 final currentUid = FirebaseAuth.instance.currentUser?.uid;
                 if (currentUid == null) return;
 
