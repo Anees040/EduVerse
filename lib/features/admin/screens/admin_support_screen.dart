@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/services/support_service.dart';
 
@@ -15,7 +16,7 @@ class AdminSupportScreen extends StatefulWidget {
 class _AdminSupportScreenState extends State<AdminSupportScreen> {
   final SupportService _supportService = SupportService();
   final TextEditingController _searchController = TextEditingController();
-  
+
   String _statusFilter = 'all';
   String _categoryFilter = 'all';
   String _priorityFilter = 'all';
@@ -31,7 +32,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
 
   Future<void> _loadTickets() async {
     setState(() => _isLoading = true);
-    
+
     try {
       final tickets = await _supportService.getAllTickets(
         statusFilter: _statusFilter == 'all' ? null : _statusFilter,
@@ -39,7 +40,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         priorityFilter: _priorityFilter == 'all' ? null : _priorityFilter,
       );
       final counts = await _supportService.getTicketCounts();
-      
+
       if (mounted) {
         setState(() {
           _tickets = tickets;
@@ -81,9 +82,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                   const SizedBox(height: 4),
                   Text(
                     'Manage user support tickets',
-                    style: TextStyle(
-                      color: AppTheme.getTextSecondary(context),
-                    ),
+                    style: TextStyle(color: AppTheme.getTextSecondary(context)),
                   ),
                 ],
               ),
@@ -97,13 +96,13 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
             ],
           ),
           const SizedBox(height: 20),
-          
+
           // Stats Row
           _buildStatsRow(isDark),
-          
+
           // Filters
           _buildFilters(isDark),
-          
+
           // Search
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 0),
@@ -123,7 +122,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          
+
           // Tickets List
           Expanded(
             child: _isLoading
@@ -179,9 +178,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkCard : Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: color.withOpacity(0.3),
-          ),
+          border: Border.all(color: color.withOpacity(0.3)),
         ),
         child: Column(
           children: [
@@ -214,43 +211,76 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
-          _buildFilterChip('Status', _statusFilter, ['all', 'open', 'in_progress', 'resolved', 'closed'], (v) {
-            setState(() => _statusFilter = v);
-            _loadTickets();
-          }, isDark),
+          _buildFilterChip(
+            'Status',
+            _statusFilter,
+            ['all', 'open', 'in_progress', 'resolved', 'closed'],
+            (v) {
+              setState(() => _statusFilter = v);
+              _loadTickets();
+            },
+            isDark,
+          ),
           const SizedBox(width: 8),
-          _buildFilterChip('Category', _categoryFilter, ['all', 'account', 'technical', 'billing', 'other'], (v) {
-            setState(() => _categoryFilter = v);
-            _loadTickets();
-          }, isDark),
+          _buildFilterChip(
+            'Category',
+            _categoryFilter,
+            ['all', 'account', 'technical', 'billing', 'other'],
+            (v) {
+              setState(() => _categoryFilter = v);
+              _loadTickets();
+            },
+            isDark,
+          ),
           const SizedBox(width: 8),
-          _buildFilterChip('Priority', _priorityFilter, ['all', 'low', 'medium', 'high', 'urgent'], (v) {
-            setState(() => _priorityFilter = v);
-            _loadTickets();
-          }, isDark),
+          _buildFilterChip(
+            'Priority',
+            _priorityFilter,
+            ['all', 'low', 'medium', 'high', 'urgent'],
+            (v) {
+              setState(() => _priorityFilter = v);
+              _loadTickets();
+            },
+            isDark,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildFilterChip(String label, String value, List<String> options, Function(String) onChanged, bool isDark) {
+  Widget _buildFilterChip(
+    String label,
+    String value,
+    List<String> options,
+    Function(String) onChanged,
+    bool isDark,
+  ) {
     return PopupMenuButton<String>(
       onSelected: onChanged,
-      itemBuilder: (context) => options.map((o) => PopupMenuItem(
-        value: o,
-        child: Text(o == 'all' ? 'All ${label}s' : _formatFilterLabel(o)),
-      )).toList(),
+      itemBuilder: (context) => options
+          .map(
+            (o) => PopupMenuItem(
+              value: o,
+              child: Text(o == 'all' ? 'All ${label}s' : _formatFilterLabel(o)),
+            ),
+          )
+          .toList(),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: value != 'all' 
-              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1)
-              : isDark ? AppTheme.darkCard : Colors.white,
+          color: value != 'all'
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1)
+              : isDark
+              ? AppTheme.darkCard
+              : Colors.white,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: value != 'all'
                 ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                : isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                : isDark
+                ? AppTheme.darkBorder
+                : Colors.grey.shade300,
           ),
         ),
         child: Row(
@@ -262,7 +292,9 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 color: value != 'all'
                     ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
                     : AppTheme.getTextPrimary(context),
-                fontWeight: value != 'all' ? FontWeight.w600 : FontWeight.normal,
+                fontWeight: value != 'all'
+                    ? FontWeight.w600
+                    : FontWeight.normal,
               ),
             ),
             const SizedBox(width: 4),
@@ -278,7 +310,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
   }
 
   String _formatFilterLabel(String value) {
-    return value.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+    return value
+        .split('_')
+        .map((w) => w[0].toUpperCase() + w.substring(1))
+        .join(' ');
   }
 
   Widget _buildTicketsList(bool isDark) {
@@ -288,9 +323,9 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       final subject = (t['subject'] ?? '').toString().toLowerCase();
       final userName = (t['userName'] ?? '').toString().toLowerCase();
       final userEmail = (t['userEmail'] ?? '').toString().toLowerCase();
-      return subject.contains(searchQuery) || 
-             userName.contains(searchQuery) || 
-             userEmail.contains(searchQuery);
+      return subject.contains(searchQuery) ||
+          userName.contains(searchQuery) ||
+          userEmail.contains(searchQuery);
     }).toList();
 
     if (filteredTickets.isEmpty) {
@@ -389,7 +424,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 children: [
                   // Priority Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: priorityColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -406,7 +444,10 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                   const SizedBox(width: 8),
                   // Status Badge
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
@@ -432,7 +473,7 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 ],
               ),
               const SizedBox(height: 12),
-              
+
               // Subject
               Text(
                 ticket['subject'] ?? 'No subject',
@@ -445,17 +486,19 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
-              
+
               // Message preview
               _buildMessagePreview(ticket, isDark),
               const SizedBox(height: 12),
-              
+
               // User info
               Row(
                 children: [
                   CircleAvatar(
                     radius: 14,
-                    backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                    backgroundColor: isDark
+                        ? AppTheme.darkAccent
+                        : AppTheme.primaryColor,
                     child: Text(
                       (ticket['userName'] ?? 'U')[0].toUpperCase(),
                       style: const TextStyle(
@@ -495,7 +538,8 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
                       Text(
                         createdAt != null
                             ? DateFormat('MMM d, y').format(
-                                DateTime.fromMillisecondsSinceEpoch(createdAt))
+                                DateTime.fromMillisecondsSinceEpoch(createdAt),
+                              )
                             : '',
                         style: TextStyle(
                           color: AppTheme.getTextSecondary(context),
@@ -536,11 +580,11 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
       return DateFormat('MMM d').format(date);
     }
   }
-  
+
   Widget _buildMessagePreview(Map<String, dynamic> ticket, bool isDark) {
     // Extract first message from the messages map
     String messagePreview = '';
-    
+
     if (ticket['messages'] != null && ticket['messages'] is Map) {
       final messages = Map<String, dynamic>.from(ticket['messages'] as Map);
       // Sort by key (assuming '0' is first) or by timestamp
@@ -558,16 +602,18 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
         }
       }
     }
-    
+
     if (messagePreview.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkBackground.withOpacity(0.5) : Colors.grey.shade50,
+        color: isDark
+            ? AppTheme.darkBackground.withOpacity(0.5)
+            : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
@@ -600,10 +646,18 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
   }
 
   void _openTicketDetail(Map<String, dynamic> ticket) {
+    final ticketId = ticket['id'] ?? ticket['ticketId'];
+    if (ticketId == null || ticketId.toString().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Unable to open ticket - invalid ID')),
+      );
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => _TicketDetailScreen(ticketId: ticket['id'] ?? ticket['ticketId']),
+        builder: (context) =>
+            _TicketDetailScreen(ticketId: ticketId.toString()),
       ),
     ).then((_) => _loadTickets());
   }
@@ -622,22 +676,36 @@ class _TicketDetailScreen extends StatefulWidget {
 class _TicketDetailScreenState extends State<_TicketDetailScreen> {
   final SupportService _supportService = SupportService();
   final TextEditingController _replyController = TextEditingController();
-  
+  final DatabaseReference _db = FirebaseDatabase.instance.ref();
+
   Map<String, dynamic>? _ticket;
   bool _isLoading = true;
   bool _isSending = false;
+  String _adminName = 'Admin';
 
   @override
   void initState() {
     super.initState();
     _loadTicket();
+    _loadAdminName();
+  }
+
+  Future<void> _loadAdminName() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid == null) return;
+      final snap = await _db.child('admin').child(uid).child('name').get();
+      if (snap.exists && snap.value != null) {
+        _adminName = snap.value.toString();
+      }
+    } catch (_) {}
   }
 
   Future<void> _loadTicket() async {
     setState(() => _isLoading = true);
-    
+
     final ticket = await _supportService.getTicket(widget.ticketId);
-    
+
     if (mounted) {
       setState(() {
         _ticket = ticket;
@@ -655,20 +723,20 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
     final success = await _supportService.adminReply(
       ticketId: widget.ticketId,
       adminId: currentUser?.uid ?? '',
-      adminName: 'Admin',
+      adminName: _adminName,
       message: _replyController.text.trim(),
     );
 
     if (mounted) {
       setState(() => _isSending = false);
-      
+
       if (success) {
         _replyController.clear();
         _loadTicket();
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to send reply')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Failed to send reply')));
       }
     }
   }
@@ -692,7 +760,10 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
   }
 
   String _formatLabel(String value) {
-    return value.split('_').map((w) => w[0].toUpperCase() + w.substring(1)).join(' ');
+    return value
+        .split('_')
+        .map((w) => w[0].toUpperCase() + w.substring(1))
+        .join(' ');
   }
 
   @override
@@ -711,8 +782,14 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
             icon: const Icon(Icons.more_vert),
             onSelected: _updateStatus,
             itemBuilder: (context) => [
-              const PopupMenuItem(value: 'in_progress', child: Text('Mark In Progress')),
-              const PopupMenuItem(value: 'resolved', child: Text('Mark Resolved')),
+              const PopupMenuItem(
+                value: 'in_progress',
+                child: Text('Mark In Progress'),
+              ),
+              const PopupMenuItem(
+                value: 'resolved',
+                child: Text('Mark Resolved'),
+              ),
               const PopupMenuItem(value: 'closed', child: Text('Close Ticket')),
             ],
           ),
@@ -726,12 +803,10 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
               children: [
                 // Ticket Info Header
                 _buildTicketHeader(isDark),
-                
+
                 // Messages
-                Expanded(
-                  child: _buildMessagesList(isDark),
-                ),
-                
+                Expanded(child: _buildMessagesList(isDark)),
+
                 // Reply Input
                 _buildReplyInput(isDark),
               ],
@@ -776,7 +851,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
                 child: Text(
                   (_ticket!['userName'] ?? 'U')[0].toUpperCase(),
                   style: const TextStyle(
@@ -810,7 +887,8 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -898,7 +976,8 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
   }
 
   Widget _buildMessagesList(bool isDark) {
-    final messages = _ticket!['messagesList'] as List<Map<String, dynamic>>? ?? [];
+    final messages =
+        _ticket!['messagesList'] as List<Map<String, dynamic>>? ?? [];
 
     return ListView.builder(
       padding: const EdgeInsets.all(16),
@@ -906,13 +985,17 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       itemBuilder: (context, index) {
         final message = messages[index];
         final isAdmin = message['senderRole'] == 'admin';
-        
+
         return _buildMessageBubble(message, isAdmin, isDark);
       },
     );
   }
 
-  Widget _buildMessageBubble(Map<String, dynamic> message, bool isAdmin, bool isDark) {
+  Widget _buildMessageBubble(
+    Map<String, dynamic> message,
+    bool isAdmin,
+    bool isDark,
+  ) {
     final timestamp = message['timestamp'] as int?;
 
     return Align(
@@ -951,8 +1034,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
                 const SizedBox(width: 8),
                 Text(
                   timestamp != null
-                      ? DateFormat('MMM d, h:mm a').format(
-                          DateTime.fromMillisecondsSinceEpoch(timestamp))
+                      ? DateFormat(
+                          'MMM d, h:mm a',
+                        ).format(DateTime.fromMillisecondsSinceEpoch(timestamp))
                       : '',
                   style: TextStyle(
                     color: isAdmin
@@ -967,7 +1051,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
             Text(
               message['message'] ?? '',
               style: TextStyle(
-                color: isAdmin ? Colors.white : AppTheme.getTextPrimary(context),
+                color: isAdmin
+                    ? Colors.white
+                    : AppTheme.getTextPrimary(context),
                 fontSize: 14,
               ),
             ),
@@ -1002,7 +1088,9 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
               decoration: InputDecoration(
                 hintText: 'Type your reply...',
                 filled: true,
-                fillColor: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                fillColor: isDark
+                    ? AppTheme.darkElevated
+                    : Colors.grey.shade100,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,
