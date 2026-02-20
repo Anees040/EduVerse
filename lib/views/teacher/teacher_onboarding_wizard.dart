@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/foundation.dart' show Uint8List, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -895,7 +896,7 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
     final year = credential['year'];
     final category = credential['category']?.toString();
     final description = credential['description']?.toString();
-    
+
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -913,31 +914,16 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
           imageUrl != null
               ? ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: Image.network(
-                    imageUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
                     width: 50,
                     height: 50,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
-                      width: 50,
-                      height: 50,
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color:
-                            (isDark
-                                    ? AppTheme.darkAccent
-                                    : AppTheme.primaryColor)
-                                .withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Icon(
-                        Icons.workspace_premium,
-                        size: 22,
-                        color: isDark
-                            ? AppTheme.darkAccent
-                            : AppTheme.primaryColor,
-                      ),
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
+                    errorWidget: (context, url, error) =>
+                        const Icon(Icons.broken_image, color: Colors.grey),
                   ),
                 )
               : Container(
@@ -999,9 +985,14 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
                 if (category != null && category.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
-                      color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+                      color:
+                          (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                              .withOpacity(0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -1009,7 +1000,9 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w500,
-                        color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
                       ),
                     ),
                   ),
@@ -1023,7 +1016,9 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 11,
-                      color: AppTheme.getTextSecondary(context).withOpacity(0.8),
+                      color: AppTheme.getTextSecondary(
+                        context,
+                      ).withOpacity(0.8),
                     ),
                   ),
                 ],
@@ -1187,7 +1182,17 @@ class _TeacherOnboardingWizardState extends State<TeacherOnboardingWizard>
                     child: _imageBytes != null
                         ? Image.memory(_imageBytes!, fit: BoxFit.cover)
                         : _uploadedImageUrl != null
-                        ? Image.network(_uploadedImageUrl!, fit: BoxFit.cover)
+                        ? CachedNetworkImage(
+                            imageUrl: _uploadedImageUrl!,
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
+                          )
                         : Icon(
                             Icons.person,
                             size: 80,
@@ -1446,10 +1451,7 @@ class _CredentialDialog extends StatefulWidget {
   final bool isDark;
   final Function(Map<String, dynamic> credentialData) onAdd;
 
-  const _CredentialDialog({
-    required this.isDark,
-    required this.onAdd,
-  });
+  const _CredentialDialog({required this.isDark, required this.onAdd});
 
   @override
   State<_CredentialDialog> createState() => _CredentialDialogState();
@@ -1461,7 +1463,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   final _descriptionController = TextEditingController();
   final _issuingAuthorityController = TextEditingController();
   final _categoryController = TextEditingController();
-  
+
   int? _selectedYear;
   Uint8List? _credentialImageBytes;
   String? _uploadedCredentialUrl;
@@ -1486,13 +1488,13 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   Future<void> _pickAndUploadImage() async {
     // Prevent multiple calls
     if (_isUploading) return;
-    
+
     // Capture context before async gap
     final scaffoldMessenger = ScaffoldMessenger.of(context);
-    
+
     try {
       final picker = ImagePicker();
-      
+
       // Pick image - don't show loading during picker
       final picked = await picker.pickImage(
         source: ImageSource.gallery,
@@ -1500,18 +1502,18 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         maxHeight: 1200,
         imageQuality: 85,
       );
-      
+
       // User cancelled
       if (picked == null) return;
-      
+
       // Show uploading state
       if (mounted) {
         setState(() => _isUploading = true);
       }
-      
+
       // Read bytes
       final bytes = await picked.readAsBytes();
-      
+
       if (bytes.isEmpty) {
         if (mounted) {
           setState(() => _isUploading = false);
@@ -1521,7 +1523,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         );
         return;
       }
-      
+
       // Update state with image bytes
       if (mounted) {
         setState(() {
@@ -1550,15 +1552,14 @@ class _CredentialDialogState extends State<_CredentialDialog> {
       if (mounted) {
         setState(() => _isUploading = false);
       }
-      scaffoldMessenger.showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error: $e')));
     }
   }
 
   void _handleCancel() {
     // Check if any fields have data
-    final hasData = _certificateNameController.text.isNotEmpty ||
+    final hasData =
+        _certificateNameController.text.isNotEmpty ||
         _descriptionController.text.isNotEmpty ||
         _issuingAuthorityController.text.isNotEmpty ||
         _categoryController.text.isNotEmpty ||
@@ -1570,7 +1571,9 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         context: context,
         builder: (ctx) => AlertDialog(
           backgroundColor: AppTheme.getCardColor(context),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Text(
             'Discard changes?',
             style: TextStyle(color: AppTheme.getTextPrimary(context)),
@@ -1593,7 +1596,9 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                 Navigator.pop(context); // Close credential dialog
               },
               style: ElevatedButton.styleFrom(
-                backgroundColor: widget.isDark ? AppTheme.darkError : AppTheme.error,
+                backgroundColor: widget.isDark
+                    ? AppTheme.darkError
+                    : AppTheme.error,
               ),
               child: const Text('Discard'),
             ),
@@ -1607,7 +1612,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
 
   void _handleAdd() {
     setState(() => _hasAttemptedSubmit = true);
-    
+
     if (_formKey.currentState!.validate()) {
       widget.onAdd({
         'title': _certificateNameController.text.trim(),
@@ -1624,18 +1629,17 @@ class _CredentialDialogState extends State<_CredentialDialog> {
   @override
   Widget build(BuildContext context) {
     final isDark = widget.isDark;
-    
+
     return AlertDialog(
       backgroundColor: AppTheme.getCardColor(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+              color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                  .withOpacity(0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Icon(
@@ -1672,14 +1676,15 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                   isDark: isDark,
                 ),
                 validator: (value) {
-                  if (_hasAttemptedSubmit && (value == null || value.trim().isEmpty)) {
+                  if (_hasAttemptedSubmit &&
+                      (value == null || value.trim().isEmpty)) {
                     return 'Certificate name is required';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-              
+
               // Description (Required)
               _buildFieldLabel('Description *', isDark),
               const SizedBox(height: 6),
@@ -1692,14 +1697,15 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                   isDark: isDark,
                 ),
                 validator: (value) {
-                  if (_hasAttemptedSubmit && (value == null || value.trim().isEmpty)) {
+                  if (_hasAttemptedSubmit &&
+                      (value == null || value.trim().isEmpty)) {
                     return 'Description is required';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-              
+
               // Issuing Authority (Required)
               _buildFieldLabel('Issuing Authority *', isDark),
               const SizedBox(height: 6),
@@ -1711,14 +1717,15 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                   isDark: isDark,
                 ),
                 validator: (value) {
-                  if (_hasAttemptedSubmit && (value == null || value.trim().isEmpty)) {
+                  if (_hasAttemptedSubmit &&
+                      (value == null || value.trim().isEmpty)) {
                     return 'Issuing authority is required';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 16),
-              
+
               // Year Received (Required)
               _buildFieldLabel('Year Received *', isDark),
               const SizedBox(height: 6),
@@ -1730,13 +1737,19 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                   isDark: isDark,
                 ),
                 dropdownColor: isDark ? AppTheme.darkCard : Colors.white,
-                items: _years.map((year) => DropdownMenuItem(
-                  value: year,
-                  child: Text(
-                    year.toString(),
-                    style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                  ),
-                )).toList(),
+                items: _years
+                    .map(
+                      (year) => DropdownMenuItem(
+                        value: year,
+                        child: Text(
+                          year.toString(),
+                          style: TextStyle(
+                            color: AppTheme.getTextPrimary(context),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
                 onChanged: (value) => setState(() => _selectedYear = value),
                 validator: (value) {
                   if (_hasAttemptedSubmit && value == null) {
@@ -1746,7 +1759,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                 },
               ),
               const SizedBox(height: 16),
-              
+
               // Category/Work Type (Optional)
               _buildFieldLabel('Category/Work Type', isDark),
               const SizedBox(height: 6),
@@ -1759,20 +1772,26 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                 ),
               ),
               const SizedBox(height: 16),
-              
+
               // Certificate Image (Optional)
               _buildFieldLabel('Certificate Image (Optional)', isDark),
               const SizedBox(height: 6),
               GestureDetector(
-                onTap: (_isUploading || _credentialImageBytes != null) ? null : _pickAndUploadImage,
+                onTap: (_isUploading || _credentialImageBytes != null)
+                    ? null
+                    : _pickAndUploadImage,
                 child: Container(
                   width: double.infinity,
                   height: 120,
                   decoration: BoxDecoration(
-                    color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                    color: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade100,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                      color: isDark
+                          ? AppTheme.darkBorder
+                          : Colors.grey.shade300,
                     ),
                   ),
                   child: _credentialImageBytes != null
@@ -1875,7 +1894,9 @@ class _CredentialDialogState extends State<_CredentialDialog> {
                               'Builds trust with students',
                               style: TextStyle(
                                 fontSize: 10,
-                                color: AppTheme.getTextSecondary(context).withOpacity(0.7),
+                                color: AppTheme.getTextSecondary(
+                                  context,
+                                ).withOpacity(0.7),
                               ),
                             ),
                           ],
@@ -1897,7 +1918,9 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         ElevatedButton(
           onPressed: _isUploading ? null : _handleAdd,
           style: ElevatedButton.styleFrom(
-            backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+            backgroundColor: isDark
+                ? AppTheme.darkAccent
+                : AppTheme.primaryColor,
           ),
           child: _isUploading
               ? const SizedBox(
