@@ -62,7 +62,7 @@ class _ProfileScreenState extends State<ProfileScreen>
   final _confirmPasswordController = TextEditingController();
 
   Timer? _autoRefreshTimer;
-  static const Duration _refreshInterval = Duration(seconds: 10);
+  static const Duration _refreshInterval = Duration(seconds: 120);
 
   // Keep tab alive
   @override
@@ -357,10 +357,13 @@ class _ProfileScreenState extends State<ProfileScreen>
 
   void _showEditProfileDialog() async {
     // Fetch current user data to pre-populate the edit form
-    final userData = await UserService().getUser(uid: widget.uid, role: widget.role);
-    
+    final userData = await UserService().getUser(
+      uid: widget.uid,
+      role: widget.role,
+    );
+
     if (!mounted) return;
-    
+
     // Navigate to comprehensive edit profile screen
     final result = await Navigator.push<bool>(
       context,
@@ -865,14 +868,16 @@ class _ProfileScreenState extends State<ProfileScreen>
                       backgroundColor: Colors.white.withOpacity(0.2),
                       backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
                           ? (photoUrl!.startsWith('data:')
-                              ? MemoryImage(
-                                  Uri.parse(photoUrl!).data!.contentAsBytes(),
-                                )
-                              : NetworkImage(photoUrl!) as ImageProvider)
+                                ? MemoryImage(
+                                    Uri.parse(photoUrl!).data!.contentAsBytes(),
+                                  )
+                                : NetworkImage(photoUrl!) as ImageProvider)
                           : null,
                       child: photoUrl == null || photoUrl!.isEmpty
                           ? Text(
-                              userName.isNotEmpty ? userName[0].toUpperCase() : "?",
+                              userName.isNotEmpty
+                                  ? userName[0].toUpperCase()
+                                  : "?",
                               style: const TextStyle(
                                 fontSize: 40,
                                 fontWeight: FontWeight.bold,
@@ -963,20 +968,28 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ),
                   // Bio section
                   if (bio != null && bio!.isNotEmpty) ...[
-                    Divider(height: 24, color: AppTheme.getBorderColor(context)),
+                    Divider(
+                      height: 24,
+                      color: AppTheme.getBorderColor(context),
+                    ),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                                .withOpacity(0.1),
+                            color:
+                                (isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor)
+                                    .withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             Icons.description_outlined,
-                            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                            color: isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor,
                             size: 22,
                           ),
                         ),
@@ -1009,20 +1022,28 @@ class _ProfileScreenState extends State<ProfileScreen>
                   ],
                   // Interests section
                   if (interests != null && interests!.isNotEmpty) ...[
-                    Divider(height: 24, color: AppTheme.getBorderColor(context)),
+                    Divider(
+                      height: 24,
+                      color: AppTheme.getBorderColor(context),
+                    ),
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                                .withOpacity(0.1),
+                            color:
+                                (isDark
+                                        ? AppTheme.darkPrimaryLight
+                                        : AppTheme.primaryColor)
+                                    .withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             Icons.interests_outlined,
-                            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                            color: isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor,
                             size: 22,
                           ),
                         ),
@@ -1042,26 +1063,43 @@ class _ProfileScreenState extends State<ProfileScreen>
                               Wrap(
                                 spacing: 8,
                                 runSpacing: 8,
-                                children: interests!.map((interest) => Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                  decoration: BoxDecoration(
-                                    color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                                        .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                                          .withOpacity(0.3),
-                                    ),
-                                  ),
-                                  child: Text(
-                                    interest,
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w500,
-                                      color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                                    ),
-                                  ),
-                                )).toList(),
+                                children: interests!
+                                    .map(
+                                      (interest) => Container(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 6,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              (isDark
+                                                      ? AppTheme.darkAccent
+                                                      : AppTheme.primaryColor)
+                                                  .withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color:
+                                                (isDark
+                                                        ? AppTheme.darkAccent
+                                                        : AppTheme.primaryColor)
+                                                    .withOpacity(0.3),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          interest,
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: isDark
+                                                ? AppTheme.darkAccent
+                                                : AppTheme.primaryColor,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                    .toList(),
                               ),
                             ],
                           ),
@@ -1469,10 +1507,10 @@ class _ProfileScreenState extends State<ProfileScreen>
     // Cancel the auto-refresh timer first to prevent any background operations
     _autoRefreshTimer?.cancel();
     _autoRefreshTimer = null;
-    
+
     // Store mounted state before any async operations
     final wasMounted = mounted;
-    
+
     try {
       // Clear all static caches to prevent data leakage between users
       // Do this BEFORE signing out so we still have user context if needed
@@ -1496,7 +1534,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           (route) => false,
         );
       }
-      
+
       // Sign out from Firebase AFTER navigation
       // This prevents any provider rebuild errors
       try {
@@ -1714,7 +1752,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         'Enable notifications to never miss course updates',
                         isDark,
                       ),
-                      
+
                       const SizedBox(height: 20),
                       Divider(
                         color: isDark
@@ -1722,7 +1760,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                             : Colors.grey.shade300,
                       ),
                       const SizedBox(height: 20),
-                      
+
                       // Submit Ticket Button
                       SizedBox(
                         width: double.infinity,
@@ -1734,7 +1772,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                           icon: const Icon(Icons.support_agent, size: 20),
                           label: const Text('Submit Support Ticket'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                            backgroundColor: isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -1909,7 +1949,9 @@ class _ProfileScreenState extends State<ProfileScreen>
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) => AlertDialog(
           backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(
@@ -1920,7 +1962,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               Text(
                 'Submit Support Ticket',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
                   fontSize: 18,
                 ),
               ),
@@ -1937,7 +1981,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                   Text(
                     'Category',
                     style: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -1949,25 +1995,45 @@ class _ProfileScreenState extends State<ProfileScreen>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
-                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      fillColor: isDark
+                          ? Colors.grey[800]!.withOpacity(0.3)
+                          : Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                     items: const [
-                      DropdownMenuItem(value: 'account', child: Text('Account Issues')),
-                      DropdownMenuItem(value: 'technical', child: Text('Technical Problems')),
-                      DropdownMenuItem(value: 'billing', child: Text('Billing & Payments')),
-                      DropdownMenuItem(value: 'content', child: Text('Course Content')),
+                      DropdownMenuItem(
+                        value: 'account',
+                        child: Text('Account Issues'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'technical',
+                        child: Text('Technical Problems'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'billing',
+                        child: Text('Billing & Payments'),
+                      ),
+                      DropdownMenuItem(
+                        value: 'content',
+                        child: Text('Course Content'),
+                      ),
                       DropdownMenuItem(value: 'other', child: Text('Other')),
                     ],
-                    onChanged: (value) => setState(() => selectedCategory = value!),
+                    onChanged: (value) =>
+                        setState(() => selectedCategory = value!),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Priority dropdown
                   Text(
                     'Priority',
                     style: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -1979,8 +2045,13 @@ class _ProfileScreenState extends State<ProfileScreen>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
-                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      fillColor: isDark
+                          ? Colors.grey[800]!.withOpacity(0.3)
+                          : Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
                     ),
                     items: const [
                       DropdownMenuItem(value: 'low', child: Text('Low')),
@@ -1988,15 +2059,18 @@ class _ProfileScreenState extends State<ProfileScreen>
                       DropdownMenuItem(value: 'high', child: Text('High')),
                       DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
                     ],
-                    onChanged: (value) => setState(() => selectedPriority = value!),
+                    onChanged: (value) =>
+                        setState(() => selectedPriority = value!),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Subject
                   Text(
                     'Subject',
                     style: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -2009,16 +2083,20 @@ class _ProfileScreenState extends State<ProfileScreen>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
-                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
+                      fillColor: isDark
+                          ? Colors.grey[800]!.withOpacity(0.3)
+                          : Colors.grey[100],
                     ),
                   ),
                   const SizedBox(height: 16),
-                  
+
                   // Message
                   Text(
                     'Message',
                     style: TextStyle(
-                      color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                      color: isDark
+                          ? AppTheme.darkTextSecondary
+                          : AppTheme.textSecondary,
                       fontSize: 12,
                     ),
                   ),
@@ -2033,7 +2111,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         borderRadius: BorderRadius.circular(8),
                       ),
                       filled: true,
-                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
+                      fillColor: isDark
+                          ? Colors.grey[800]!.withOpacity(0.3)
+                          : Colors.grey[100],
                     ),
                   ),
                 ],
@@ -2046,7 +2126,9 @@ class _ProfileScreenState extends State<ProfileScreen>
               child: Text(
                 'Cancel',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -2063,9 +2145,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                         );
                         return;
                       }
-                      
+
                       setState(() => isSubmitting = true);
-                      
+
                       try {
                         final supportService = SupportService();
                         final ticketId = await supportService.createTicket(
@@ -2078,12 +2160,14 @@ class _ProfileScreenState extends State<ProfileScreen>
                           category: selectedCategory,
                           priority: selectedPriority,
                         );
-                        
+
                         if (ticketId != null && mounted) {
                           Navigator.pop(ctx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Support ticket submitted successfully! We\'ll respond within 24-48 hours.'),
+                              content: Text(
+                                'Support ticket submitted successfully! We\'ll respond within 24-48 hours.',
+                              ),
                               backgroundColor: Colors.green,
                             ),
                           );
@@ -2106,7 +2190,9 @@ class _ProfileScreenState extends State<ProfileScreen>
                       }
                     },
               style: ElevatedButton.styleFrom(
-                backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
                 foregroundColor: Colors.white,
               ),
               child: isSubmitting
