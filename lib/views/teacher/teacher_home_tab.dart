@@ -1,4 +1,5 @@
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:math' as math;
@@ -655,24 +656,26 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                                             (course['imageUrl'] as String? ??
                                                     '')
                                                 .isNotEmpty
-                                            ? Image.network(
-                                                course['imageUrl'] as String,
+                                            ? CachedNetworkImage(
+                                                imageUrl:
+                                                    course['imageUrl']
+                                                        as String,
                                                 height: 95,
                                                 width: double.infinity,
                                                 fit: BoxFit.cover,
-                                                errorBuilder: (_, __, ___) =>
-                                                    Container(
-                                                      height: 95,
-                                                      color: AppTheme
-                                                          .primaryColor
-                                                          .withOpacity(0.08),
-                                                      child: const Icon(
-                                                        Icons.image,
-                                                        size: 40,
-                                                        color: AppTheme
-                                                            .primaryColor,
-                                                      ),
+                                                placeholder: (context, url) =>
+                                                    const Center(
+                                                      child:
+                                                          CircularProgressIndicator(
+                                                            strokeWidth: 2,
+                                                          ),
                                                     ),
+                                                errorWidget:
+                                                    (context, url, error) =>
+                                                        const Icon(
+                                                          Icons.broken_image,
+                                                          color: Colors.grey,
+                                                        ),
                                               )
                                             : Container(
                                                 height: 95,
