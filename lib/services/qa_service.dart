@@ -184,13 +184,14 @@ class QAService {
     }
   }
 
-  /// Get questions for a specific course (real-time stream)
+  /// Get questions for a specific course (real-time stream, limited to 100)
   Stream<List<Map<String, dynamic>>> getQuestionsStream(String courseUid) {
     return _db
         .child('courses')
         .child(courseUid)
         .child('questions')
         .orderByChild('createdAt')
+        .limitToLast(100)
         .onValue
         .map((event) {
           if (!event.snapshot.exists || event.snapshot.value == null) {
