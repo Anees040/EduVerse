@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -47,7 +48,7 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
   bool _showFilters = false;
 
   Timer? _autoRefreshTimer;
-  static const Duration _refreshInterval = Duration(seconds: 15);
+  static const Duration _refreshInterval = Duration(seconds: 120);
 
   // Keep tab alive
   @override
@@ -829,11 +830,16 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
                     child: (course['imageUrl'] as String? ?? '').isNotEmpty
-                        ? Image.network(
-                            course['imageUrl'],
+                        ? CachedNetworkImage(
+                            imageUrl: course['imageUrl'],
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _buildPlaceholderImage(isDark),
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
                           )
                         : _buildPlaceholderImage(isDark),
                   ),
