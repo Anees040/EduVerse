@@ -12,7 +12,7 @@ class ChatHistoryService {
 
     final chatRef = _db.child('chat_history').child(_userId!).push();
     final chatId = chatRef.key;
-    
+
     await chatRef.set({
       'id': chatId,
       'title': title ?? 'New Chat',
@@ -47,14 +47,16 @@ class ChatHistoryService {
 
     // Update chat's updatedAt and title if it's the first user message
     final chatRef = _db.child('chat_history').child(_userId!).child(chatId);
-    
+
     if (sender == 'user') {
       // Update title with first few words of first user message
       final chatSnapshot = await chatRef.get();
       if (chatSnapshot.exists) {
         final data = chatSnapshot.value as Map;
         if (data['title'] == 'New Chat') {
-          final shortTitle = text.length > 30 ? '${text.substring(0, 30)}...' : text;
+          final shortTitle = text.length > 30
+              ? '${text.substring(0, 30)}...'
+              : text;
           await chatRef.update({
             'title': shortTitle,
             'updatedAt': ServerValue.timestamp,
@@ -74,13 +76,14 @@ class ChatHistoryService {
         .child('chat_history')
         .child(_userId!)
         .orderByChild('updatedAt')
+        .limitToLast(50)
         .get();
 
     if (!snapshot.exists) return [];
 
     final List<Map<String, dynamic>> chats = [];
     final data = snapshot.value as Map;
-    
+
     data.forEach((key, value) {
       if (value is Map) {
         chats.add({
@@ -117,7 +120,7 @@ class ChatHistoryService {
 
     final List<Map<String, dynamic>> messages = [];
     final data = snapshot.value as Map;
-    
+
     data.forEach((key, value) {
       if (value is Map) {
         messages.add({
