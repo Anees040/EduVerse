@@ -36,7 +36,12 @@ class ChatMessage {
   final String content;
   final int? timestamp;
 
-  ChatMessage({required this.id, required this.role, required this.content, this.timestamp});
+  ChatMessage({
+    required this.id,
+    required this.role,
+    required this.content,
+    this.timestamp,
+  });
 
   factory ChatMessage.fromMap(String id, Map data) {
     return ChatMessage(
@@ -62,7 +67,11 @@ class ChatRepository {
   String? activeChatId;
 
   /// Create a new chat session and add a chatIds reference under the owner
-  Future<String?> createSession({required String ownerId, required String ownerRole, String? title}) async {
+  Future<String?> createSession({
+    required String ownerId,
+    required String ownerRole,
+    String? title,
+  }) async {
     final sessionRef = _db.child('chat_sessions').push();
     final chatId = sessionRef.key;
     if (chatId == null) return null;
@@ -77,14 +86,24 @@ class ChatRepository {
     });
 
     final ownerPath = ownerRole == 'teacher' ? 'teacher' : 'student';
-    await _db.child(ownerPath).child(ownerId).child('chatIds').child(chatId).set(true);
+    await _db
+        .child(ownerPath)
+        .child(ownerId)
+        .child('chatIds')
+        .child(chatId)
+        .set(true);
 
     activeChatId = chatId;
     return chatId;
   }
 
   /// Append a message to a chat. Always writes to chat_messages/{chatId}
-  Future<void> addMessage({required String chatId, required String role, required String content, int? timestamp}) async {
+  Future<void> addMessage({
+    required String chatId,
+    required String role,
+    required String content,
+    int? timestamp,
+  }) async {
     final msgRef = _db.child('chat_messages').child(chatId).push();
     final data = {
       'role': role,
@@ -94,13 +113,22 @@ class ChatRepository {
     await msgRef.set(data);
 
     // Update session's updatedAt
-    await _db.child('chat_sessions').child(chatId).update({'updatedAt': ServerValue.timestamp});
+    await _db.child('chat_sessions').child(chatId).update({
+      'updatedAt': ServerValue.timestamp,
+    });
   }
 
   /// Read sessions for a user by reading student/teacher/{uid}/chatIds and fetching sessions
-  Future<List<ChatSession>> getSessionsForUser({required String userId, required String role}) async {
+  Future<List<ChatSession>> getSessionsForUser({
+    required String userId,
+    required String role,
+  }) async {
     final ownerPath = role == 'teacher' ? 'teacher' : 'student';
-    final snapshot = await _db.child(ownerPath).child(userId).child('chatIds').get();
+    final snapshot = await _db
+        .child(ownerPath)
+        .child(userId)
+        .child('chatIds')
+        .get();
     if (!snapshot.exists) return [];
 
     final data = snapshot.value as Map;
@@ -123,9 +151,14 @@ class ChatRepository {
     return sessions;
   }
 
-  /// Get messages for a chatId
+  /// Get messages for a chatId (limited to last 200 for scalability)
   Future<List<ChatMessage>> getMessagesForChat(String chatId) async {
-    final snap = await _db.child('chat_messages').child(chatId).get();
+    final snap = await _db
+        .child('chat_messages')
+        .child(chatId)
+        .orderByKey()
+        .limitToLast(200)
+        .get();
     if (!snap.exists) return [];
 
     final data = snap.value as Map;
@@ -151,22 +184,39 @@ class ChatRepository {
   }
 
   /// Delete chat: remove chat_sessions/{chatId}, chat_messages/{chatId}, and owner chatIds reference only
-  Future<void> deleteChat({required String chatId, required String ownerId, required String ownerRole}) async {
+  Future<void> deleteChat({
+    required String chatId,
+    required String ownerId,
+    required String ownerRole,
+  }) async {
     // remove session
     await _db.child('chat_sessions').child(chatId).remove();
     // remove messages
     await _db.child('chat_messages').child(chatId).remove();
     // remove owner reference
     final ownerPath = ownerRole == 'teacher' ? 'teacher' : 'student';
-    await _db.child(ownerPath).child(ownerId).child('chatIds').child(chatId).remove();
+    await _db
+        .child(ownerPath)
+        .child(ownerId)
+        .child('chatIds')
+        .child(chatId)
+        .remove();
   }
 
   /// Utility: ensure there's an active chat; create one if missing for current user
-  Future<String?> ensureActiveChat({required String ownerRole, String? ownerId, String? title}) async {
+  Future<String?> ensureActiveChat({
+    required String ownerRole,
+    String? ownerId,
+    String? title,
+  }) async {
     final uid = ownerId ?? _currentUid;
     if (uid == null) return null;
     if (activeChatId != null) return activeChatId;
-    return await createSession(ownerId: uid, ownerRole: ownerRole, title: title);
+    return await createSession(
+      ownerId: uid,
+      ownerRole: ownerRole,
+      title: title,
+    );
   }
 }
 
