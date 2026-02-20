@@ -44,7 +44,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   static bool _hasLoadedOnce = false;
 
   Timer? _autoRefreshTimer;
-  static const _refreshInterval = Duration(seconds: 10);
+  static const _refreshInterval = Duration(seconds: 120);
 
   bool _isInitialLoading = true;
   String userName = "...";
