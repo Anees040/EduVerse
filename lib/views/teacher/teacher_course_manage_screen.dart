@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -2010,14 +2011,14 @@ class _TeacherCourseManageScreenState extends State<TeacherCourseManageScreen> {
         background: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              widget.imageUrl,
+            CachedNetworkImage(
+              imageUrl: widget.imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                decoration: const BoxDecoration(
-                  gradient: AppTheme.primaryGradient,
-                ),
+              placeholder: (context, url) => const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
+              errorWidget: (context, url, error) =>
+                  const Icon(Icons.broken_image, color: Colors.grey),
             ),
             Container(
               decoration: BoxDecoration(
