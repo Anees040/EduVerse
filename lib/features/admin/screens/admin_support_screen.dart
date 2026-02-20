@@ -30,6 +30,12 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     _loadTickets();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadTickets() async {
     setState(() => _isLoading = true);
 
