@@ -195,11 +195,12 @@
       ".write": "auth != null"
     },
     "support_tickets": {
-      ".read": "auth != null",
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "auth != null",
+      ".indexOn": ["createdAt", "updatedAt", "userId", "status"],
       "$ticketId": {
-        ".read": "auth != null",
-        ".write": "auth != null"
+        ".read": "auth != null && (root.child('admin').child(auth.uid).child('role').val() === 'admin' || root.child('support_tickets').child($ticketId).child('userId').val() === auth.uid)",
+        ".write": "auth != null && (root.child('admin').child(auth.uid).child('role').val() === 'admin' || root.child('support_tickets').child($ticketId).child('userId').val() === auth.uid || !data.exists())"
       }
     },
     "admin_logs": {
