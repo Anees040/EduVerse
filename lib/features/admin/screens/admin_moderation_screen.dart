@@ -35,6 +35,11 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
   // Resolved items (kept/dismissed reports)
   List<Map<String, dynamic>> _resolvedItems = [];
 
+  // Resolved tab filters
+  String _resolvedActionFilter = 'all'; // all, kept, warned, deleted
+  DateTime? _resolvedDateFrom;
+  DateTime? _resolvedDateTo;
+
   // Bulk selection
   final Set<String> _selectedItems = {};
   bool _isSelectionMode = false;
@@ -328,22 +333,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                               ),
                             ),
                       // Resolved tab
-                      _resolvedItems.isEmpty
-                          ? _buildEmptyState(
-                              isDark,
-                              true,
-                              message: 'No resolved reports yet',
-                            )
-                          : RefreshIndicator(
-                              onRefresh: () async => await _loadResolvedItems(),
-                              child: ListView.builder(
-                                itemCount: _resolvedItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = _resolvedItems[index];
-                                  return _buildResolvedCard(item, isDark);
-                                },
-                              ),
-                            ),
+                      _buildResolvedTab(isDark),
                     ],
                   ),
                 ),
@@ -694,6 +684,313 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
   }
 
   // ───────────────────────────────────────────────────────────────
+  // Resolved Tab with Filters
+  // ───────────────────────────────────────────────────────────────
+
+  /// Filter resolved items based on action type and date range
+  List<Map<String, dynamic>> _getFilteredResolvedItems() {
+    return _resolvedItems.where((item) {
+      // Action type filter
+      if (_resolvedActionFilter != 'all') {
+        final action = (item['action'] ?? 'kept').toString();
+        if (action != _resolvedActionFilter) return false;
+      }
+      // Date range filter
+      final resolvedAt = item['resolvedAt'] ?? item['createdAt'] ?? 0;
+      if (resolvedAt is int && resolvedAt > 0) {
+        final date = DateTime.fromMillisecondsSinceEpoch(resolvedAt);
+        if (_resolvedDateFrom != null && date.isBefore(_resolvedDateFrom!)) {
+          return false;
+        }
+        if (_resolvedDateTo != null &&
+            date.isAfter(
+              _resolvedDateTo!
+                  .add(const Duration(days: 1))
+                  .subtract(const Duration(seconds: 1)),
+            )) {
+          return false;
+        }
+      }
+      return true;
+    }).toList();
+  }
+
+  Widget _buildResolvedTab(bool isDark) {
+    final filteredResolved = _getFilteredResolvedItems();
+
+    return Column(
+      children: [
+        // Resolved filters bar
+        _buildResolvedFilters(isDark),
+        const SizedBox(height: 8),
+        // List
+        Expanded(
+          child: filteredResolved.isEmpty
+              ? _buildEmptyState(
+                  isDark,
+                  _resolvedItems.isEmpty,
+                  message: _resolvedItems.isEmpty
+                      ? 'No resolved reports yet'
+                      : 'No results match your filters',
+                )
+              : RefreshIndicator(
+                  onRefresh: () async => await _loadResolvedItems(),
+                  child: ListView.builder(
+                    itemCount: filteredResolved.length,
+                    itemBuilder: (context, index) {
+                      final item = filteredResolved[index];
+                      return _buildResolvedCard(item, isDark);
+                    },
+                  ),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResolvedFilters(bool isDark) {
+    final hasDateFilter = _resolvedDateFrom != null || _resolvedDateTo != null;
+    final hasAnyFilter = _resolvedActionFilter != 'all' || hasDateFilter;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              // Action type filter chips
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildResolvedFilterChip(
+                        'All',
+                        'all',
+                        Icons.all_inclusive,
+                        null,
+                        isDark,
+                      ),
+                      _buildResolvedFilterChip(
+                        'Kept',
+                        'kept',
+                        Icons.check_circle,
+                        Colors.green,
+                        isDark,
+                      ),
+                      _buildResolvedFilterChip(
+                        'Warned',
+                        'warned',
+                        Icons.warning,
+                        Colors.orange,
+                        isDark,
+                      ),
+                      _buildResolvedFilterChip(
+                        'Deleted',
+                        'deleted',
+                        Icons.delete,
+                        Colors.red,
+                        isDark,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              // Date range picker
+              InkWell(
+                borderRadius: BorderRadius.circular(8),
+                onTap: () => _showDateRangePicker(isDark),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: hasDateFilter
+                        ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                              .withOpacity(0.1)
+                        : (isDark
+                              ? AppTheme.darkElevated
+                              : Colors.grey.shade100),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: hasDateFilter
+                          ? (isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor)
+                          : Colors.transparent,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.date_range,
+                        size: 16,
+                        color: hasDateFilter
+                            ? (isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor)
+                            : AppTheme.getTextSecondary(context),
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        hasDateFilter ? _formatDateRange() : 'Date',
+                        style: TextStyle(
+                          color: hasDateFilter
+                              ? (isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor)
+                              : AppTheme.getTextSecondary(context),
+                          fontSize: 12,
+                          fontWeight: hasDateFilter
+                              ? FontWeight.w600
+                              : FontWeight.normal,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Show active filter summary + clear button
+          if (hasAnyFilter) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(
+                  Icons.filter_list,
+                  size: 14,
+                  color: AppTheme.getTextSecondary(context),
+                ),
+                const SizedBox(width: 4),
+                Text(
+                  '${_getFilteredResolvedItems().length} of ${_resolvedItems.length} items',
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 12,
+                  ),
+                ),
+                const Spacer(),
+                InkWell(
+                  onTap: () => setState(() {
+                    _resolvedActionFilter = 'all';
+                    _resolvedDateFrom = null;
+                    _resolvedDateTo = null;
+                  }),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.clear_all, size: 14, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Clear Filters',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResolvedFilterChip(
+    String label,
+    String value,
+    IconData icon,
+    Color? color,
+    bool isDark,
+  ) {
+    final isSelected = _resolvedActionFilter == value;
+    final chipColor =
+        color ?? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor);
+
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: FilterChip(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: isSelected ? Colors.white : chipColor),
+            const SizedBox(width: 4),
+            Text(label),
+          ],
+        ),
+        selected: isSelected,
+        onSelected: (_) => setState(() => _resolvedActionFilter = value),
+        backgroundColor: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+        selectedColor: chipColor,
+        labelStyle: TextStyle(
+          color: isSelected ? Colors.white : AppTheme.getTextPrimary(context),
+          fontSize: 12,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  void _showDateRangePicker(bool isDark) async {
+    final now = DateTime.now();
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: now.subtract(const Duration(days: 365)),
+      lastDate: now,
+      initialDateRange: _resolvedDateFrom != null
+          ? DateTimeRange(
+              start: _resolvedDateFrom!,
+              end: _resolvedDateTo ?? now,
+            )
+          : null,
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.fromSeed(
+              seedColor: AppTheme.primaryColor,
+              brightness: isDark ? Brightness.dark : Brightness.light,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null) {
+      setState(() {
+        _resolvedDateFrom = picked.start;
+        _resolvedDateTo = picked.end;
+      });
+    }
+  }
+
+  String _formatDateRange() {
+    final df = DateFormat('MMM d');
+    if (_resolvedDateFrom != null && _resolvedDateTo != null) {
+      return '${df.format(_resolvedDateFrom!)} - ${df.format(_resolvedDateTo!)}';
+    } else if (_resolvedDateFrom != null) {
+      return 'From ${df.format(_resolvedDateFrom!)}';
+    } else if (_resolvedDateTo != null) {
+      return 'To ${df.format(_resolvedDateTo!)}';
+    }
+    return 'Date';
+  }
+
+  // ───────────────────────────────────────────────────────────────
   // Moderation Card (Pending)
   // ───────────────────────────────────────────────────────────────
 
@@ -961,6 +1258,9 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
     final content = item['content'] ?? item['text'] ?? 'No content';
     final reportReason = item['reportReason'] ?? 'Policy violation';
     final resolvedAt = item['resolvedAt'];
+    final type = item['type'] ?? 'unknown';
+    final reportedBy = item['reportedBy'];
+    final reportedUserId = item['reportedUserId'];
 
     Color actionColor;
     IconData actionIcon;
@@ -984,7 +1284,6 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -992,54 +1291,76 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
           color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
         ),
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header with action badge - type - time
           Container(
-            padding: const EdgeInsets.all(8),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: actionColor.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              color: actionColor.withOpacity(0.04),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(11),
+              ),
             ),
-            child: Icon(actionIcon, color: actionColor, size: 20),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: actionColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Icon(actionIcon, color: actionColor, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: actionColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    actionLabel,
+                    style: TextStyle(
+                      color: actionColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _buildTypeBadge(type, isDark),
+                const Spacer(),
+                if (resolvedAt != null && resolvedAt is int)
+                  Text(
+                    _formatTime(resolvedAt),
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
+          // Content + reason
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: actionColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        actionLabel,
-                        style: TextStyle(
-                          color: actionColor,
-                          fontSize: 11,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        reportReason,
-                        style: TextStyle(
-                          color: AppTheme.getTextSecondary(context),
-                          fontSize: 12,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                Text(
+                  'Reason: $reportReason',
+                  style: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -1054,12 +1375,62 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               ],
             ),
           ),
-          if (resolvedAt != null && resolvedAt is int)
-            Text(
-              _formatTime(resolvedAt),
-              style: TextStyle(
-                color: AppTheme.getTextSecondary(context),
-                fontSize: 11,
+          // Reporter & Author row
+          if (reportedBy != null || reportedUserId != null)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 10),
+              child: Row(
+                children: [
+                  if (reportedBy != null) ...[
+                    Icon(
+                      Icons.flag_outlined,
+                      size: 12,
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                    const SizedBox(width: 4),
+                    FutureBuilder<String>(
+                      future: _resolveUserName(reportedBy),
+                      builder: (context, snapshot) {
+                        return Text(
+                          snapshot.data ?? '...',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                            fontSize: 11,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                  if (reportedBy != null && reportedUserId != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        size: 12,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                    ),
+                  if (reportedUserId != null) ...[
+                    Icon(
+                      Icons.person_outline,
+                      size: 12,
+                      color: AppTheme.getTextSecondary(context),
+                    ),
+                    const SizedBox(width: 4),
+                    FutureBuilder<String>(
+                      future: _resolveUserName(reportedUserId),
+                      builder: (context, snapshot) {
+                        return Text(
+                          snapshot.data ?? '...',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                            fontSize: 11,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ],
               ),
             ),
         ],
@@ -1907,14 +2278,17 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
     try {
       await _db.child('moderation_resolved').push().set({
         'originalId': item['id'],
-        'type': item['type'],
-        'content': item['content'] ?? item['text'] ?? '',
-        'reportReason': item['reportReason'],
+        'type': item['type'] ?? 'unknown',
+        'content': item['content'] ?? item['text'] ?? item['comment'] ?? '',
+        'reportReason': item['reportReason'] ?? 'Policy violation',
         'reportedBy': item['reportedBy'],
         'reportedUserId':
             item['reportedUserId'] ?? item['userId'] ?? item['authorId'],
+        'courseId': item['courseId'],
+        'teacherId': item['teacherId'],
         'action': action,
         'resolvedAt': ServerValue.timestamp,
+        'createdAt': item['reportedAt'] ?? item['createdAt'],
       });
       await _loadResolvedItems();
     } catch (e) {
