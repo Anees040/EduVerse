@@ -38,12 +38,13 @@ class NotificationService {
         .set(notificationData);
   }
 
-  /// Get all notifications for a user
+  /// Get all notifications for a user (limited to last 100 for scalability)
   Stream<List<Map<String, dynamic>>> getNotificationsStream(String uid) {
     return _db
         .child('notifications')
         .child(uid)
         .orderByChild('createdAt')
+        .limitToLast(100)
         .onValue
         .map((event) {
           if (!event.snapshot.exists || event.snapshot.value == null) {
@@ -66,21 +67,11 @@ class NotificationService {
         });
   }
 
-  /// Get unread notification count - without index query to avoid Firebase warning
+  /// Get unread notification count — reuses the same query as getNotificationsStream
+  /// to avoid a duplicate listener on the same node
   Stream<int> getUnreadCountStream(String uid) {
-    return _db.child('notifications').child(uid).onValue.map((event) {
-      if (!event.snapshot.exists || event.snapshot.value == null) {
-        return 0;
-      }
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-      // Count unread notifications locally
-      int unreadCount = 0;
-      data.forEach((key, value) {
-        if (value is Map && value['isRead'] != true) {
-          unreadCount++;
-        }
-      });
-      return unreadCount;
+    return getNotificationsStream(uid).map((notifications) {
+      return notifications.where((n) => n['isRead'] != true).length;
     });
   }
 
