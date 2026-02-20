@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:http/http.dart' as http;
@@ -316,12 +317,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         background: Stack(
           fit: StackFit.expand,
           children: [
-            Image.network(
-              widget.course.imageUrl,
+            CachedNetworkImage(
+              imageUrl: widget.course.imageUrl,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => Container(
-                color: isDark ? AppTheme.darkCard : Colors.grey.shade300,
+              placeholder: (context, url) => const Center(
+                child: CircularProgressIndicator(strokeWidth: 2),
               ),
+              errorWidget: (context, url, error) =>
+                  const Icon(Icons.broken_image, color: Colors.grey),
             ),
             Container(
               decoration: BoxDecoration(
