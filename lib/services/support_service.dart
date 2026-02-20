@@ -351,27 +351,30 @@ class SupportService {
     }
   }
 
-  /// Listen to tickets stream (for real-time updates)
+  /// Listen to tickets stream (for real-time updates, limited to last 100)
   Stream<List<Map<String, dynamic>>> ticketsStream() {
-    return _db.child('support_tickets').orderByChild('updatedAt').onValue.map((
-      event,
-    ) {
-      if (event.snapshot.value == null) return [];
+    return _db
+        .child('support_tickets')
+        .orderByChild('updatedAt')
+        .limitToLast(100)
+        .onValue
+        .map((event) {
+          if (event.snapshot.value == null) return [];
 
-      final data = Map<String, dynamic>.from(event.snapshot.value as Map);
-      final tickets = data.entries.map((e) {
-        final ticket = Map<String, dynamic>.from(e.value as Map);
-        ticket['id'] = e.key;
-        return ticket;
-      }).toList();
+          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+          final tickets = data.entries.map((e) {
+            final ticket = Map<String, dynamic>.from(e.value as Map);
+            ticket['id'] = e.key;
+            return ticket;
+          }).toList();
 
-      tickets.sort((a, b) {
-        final aTime = a['updatedAt'] ?? a['createdAt'] ?? 0;
-        final bTime = b['updatedAt'] ?? b['createdAt'] ?? 0;
-        return bTime.compareTo(aTime);
-      });
+          tickets.sort((a, b) {
+            final aTime = a['updatedAt'] ?? a['createdAt'] ?? 0;
+            final bTime = b['updatedAt'] ?? b['createdAt'] ?? 0;
+            return bTime.compareTo(aTime);
+          });
 
-      return tickets;
-    });
+          return tickets;
+        });
   }
 }
