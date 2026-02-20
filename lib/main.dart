@@ -27,8 +27,8 @@ Future<void> main() async {
     // Note: setPersistenceEnabled and keepSynced are not supported on web platform
     if (!kIsWeb) {
       FirebaseDatabase.instance.setPersistenceEnabled(true);
-      // Keep synced data for faster access
-      FirebaseDatabase.instance.ref().keepSynced(true);
+      // Only keep critical small nodes synced — avoid syncing entire DB
+      FirebaseDatabase.instance.ref('app_config').keepSynced(true);
     }
   } catch (e) {
     debugPrint('Initialization error: $e');
