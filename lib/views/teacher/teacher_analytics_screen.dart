@@ -48,7 +48,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
 
   // Auto-refresh timer
   Timer? _autoRefreshTimer;
-  static const Duration _refreshInterval = Duration(seconds: 30);
+  static const Duration _refreshInterval = Duration(seconds: 300);
 
   // State
   String _selectedDateRange = '7d';
