@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import '../services/admin_service.dart';
@@ -782,7 +783,7 @@ class _AdminVerificationQueueScreenState
   void _showDocumentViewer(String url) {
     final isDark = AppTheme.isDarkMode(context);
     final screenSize = MediaQuery.of(context).size;
-    
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -805,11 +806,16 @@ class _AdminVerificationQueueScreenState
             children: [
               // Header
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 decoration: BoxDecoration(
                   border: Border(
                     bottom: BorderSide(
-                      color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                      color: isDark
+                          ? AppTheme.darkBorder
+                          : Colors.grey.shade200,
                     ),
                   ),
                 ),
@@ -817,14 +823,18 @@ class _AdminVerificationQueueScreenState
                   children: [
                     Icon(
                       Icons.image_rounded,
-                      color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimary
+                          : AppTheme.primaryColor,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         'Document Viewer',
                         style: TextStyle(
-                          color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                          color: isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary,
                           fontWeight: FontWeight.bold,
                           fontSize: 16,
                         ),
@@ -846,7 +856,9 @@ class _AdminVerificationQueueScreenState
                       },
                       icon: Icon(
                         Icons.copy_rounded,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
                         size: 20,
                       ),
                       tooltip: 'Copy URL',
@@ -856,7 +868,9 @@ class _AdminVerificationQueueScreenState
                       onPressed: () => Navigator.pop(ctx),
                       icon: Icon(
                         Icons.close_rounded,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
                       ),
                       tooltip: 'Close',
                     ),
@@ -872,72 +886,14 @@ class _AdminVerificationQueueScreenState
                     child: InteractiveViewer(
                       minScale: 0.5,
                       maxScale: 4.0,
-                      child: Image.network(
-                        url,
+                      child: CachedNetworkImage(
+                        imageUrl: url,
                         fit: BoxFit.contain,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                CircularProgressIndicator(
-                                  value: loadingProgress.expectedTotalBytes != null
-                                      ? loadingProgress.cumulativeBytesLoaded /
-                                          loadingProgress.expectedTotalBytes!
-                                      : null,
-                                  color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Loading document...',
-                                  style: TextStyle(
-                                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.error_outline_rounded,
-                                  size: 48,
-                                  color: isDark ? AppTheme.darkError : AppTheme.error,
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Failed to load document',
-                                  style: TextStyle(
-                                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                TextButton.icon(
-                                  onPressed: () async {
-                                    await Clipboard.setData(ClipboardData(text: url));
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: const Text('URL copied to clipboard'),
-                                          backgroundColor: AppTheme.success,
-                                          behavior: SnackBarBehavior.floating,
-                                        ),
-                                      );
-                                    }
-                                  },
-                                  icon: const Icon(Icons.copy_rounded, size: 16),
-                                  label: const Text('Copy URL instead'),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.broken_image, color: Colors.grey),
                       ),
                     ),
                   ),
