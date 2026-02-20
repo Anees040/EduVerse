@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eduverse/services/video_player_widget.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
@@ -29,7 +30,9 @@ class CourseDetailScreen extends StatelessWidget {
         title: Text(courseTitle),
         flexibleSpace: Container(
           decoration: BoxDecoration(
-            gradient: isDark ? AppTheme.darkPrimaryGradient : AppTheme.primaryGradient,
+            gradient: isDark
+                ? AppTheme.darkPrimaryGradient
+                : AppTheme.primaryGradient,
           ),
         ),
         foregroundColor: Colors.white,
@@ -40,19 +43,24 @@ class CourseDetailScreen extends StatelessWidget {
           children: [
             // Cover image
             imageUrl.isNotEmpty
-                ? Image.network(
-                    imageUrl,
+                ? CachedNetworkImage(
+                    imageUrl: imageUrl,
                     width: double.infinity,
                     height: 200,
                     fit: BoxFit.cover,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                    errorWidget: (context, url, error) =>
+                        const Icon(Icons.broken_image, color: Colors.grey),
                   )
                 : Container(
                     width: double.infinity,
                     height: 200,
                     color: isDark ? AppTheme.darkCard : Colors.grey.shade300,
                     child: Icon(
-                      Icons.image, 
-                      size: 50, 
+                      Icons.image,
+                      size: 50,
                       color: AppTheme.getTextSecondary(context),
                     ),
                   ),
@@ -64,7 +72,7 @@ class CourseDetailScreen extends StatelessWidget {
               child: Text(
                 "$enrolledStudents students enrolled",
                 style: TextStyle(
-                  fontSize: 16, 
+                  fontSize: 16,
                   color: AppTheme.getTextSecondary(context),
                 ),
               ),
@@ -78,7 +86,7 @@ class CourseDetailScreen extends StatelessWidget {
                 child: Text(
                   "Created at: ${DateTime.fromMillisecondsSinceEpoch(createdAt!).toLocal()}",
                   style: TextStyle(
-                    fontSize: 14, 
+                    fontSize: 14,
                     color: AppTheme.getTextSecondary(context),
                   ),
                 ),
@@ -91,7 +99,7 @@ class CourseDetailScreen extends StatelessWidget {
               child: Text(
                 "Course Overview",
                 style: TextStyle(
-                  fontSize: 20, 
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.getTextPrimary(context),
                 ),
@@ -101,7 +109,9 @@ class CourseDetailScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               child: Text(
-                description.isNotEmpty ? description : "No description provided",
+                description.isNotEmpty
+                    ? description
+                    : "No description provided",
                 style: TextStyle(
                   fontSize: 16,
                   color: AppTheme.getTextSecondary(context),
@@ -120,7 +130,7 @@ class CourseDetailScreen extends StatelessWidget {
                     Text(
                       "Course Video",
                       style: TextStyle(
-                        fontSize: 20, 
+                        fontSize: 20,
                         fontWeight: FontWeight.bold,
                         color: AppTheme.getTextPrimary(context),
                       ),
@@ -128,7 +138,9 @@ class CourseDetailScreen extends StatelessWidget {
                     const SizedBox(height: 8),
                     AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: VideoPlayerWidget(videoUrl: videoUrl!), // Custom widget to play video
+                      child: VideoPlayerWidget(
+                        videoUrl: videoUrl!,
+                      ), // Custom widget to play video
                     ),
                   ],
                 ),
