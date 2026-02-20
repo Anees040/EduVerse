@@ -46,8 +46,8 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _initializeAdmin();
     });
-    // Set up periodic refresh every 30 seconds for real-time feel
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Set up periodic refresh every 2 minutes — avoids excessive Firebase reads
+    _refreshTimer = Timer.periodic(const Duration(seconds: 120), (_) {
       _refreshDashboardData();
     });
   }
@@ -164,8 +164,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
-                          color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                              .withOpacity(0.3),
+                          color:
+                              (isDark
+                                      ? AppTheme.darkPrimary
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),
@@ -193,7 +196,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
             Text(
               'Verifying access...',
               style: TextStyle(
-                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
                 fontSize: 16,
               ),
             ),
@@ -214,8 +219,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
                         width: 12,
                         height: 12,
                         decoration: BoxDecoration(
-                          color: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
-                              .withOpacity(0.3 + (value * 0.7)),
+                          color:
+                              (isDark
+                                      ? AppTheme.darkPrimary
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.3 + (value * 0.7)),
                           shape: BoxShape.circle,
                         ),
                       );
@@ -311,7 +319,10 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -441,7 +452,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 
         // Responsive breakpoints - Mobile-first approach
         // Desktop (>=900): 4 columns in a row
-        // Tablet (>=600): 2x2 grid 
+        // Tablet (>=600): 2x2 grid
         // Mobile (< 600): 2x2 grid with smaller cards
         if (screenWidth >= 900) {
           crossAxisCount = 4;
@@ -454,7 +465,9 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         } else {
           // Mobile: Always 2x2 grid
           crossAxisCount = 2;
-          aspectRatio = screenWidth >= 360 ? 1.0 : 0.9; // Slightly taller on very small screens
+          aspectRatio = screenWidth >= 360
+              ? 1.0
+              : 0.9; // Slightly taller on very small screens
           spacing = 8;
         }
 
@@ -470,30 +483,34 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               // Sparkline chart removed - was showing mock data
               isLoading: isLoading,
               onButtonTap: () {
-                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                final dashboardState = context
+                    .findAncestorStateOfType<_AdminDashboardScreenState>();
                 dashboardState?.navigateToTab(1);
               },
             ),
           ),
-          
+
           // Total Teachers Card
           AspectRatio(
             aspectRatio: aspectRatio,
             child: ModernKPICard(
               title: 'Total Teachers',
               value: isLoading ? '...' : '$totalTeachers',
-              badgeText: pendingTeachers > 0 ? 'Pending Applications: $pendingTeachers' : null,
+              badgeText: pendingTeachers > 0
+                  ? 'Pending Applications: $pendingTeachers'
+                  : null,
               badgeColor: const Color(0xFFFFB300),
               accentColor: const Color(0xFF26A69A),
               buttonText: 'Verify',
               isLoading: isLoading,
               onButtonTap: () {
-                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                final dashboardState = context
+                    .findAncestorStateOfType<_AdminDashboardScreenState>();
                 dashboardState?.navigateToTab(2);
               },
             ),
           ),
-          
+
           // Total Courses Card
           AspectRatio(
             aspectRatio: aspectRatio,
@@ -506,12 +523,13 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               buttonText: 'Manage',
               isLoading: isLoading,
               onButtonTap: () {
-                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                final dashboardState = context
+                    .findAncestorStateOfType<_AdminDashboardScreenState>();
                 dashboardState?.navigateToTab(7); // Tab 7 = All Courses
               },
             ),
           ),
-          
+
           // Total Revenue Card
           AspectRatio(
             aspectRatio: aspectRatio,
@@ -523,7 +541,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
               // Bar chart removed - was showing mock data
               isLoading: isLoading,
               onButtonTap: () {
-                final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+                final dashboardState = context
+                    .findAncestorStateOfType<_AdminDashboardScreenState>();
                 dashboardState?.navigateToTab(4);
               },
             ),
@@ -532,10 +551,14 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 
         if (crossAxisCount == 1) {
           return Column(
-            children: cards.map((card) => Padding(
-              padding: EdgeInsets.only(bottom: spacing),
-              child: card,
-            )).toList(),
+            children: cards
+                .map(
+                  (card) => Padding(
+                    padding: EdgeInsets.only(bottom: spacing),
+                    child: card,
+                  ),
+                )
+                .toList(),
           );
         }
 
@@ -570,7 +593,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           color: isDark ? AppTheme.darkSuccess : AppTheme.success,
           onTap: () {
             // Navigate to Verification tab (index 2)
-            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(2);
             }
@@ -580,12 +604,13 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           icon: Icons.report_rounded,
           label: 'Review Reports',
           color: isDark ? AppTheme.darkError : AppTheme.error,
-          badge: provider.state.reportedContent.isNotEmpty 
-              ? '${provider.state.reportedContent.length}' 
+          badge: provider.state.reportedContent.isNotEmpty
+              ? '${provider.state.reportedContent.length}'
               : null,
           onTap: () {
             // Navigate to Moderation tab (index 3)
-            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(3);
             }
@@ -597,7 +622,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
           onTap: () {
             // Navigate to Data tab (index 5)
-            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(5);
             }
@@ -609,7 +635,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           color: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
           onTap: () {
             // Navigate to Analytics tab (index 4)
-            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(4);
             }
@@ -621,7 +648,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           color: Colors.teal,
           onTap: () {
             // Navigate to Support tab (index 6)
-            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(6);
             }
@@ -633,7 +661,8 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
           color: Colors.deepPurple,
           onTap: () {
             // Navigate to Courses tab (index 7)
-            final dashboardState = context.findAncestorStateOfType<_AdminDashboardScreenState>();
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(7);
             }
@@ -647,16 +676,27 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
   Widget _buildRecentActivityStream(bool isDark) {
     // Listen to both students and teachers for real-time updates
     return StreamBuilder<DatabaseEvent>(
-      stream: _db.child('student').orderByChild('createdAt').limitToLast(10).onValue,
+      stream: _db
+          .child('student')
+          .orderByChild('createdAt')
+          .limitToLast(10)
+          .onValue,
       builder: (context, studentSnapshot) {
         return StreamBuilder<DatabaseEvent>(
-          stream: _db.child('teacher').orderByChild('createdAt').limitToLast(10).onValue,
+          stream: _db
+              .child('teacher')
+              .orderByChild('createdAt')
+              .limitToLast(10)
+              .onValue,
           builder: (context, teacherSnapshot) {
             // Combine and sort users from both streams
             final List<Map<String, dynamic>> activities = [];
-            
-            if (studentSnapshot.hasData && studentSnapshot.data?.snapshot.value != null) {
-              final data = Map<String, dynamic>.from(studentSnapshot.data!.snapshot.value as Map);
+
+            if (studentSnapshot.hasData &&
+                studentSnapshot.data?.snapshot.value != null) {
+              final data = Map<String, dynamic>.from(
+                studentSnapshot.data!.snapshot.value as Map,
+              );
               for (var entry in data.entries) {
                 final user = Map<String, dynamic>.from(entry.value as Map);
                 user['uid'] = entry.key;
@@ -665,9 +705,12 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 activities.add(user);
               }
             }
-            
-            if (teacherSnapshot.hasData && teacherSnapshot.data?.snapshot.value != null) {
-              final data = Map<String, dynamic>.from(teacherSnapshot.data!.snapshot.value as Map);
+
+            if (teacherSnapshot.hasData &&
+                teacherSnapshot.data?.snapshot.value != null) {
+              final data = Map<String, dynamic>.from(
+                teacherSnapshot.data!.snapshot.value as Map,
+              );
               for (var entry in data.entries) {
                 final user = Map<String, dynamic>.from(entry.value as Map);
                 user['uid'] = entry.key;
@@ -676,16 +719,16 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 activities.add(user);
               }
             }
-            
+
             // Sort by createdAt (most recent first) and take top 6
             activities.sort((a, b) {
               final aTime = a['createdAt'] ?? 0;
               final bTime = b['createdAt'] ?? 0;
               return bTime.compareTo(aTime);
             });
-            
+
             final recentActivities = activities.take(6).toList();
-            
+
             if (recentActivities.isEmpty) {
               return Container(
                 padding: const EdgeInsets.all(20),
@@ -702,7 +745,9 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                       Icon(
                         Icons.history,
                         size: 40,
-                        color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                        color: isDark
+                            ? AppTheme.darkTextSecondary
+                            : AppTheme.textSecondary,
                       ),
                       const SizedBox(height: 8),
                       Text(
@@ -718,7 +763,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 ),
               );
             }
-            
+
             return Container(
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.darkCard : Colors.white,
@@ -738,29 +783,29 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 itemBuilder: (context, index) {
                   final activity = recentActivities[index];
                   final role = activity['role'] ?? 'user';
-                  final name = activity['name'] ?? activity['fullName'] ?? 'Unknown';
+                  final name =
+                      activity['name'] ?? activity['fullName'] ?? 'Unknown';
                   final createdAt = activity['createdAt'];
-                  
+
                   // Activity icon and color based on type
                   IconData activityIcon = Icons.person_add;
-                  Color activityColor = role == 'teacher' 
+                  Color activityColor = role == 'teacher'
                       ? (isDark ? AppTheme.darkAccent : AppTheme.accentColor)
                       : (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor);
-                  String activityText = 'New ${role == 'teacher' ? 'teacher' : 'student'} signed up';
-                  
+                  String activityText =
+                      'New ${role == 'teacher' ? 'teacher' : 'student'} signed up';
+
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: activityColor.withOpacity(0.1),
-                      child: Icon(
-                        activityIcon,
-                        color: activityColor,
-                        size: 20,
-                      ),
+                      child: Icon(activityIcon, color: activityColor, size: 20),
                     ),
                     title: Text(
                       name,
                       style: TextStyle(
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -788,7 +833,10 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                         ),
                         const SizedBox(height: 2),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: activityColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -816,9 +864,11 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
 
   String _getTimeAgo(dynamic timestamp) {
     if (timestamp == null) return '';
-    
+
     final now = DateTime.now();
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp is int ? timestamp : 0);
+    final date = DateTime.fromMillisecondsSinceEpoch(
+      timestamp is int ? timestamp : 0,
+    );
     final diff = now.difference(date);
 
     if (diff.inMinutes < 1) {
