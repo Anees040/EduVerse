@@ -16,6 +16,11 @@ class AdminService {
   // Pagination constants
   static const int pageSize = 20;
 
+  // In-memory cache for KPI stats to avoid redundant reads
+  static Map<String, dynamic>? _kpiCache;
+  static DateTime? _kpiCacheTime;
+  static const Duration _kpiCacheTTL = Duration(minutes: 2);
+
   /// Helper to send emails via the local email server
   Future<void> _sendEmailViaServer({
     required String to,
@@ -95,8 +100,14 @@ class AdminService {
   // KPI Statistics
   // =====================
 
-  /// Get platform-wide KPI statistics
+  /// Get platform-wide KPI statistics (cached for 2 minutes)
   Future<Map<String, dynamic>> getKPIStats() async {
+    // Return cached result if still fresh
+    if (_kpiCache != null &&
+        _kpiCacheTime != null &&
+        DateTime.now().difference(_kpiCacheTime!) < _kpiCacheTTL) {
+      return _kpiCache!;
+    }
     try {
       // Get all students
       final studentsSnapshot = await _db.child('student').get();
@@ -149,7 +160,7 @@ class AdminService {
         }
       }
 
-      return {
+      final result = {
         'totalUsers': totalStudents + totalTeachers,
         'totalStudents': totalStudents,
         'totalTeachers': totalTeachers,
@@ -160,6 +171,10 @@ class AdminService {
         'totalRevenue': totalRevenue,
         'lastUpdated': DateTime.now().toIso8601String(),
       };
+      // Cache the result
+      _kpiCache = result;
+      _kpiCacheTime = DateTime.now();
+      return result;
     } catch (e) {
       return {
         'totalUsers': 0,
@@ -347,7 +362,7 @@ class AdminService {
         'isVerified': true,
         'verifiedAt': ServerValue.timestamp,
       });
-      
+
       // Send approval email if email provided
       if (email != null && email.isNotEmpty) {
         try {
@@ -361,7 +376,7 @@ class AdminService {
           // Verification was successful, just email failed
         }
       }
-      
+
       return true;
     } catch (e) {
       debugPrint('Error verifying teacher: $e');
@@ -370,7 +385,12 @@ class AdminService {
   }
 
   /// Reject a teacher and send rejection email
-  Future<bool> rejectTeacher(String uid, {String? email, String? name, String? reason}) async {
+  Future<bool> rejectTeacher(
+    String uid, {
+    String? email,
+    String? name,
+    String? reason,
+  }) async {
     try {
       await _db.child('teacher').child(uid).update({
         'isVerified': false,
@@ -378,7 +398,7 @@ class AdminService {
         'rejectedAt': ServerValue.timestamp,
         'rejectionReason': reason,
       });
-      
+
       // Send rejection email if email provided
       if (email != null && email.isNotEmpty) {
         try {
@@ -393,7 +413,7 @@ class AdminService {
           // Rejection was successful, just email failed
         }
       }
-      
+
       return true;
     } catch (e) {
       debugPrint('Error rejecting teacher: $e');
@@ -444,7 +464,9 @@ class AdminService {
       // 1. Check the moderation queue (primary source for user-reported content)
       final moderationSnapshot = await _db.child('moderation').get();
       if (moderationSnapshot.exists && moderationSnapshot.value != null) {
-        final moderationMap = Map<String, dynamic>.from(moderationSnapshot.value as Map);
+        final moderationMap = Map<String, dynamic>.from(
+          moderationSnapshot.value as Map,
+        );
         for (var entry in moderationMap.entries) {
           final item = Map<String, dynamic>.from(entry.value as Map);
           // Only include pending items
@@ -452,7 +474,8 @@ class AdminService {
             flaggedItems.add({
               'id': entry.key,
               'type': item['contentType'] ?? 'unknown',
-              'content': item['contentText'] ?? item['reason'] ?? 'Reported content',
+              'content':
+                  item['contentText'] ?? item['reason'] ?? 'Reported content',
               'reportedBy': item['reportedBy'] ?? 'Unknown',
               'reportReason': item['reason'] ?? 'Policy violation',
               'createdAt': item['timestamp'],
@@ -467,8 +490,11 @@ class AdminService {
 
       // 2. Check flagged_content node
       final flaggedContentSnapshot = await _db.child('flagged_content').get();
-      if (flaggedContentSnapshot.exists && flaggedContentSnapshot.value != null) {
-        final flaggedMap = Map<String, dynamic>.from(flaggedContentSnapshot.value as Map);
+      if (flaggedContentSnapshot.exists &&
+          flaggedContentSnapshot.value != null) {
+        final flaggedMap = Map<String, dynamic>.from(
+          flaggedContentSnapshot.value as Map,
+        );
         for (var entry in flaggedMap.entries) {
           final item = Map<String, dynamic>.from(entry.value as Map);
           // Check if already added
@@ -518,13 +544,17 @@ class AdminService {
       // 4. Check course reviews for reported content
       final coursesSnapshot = await _db.child('courses').get();
       if (coursesSnapshot.exists && coursesSnapshot.value != null) {
-        final coursesMap = Map<String, dynamic>.from(coursesSnapshot.value as Map);
+        final coursesMap = Map<String, dynamic>.from(
+          coursesSnapshot.value as Map,
+        );
         for (var courseEntry in coursesMap.entries) {
           final course = Map<String, dynamic>.from(courseEntry.value as Map);
           if (course['reviews'] != null) {
             final reviews = Map<String, dynamic>.from(course['reviews'] as Map);
             for (var reviewEntry in reviews.entries) {
-              final review = Map<String, dynamic>.from(reviewEntry.value as Map);
+              final review = Map<String, dynamic>.from(
+                reviewEntry.value as Map,
+              );
               if (review['isReported'] == true || review['flagged'] == true) {
                 final id = '${courseEntry.key}_review_${reviewEntry.key}';
                 if (!flaggedItems.any((f) => f['id'] == id)) {
@@ -701,15 +731,12 @@ class AdminService {
 
       // Try to update the content directly (may fail if user doesn't have permission)
       try {
-        await _db.child(path).update({
-          'isReported': true,
-          'flagged': true,
-        });
+        await _db.child(path).update({'isReported': true, 'flagged': true});
       } catch (e) {
         // It's okay if this fails - the report is what matters
         debugPrint('Could not update content flags (expected): $e');
       }
-      
+
       return true;
     } catch (e) {
       debugPrint('Error reporting content: $e');
