@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -649,13 +650,20 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                   child: Stack(
                     children: [
                       imageUrl.isNotEmpty
-                          ? Image.network(
-                              imageUrl,
+                          ? CachedNetworkImage(
+                              imageUrl: imageUrl,
                               height: 95,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) =>
-                                  _buildPlaceholderImage(isDark, accentColor),
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                              ),
                             )
                           : _buildPlaceholderImage(isDark, accentColor),
                       // Gradient overlay for depth
