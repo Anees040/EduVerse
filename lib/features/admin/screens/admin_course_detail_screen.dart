@@ -15,21 +15,22 @@ class AdminCourseDetailScreen extends StatefulWidget {
   const AdminCourseDetailScreen({super.key, required this.course});
 
   @override
-  State<AdminCourseDetailScreen> createState() => _AdminCourseDetailScreenState();
+  State<AdminCourseDetailScreen> createState() =>
+      _AdminCourseDetailScreenState();
 }
 
 class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     with SingleTickerProviderStateMixin {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
-  
+
   late TabController _tabController;
-  
+
   String? _teacherName;
   List<Map<String, dynamic>> _videos = [];
   List<Map<String, dynamic>> _reviews = [];
   List<Map<String, dynamic>> _enrolledStudents = [];
   bool _isLoading = true;
-  double _calculatedRating = 0.0;  // Calculated from actual reviews
+  double _calculatedRating = 0.0; // Calculated from actual reviews
 
   @override
   void initState() {
@@ -49,8 +50,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
     try {
       // Load teacher name
-      final teacherSnapshot = await _db.child('teacher')
-          .child(widget.course.teacherUid).child('name').get();
+      final teacherSnapshot = await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .child('name')
+          .get();
       if (teacherSnapshot.exists) {
         _teacherName = teacherSnapshot.value.toString();
       }
@@ -72,13 +76,16 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   }
 
   Future<void> _loadVideos() async {
-    final videosSnapshot = await _db.child('courses')
-        .child(widget.course.courseUid).child('videos').get();
-    
+    final videosSnapshot = await _db
+        .child('courses')
+        .child(widget.course.courseUid)
+        .child('videos')
+        .get();
+
     if (videosSnapshot.exists && videosSnapshot.value != null) {
       final data = videosSnapshot.value;
       final videos = <Map<String, dynamic>>[];
-      
+
       if (data is Map) {
         for (var entry in data.entries) {
           videos.add({
@@ -96,32 +103,37 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           }
         }
       }
-      
+
       // Sort by order if available
       videos.sort((a, b) => (a['order'] ?? 0).compareTo(b['order'] ?? 0));
-      
+
       setState(() => _videos = videos);
     }
   }
 
   Future<void> _loadReviews() async {
-    final reviewsSnapshot = await _db.child('courses')
-        .child(widget.course.courseUid).child('reviews').get();
-    
+    final reviewsSnapshot = await _db
+        .child('courses')
+        .child(widget.course.courseUid)
+        .child('reviews')
+        .get();
+
     if (reviewsSnapshot.exists && reviewsSnapshot.value != null) {
       final data = reviewsSnapshot.value as Map;
       final reviews = <Map<String, dynamic>>[];
-      
+
       for (var entry in data.entries) {
         reviews.add({
           'id': entry.key.toString(),
           ...Map<String, dynamic>.from(entry.value as Map),
         });
       }
-      
+
       // Sort by date descending
-      reviews.sort((a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0));
-      
+      reviews.sort(
+        (a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0),
+      );
+
       // Calculate average rating from actual reviews
       double totalRating = 0.0;
       int ratingCount = 0;
@@ -132,7 +144,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ratingCount++;
         }
       }
-      
+
       setState(() {
         _reviews = reviews;
         _calculatedRating = ratingCount > 0 ? totalRating / ratingCount : 0.0;
@@ -141,28 +153,38 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   }
 
   Future<void> _loadEnrolledStudents() async {
-    final enrolledSnapshot = await _db.child('courses')
-        .child(widget.course.courseUid).child('enrolledStudents').get();
-    
+    final enrolledSnapshot = await _db
+        .child('courses')
+        .child(widget.course.courseUid)
+        .child('enrolledStudents')
+        .get();
+
     if (enrolledSnapshot.exists && enrolledSnapshot.value != null) {
       final data = enrolledSnapshot.value as Map;
       final students = <Map<String, dynamic>>[];
-      
+
       for (var entry in data.entries) {
         final studentId = entry.key.toString();
         final enrollmentData = entry.value;
-        
+
         // Load student name
-        final studentSnapshot = await _db.child('student')
-            .child(studentId).child('name').get();
-        
+        final studentSnapshot = await _db
+            .child('student')
+            .child(studentId)
+            .child('name')
+            .get();
+
         students.add({
           'id': studentId,
-          'name': studentSnapshot.exists ? studentSnapshot.value.toString() : 'Unknown',
-          'enrolledAt': enrollmentData is Map ? enrollmentData['enrolledAt'] : null,
+          'name': studentSnapshot.exists
+              ? studentSnapshot.value.toString()
+              : 'Unknown',
+          'enrolledAt': enrollmentData is Map
+              ? enrollmentData['enrolledAt']
+              : null,
         });
       }
-      
+
       setState(() => _enrolledStudents = students);
     }
   }
@@ -174,7 +196,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     // Remove leading dash if present (Firebase push IDs start with -)
     final cleanId = fullId.startsWith('-') ? fullId.substring(1) : fullId;
     // Take first 6 chars and format as XXX-XXX
-    final shortId = cleanId.length >= 6 
+    final shortId = cleanId.length >= 6
         ? '${cleanId.substring(0, 3).toUpperCase()}-${cleanId.substring(3, 6).toUpperCase()}'
         : cleanId.toUpperCase();
     return shortId;
@@ -197,14 +219,72 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     delegate: _SliverTabBarDelegate(
                       TabBar(
                         controller: _tabController,
-                        labelColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                        unselectedLabelColor: AppTheme.getTextSecondary(context),
-                        indicatorColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                        tabs: const [
-                          Tab(text: 'Overview'),
-                          Tab(text: 'Videos'),
-                          Tab(text: 'Reviews'),
-                          Tab(text: 'Students'),
+                        labelColor: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        unselectedLabelColor: AppTheme.getTextSecondary(
+                          context,
+                        ),
+                        indicatorColor: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        indicatorWeight: 3,
+                        indicatorSize: TabBarIndicatorSize.label,
+                        labelStyle: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                        unselectedLabelStyle: const TextStyle(
+                          fontWeight: FontWeight.normal,
+                          fontSize: 13,
+                        ),
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        tabs: [
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.info_outline, size: 16),
+                                const SizedBox(width: 6),
+                                const Text('Overview'),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.video_library_outlined,
+                                  size: 16,
+                                ),
+                                const SizedBox(width: 6),
+                                Text('Videos (${_videos.length})'),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.star_outline, size: 16),
+                                const SizedBox(width: 6),
+                                Text('Reviews (${_reviews.length})'),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.people_outline, size: 16),
+                                const SizedBox(width: 6),
+                                Text('Students (${_enrolledStudents.length})'),
+                              ],
+                            ),
+                          ),
                         ],
                       ),
                       isDark,
@@ -248,10 +328,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.transparent,
-                    Colors.black.withOpacity(0.7),
-                  ],
+                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
                 ),
               ),
             ),
@@ -289,7 +366,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               child: Row(
                 children: [
                   Icon(
-                    widget.course.isPublished ? Icons.visibility_off : Icons.visibility,
+                    widget.course.isPublished
+                        ? Icons.visibility_off
+                        : Icons.visibility,
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -340,13 +419,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ),
           ),
           const SizedBox(height: 8),
-          
+
           // Teacher and Category
           Row(
             children: [
               CircleAvatar(
                 radius: 16,
-                backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                backgroundColor: isDark
+                    ? AppTheme.darkAccent
+                    : AppTheme.primaryColor,
                 child: Text(
                   (_teacherName ?? 'T')[0].toUpperCase(),
                   style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -362,9 +443,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
-                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+                  color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      .withOpacity(0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
@@ -379,12 +464,22 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ],
           ),
           const SizedBox(height: 16),
-          
+
           // Stats Row
           Row(
             children: [
-              _buildStatItem(Icons.people, '${widget.course.enrolledCount}', 'Students', isDark),
-              _buildStatItem(Icons.video_library, '${_videos.length}', 'Videos', isDark),
+              _buildStatItem(
+                Icons.people,
+                '${widget.course.enrolledCount}',
+                'Students',
+                isDark,
+              ),
+              _buildStatItem(
+                Icons.video_library,
+                '${_videos.length}',
+                'Videos',
+                isDark,
+              ),
               _buildStatItem(
                 Icons.star,
                 _calculatedRating.toStringAsFixed(1),
@@ -394,7 +489,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
               _buildStatItem(
                 Icons.attach_money,
-                widget.course.isFree ? 'Free' : '\$${widget.course.price.toStringAsFixed(0)}',
+                widget.course.isFree
+                    ? 'Free'
+                    : '\$${widget.course.price.toStringAsFixed(0)}',
                 widget.course.isFree ? '' : 'Price',
                 isDark,
                 iconColor: Colors.green,
@@ -402,12 +499,15 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ],
           ),
           const SizedBox(height: 12),
-          
+
           // Status Badge
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: widget.course.isPublished
                       ? Colors.green.withOpacity(0.1)
@@ -423,15 +523,21 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Icon(
-                      widget.course.isPublished ? Icons.check_circle : Icons.pending,
+                      widget.course.isPublished
+                          ? Icons.check_circle
+                          : Icons.pending,
                       size: 16,
-                      color: widget.course.isPublished ? Colors.green : Colors.orange,
+                      color: widget.course.isPublished
+                          ? Colors.green
+                          : Colors.orange,
                     ),
                     const SizedBox(width: 4),
                     Text(
                       widget.course.isPublished ? 'Published' : 'Draft',
                       style: TextStyle(
-                        color: widget.course.isPublished ? Colors.green : Colors.orange,
+                        color: widget.course.isPublished
+                            ? Colors.green
+                            : Colors.orange,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -441,7 +547,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
                   borderRadius: BorderRadius.circular(20),
@@ -461,14 +570,24 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     );
   }
 
-  Widget _buildStatItem(IconData icon, String value, String label, bool isDark, {Color? iconColor}) {
+  Widget _buildStatItem(
+    IconData icon,
+    String value,
+    String label,
+    bool isDark, {
+    Color? iconColor,
+  }) {
     return Expanded(
       child: Column(
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: iconColor ?? AppTheme.getTextSecondary(context)),
+              Icon(
+                icon,
+                size: 18,
+                color: iconColor ?? AppTheme.getTextSecondary(context),
+              ),
               const SizedBox(width: 4),
               Text(
                 value,
@@ -496,9 +615,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   }
 
   Widget _buildOverviewTab(bool isDark) {
-    final createdDate = DateFormat('MMM d, yyyy').format(
-      DateTime.fromMillisecondsSinceEpoch(widget.course.createdAt),
-    );
+    final createdDate = DateFormat(
+      'MMM d, yyyy',
+    ).format(DateTime.fromMillisecondsSinceEpoch(widget.course.createdAt));
     final updatedDate = widget.course.updatedAt != null
         ? DateFormat('MMM d, yyyy').format(
             DateTime.fromMillisecondsSinceEpoch(widget.course.updatedAt!),
@@ -521,57 +640,94 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Course Details
         _buildSection(
           title: 'Course Details',
           isDark: isDark,
           child: Column(
             children: [
-              _buildDetailRow('Course ID', _getFriendlyId(widget.course.courseUid), isDark),
-              _buildDetailRow('Teacher ID', _getFriendlyId(widget.course.teacherUid), isDark),
+              _buildDetailRow(
+                'Course ID',
+                _getFriendlyId(widget.course.courseUid),
+                isDark,
+              ),
+              _buildDetailRow(
+                'Teacher ID',
+                _getFriendlyId(widget.course.teacherUid),
+                isDark,
+              ),
               _buildDetailRow('Created', createdDate, isDark),
               if (updatedDate != null)
                 _buildDetailRow('Last Updated', updatedDate, isDark),
-              _buildDetailRow('Difficulty', widget.course.difficultyDisplay, isDark),
+              _buildDetailRow(
+                'Difficulty',
+                widget.course.difficultyDisplay,
+                isDark,
+              ),
               _buildDetailRow('Category', widget.course.category, isDark),
               _buildDetailRow('Price', widget.course.priceDisplay, isDark),
             ],
           ),
         ),
         const SizedBox(height: 16),
-        
+
         // Quick Actions
         _buildSection(
           title: 'Quick Actions',
           isDark: isDark,
-          child: Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          child: Column(
             children: [
-              _buildActionChip(
-                'View Teacher Profile',
-                Icons.person,
-                () => _viewTeacherProfile(),
-                isDark,
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      'View Teacher',
+                      'See teacher profile',
+                      Icons.person_outline,
+                      Colors.blue,
+                      () => _viewTeacherProfile(),
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      'Contact',
+                      'Send email to teacher',
+                      Icons.email_outlined,
+                      Colors.teal,
+                      () => _contactTeacher(),
+                      isDark,
+                    ),
+                  ),
+                ],
               ),
-              _buildActionChip(
-                'Contact Teacher',
-                Icons.email,
-                () => _contactTeacher(),
-                isDark,
-              ),
-              _buildActionChip(
-                'View Reports',
-                Icons.flag,
-                () => _viewCourseReports(),
-                isDark,
-              ),
-              _buildActionChip(
-                'View Analytics',
-                Icons.analytics,
-                () => _viewCourseAnalytics(),
-                isDark,
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      'Reports',
+                      'View flagged reports',
+                      Icons.flag_outlined,
+                      Colors.orange,
+                      () => _viewCourseReports(),
+                      isDark,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _buildQuickActionCard(
+                      'Analytics',
+                      'Course statistics',
+                      Icons.analytics_outlined,
+                      Colors.purple,
+                      () => _viewCourseAnalytics(),
+                      isDark,
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -594,9 +750,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 16),
             Text(
               'No videos in this course',
-              style: TextStyle(
-                color: AppTheme.getTextSecondary(context),
-              ),
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
             ),
           ],
         ),
@@ -617,8 +771,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     final isHidden = video['isHidden'] == true;
     // Handle duration as either int or double
     final durationValue = video['duration'];
-    final duration = durationValue is int 
-        ? durationValue 
+    final duration = durationValue is int
+        ? durationValue
         : (durationValue is double ? durationValue.toInt() : 0);
     final durationStr = _formatDuration(duration);
 
@@ -642,7 +796,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
+                color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                    .withOpacity(0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Center(
@@ -656,7 +811,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               ),
             ),
             const SizedBox(width: 12),
-            
+
             // Video Info
             Expanded(
               child: Column(
@@ -672,13 +827,18 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                                 ? AppTheme.getTextSecondary(context)
                                 : AppTheme.getTextPrimary(context),
                             fontWeight: FontWeight.w600,
-                            decoration: isHidden ? TextDecoration.lineThrough : null,
+                            decoration: isHidden
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                       ),
                       if (isHidden)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.red.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -713,7 +873,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       if (video['isFree'] == true) ...[
                         const SizedBox(width: 12),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.green.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(4),
@@ -733,24 +896,30 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 ],
               ),
             ),
-            
+
             // Actions
             PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: AppTheme.getTextSecondary(context)),
+              icon: Icon(
+                Icons.more_vert,
+                color: AppTheme.getTextSecondary(context),
+              ),
               onSelected: (action) => _handleVideoAction(video, action),
               itemBuilder: (context) => [
-                const PopupMenuItem(value: 'preview', child: Text('Preview Video')),
+                const PopupMenuItem(
+                  value: 'preview',
+                  child: Text('Preview Video'),
+                ),
                 PopupMenuItem(
                   value: isHidden ? 'show' : 'hide',
                   child: Text(isHidden ? 'Show Video' : 'Hide Video'),
                 ),
-                const PopupMenuItem(
-                  value: 'flag',
-                  child: Text('Flag Video'),
-                ),
+                const PopupMenuItem(value: 'flag', child: Text('Flag Video')),
                 const PopupMenuItem(
                   value: 'delete',
-                  child: Text('Delete Video', style: TextStyle(color: Colors.red)),
+                  child: Text(
+                    'Delete Video',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ),
               ],
             ),
@@ -774,9 +943,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 16),
             Text(
               'No reviews yet',
-              style: TextStyle(
-                color: AppTheme.getTextSecondary(context),
-              ),
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
             ),
           ],
         ),
@@ -818,7 +985,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               children: [
                 CircleAvatar(
                   radius: 18,
-                  backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                  backgroundColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
                   child: Text(
                     (review['studentName'] ?? 'U')[0].toUpperCase(),
                     style: const TextStyle(color: Colors.white, fontSize: 14),
@@ -838,16 +1007,22 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       ),
                       Row(
                         children: [
-                          ...List.generate(5, (i) => Icon(
-                            i < rating ? Icons.star : Icons.star_border,
-                            size: 14,
-                            color: Colors.amber,
-                          )),
+                          ...List.generate(
+                            5,
+                            (i) => Icon(
+                              i < rating ? Icons.star : Icons.star_border,
+                              size: 14,
+                              color: Colors.amber,
+                            ),
+                          ),
                           const SizedBox(width: 8),
                           Text(
                             createdAt != null
                                 ? DateFormat('MMM d, y').format(
-                                    DateTime.fromMillisecondsSinceEpoch(createdAt))
+                                    DateTime.fromMillisecondsSinceEpoch(
+                                      createdAt,
+                                    ),
+                                  )
                                 : '',
                             style: TextStyle(
                               color: AppTheme.getTextSecondary(context),
@@ -861,7 +1036,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 ),
                 if (isHidden)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: Colors.red.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(4),
@@ -876,7 +1054,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     ),
                   ),
                 PopupMenuButton<String>(
-                  icon: Icon(Icons.more_vert, color: AppTheme.getTextSecondary(context), size: 20),
+                  icon: Icon(
+                    Icons.more_vert,
+                    color: AppTheme.getTextSecondary(context),
+                    size: 20,
+                  ),
                   onSelected: (action) => _handleReviewAction(review, action),
                   itemBuilder: (context) => [
                     PopupMenuItem(
@@ -885,7 +1067,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     ),
                     const PopupMenuItem(
                       value: 'delete',
-                      child: Text('Delete Review', style: TextStyle(color: Colors.red)),
+                      child: Text(
+                        'Delete Review',
+                        style: TextStyle(color: Colors.red),
+                      ),
                     ),
                   ],
                 ),
@@ -922,9 +1107,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 16),
             Text(
               'No students enrolled',
-              style: TextStyle(
-                color: AppTheme.getTextSecondary(context),
-              ),
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
             ),
           ],
         ),
@@ -947,9 +1130,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       color: isDark ? AppTheme.darkCard : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
@@ -1044,15 +1225,57 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     );
   }
 
-  Widget _buildActionChip(String label, IconData icon, VoidCallback onTap, bool isDark) {
-    return ActionChip(
-      avatar: Icon(icon, size: 18),
-      label: Text(label),
-      onPressed: onTap,
-      backgroundColor: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
-      labelStyle: TextStyle(
-        color: AppTheme.getTextPrimary(context),
-        fontSize: 12,
+  Widget _buildQuickActionCard(
+    String title,
+    String subtitle,
+    IconData icon,
+    Color color,
+    VoidCallback onTap,
+    bool isDark,
+  ) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.06),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withOpacity(0.15)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(height: 10),
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1080,29 +1303,34 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   Future<void> _togglePublish() async {
     final newStatus = !widget.course.isPublished;
-    
+
     await _db.child('courses').child(widget.course.courseUid).update({
       'isPublished': newStatus,
     });
-    await _db.child('teacher').child(widget.course.teacherUid)
-        .child('courses').child(widget.course.courseUid).update({
-      'isPublished': newStatus,
-    });
-    
+    await _db
+        .child('teacher')
+        .child(widget.course.teacherUid)
+        .child('courses')
+        .child(widget.course.courseUid)
+        .update({'isPublished': newStatus});
+
     await _logAction(newStatus ? 'publish_course' : 'unpublish_course');
-    
+
     // Send notification to teacher when course is unpublished
     if (!newStatus) {
       await _sendTeacherNotification(
         title: 'Course Unpublished',
-        message: 'Your course "${widget.course.title}" has been unpublished by an administrator. Please contact support for more information.',
+        message:
+            'Your course "${widget.course.title}" has been unpublished by an administrator. Please contact support for more information.',
         type: 'course_unpublished',
       );
     }
-    
+
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Course ${newStatus ? 'published' : 'unpublished'}')),
+        SnackBar(
+          content: Text('Course ${newStatus ? 'published' : 'unpublished'}'),
+        ),
       );
       Navigator.pop(context);
     }
@@ -1111,7 +1339,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   /// View teacher profile in a dialog
   Future<void> _viewTeacherProfile() async {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -1127,39 +1355,48 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ),
       ),
     );
-    
+
     try {
-      final snapshot = await _db.child('teacher').child(widget.course.teacherUid).get();
-      
+      final snapshot = await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .get();
+
       if (!mounted) return;
       Navigator.pop(context); // Close loading dialog
-      
+
       if (!snapshot.exists) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Teacher profile not found')),
         );
         return;
       }
-      
+
       final teacherData = Map<String, dynamic>.from(snapshot.value as Map);
-      
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               CircleAvatar(
-                backgroundColor: (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor).withOpacity(0.1),
-                backgroundImage: teacherData['photoUrl'] != null 
-                    ? NetworkImage(teacherData['photoUrl']) 
+                backgroundColor:
+                    (isDark ? AppTheme.darkPrimary : AppTheme.primaryColor)
+                        .withOpacity(0.1),
+                backgroundImage: teacherData['photoUrl'] != null
+                    ? NetworkImage(teacherData['photoUrl'])
                     : null,
                 child: teacherData['photoUrl'] == null
                     ? Text(
                         (teacherData['name'] ?? 'T')[0].toUpperCase(),
                         style: TextStyle(
-                          color: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+                          color: isDark
+                              ? AppTheme.darkPrimary
+                              : AppTheme.primaryColor,
                           fontWeight: FontWeight.bold,
                         ),
                       )
@@ -1173,7 +1410,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                     Text(
                       teacherData['name'] ?? 'Unknown Teacher',
                       style: TextStyle(
-                        color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                        color: isDark
+                            ? AppTheme.darkTextPrimary
+                            : AppTheme.textPrimary,
                         fontSize: 18,
                       ),
                     ),
@@ -1181,7 +1420,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       Text(
                         teacherData['headline'],
                         style: TextStyle(
-                          color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+                          color: isDark
+                              ? AppTheme.darkTextTertiary
+                              : AppTheme.textSecondary,
                           fontSize: 12,
                           fontWeight: FontWeight.normal,
                         ),
@@ -1196,23 +1437,41 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _buildTeacherProfileRow('Email', teacherData['email'] ?? '-', isDark),
                 _buildTeacherProfileRow(
-                  'Status',
-                  teacherData['isVerified'] == true ? 'Verified ✓' : 'Pending Verification',
+                  'Email',
+                  teacherData['email'] ?? '-',
                   isDark,
                 ),
-                if (teacherData['bio'] != null && teacherData['bio'].toString().isNotEmpty)
+                _buildTeacherProfileRow(
+                  'Status',
+                  teacherData['isVerified'] == true
+                      ? 'Verified ✓'
+                      : 'Pending Verification',
+                  isDark,
+                ),
+                if (teacherData['bio'] != null &&
+                    teacherData['bio'].toString().isNotEmpty)
                   _buildTeacherProfileRow('Bio', teacherData['bio'], isDark),
                 if (teacherData['subject'] != null)
-                  _buildTeacherProfileRow('Subject', teacherData['subject'], isDark),
+                  _buildTeacherProfileRow(
+                    'Subject',
+                    teacherData['subject'],
+                    isDark,
+                  ),
                 if (teacherData['experience'] != null)
-                  _buildTeacherProfileRow('Experience', '${teacherData['experience']} years', isDark),
+                  _buildTeacherProfileRow(
+                    'Experience',
+                    '${teacherData['experience']} years',
+                    isDark,
+                  ),
                 _buildTeacherProfileRow(
                   'Joined',
                   teacherData['createdAt'] != null
                       ? DateFormat('MMM dd, yyyy').format(
-                          DateTime.fromMillisecondsSinceEpoch(teacherData['createdAt']))
+                          DateTime.fromMillisecondsSinceEpoch(
+                            teacherData['createdAt'],
+                          ),
+                        )
                       : 'Unknown',
                   isDark,
                 ),
@@ -1238,9 +1497,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     } catch (e) {
       if (mounted) {
         Navigator.pop(context); // Close loading dialog
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading teacher: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading teacher: $e')));
       }
     }
   }
@@ -1254,7 +1513,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           Text(
             label,
             style: TextStyle(
-              color: isDark ? AppTheme.darkTextTertiary : AppTheme.textSecondary,
+              color: isDark
+                  ? AppTheme.darkTextTertiary
+                  : AppTheme.textSecondary,
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -1278,33 +1539,41 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       text: 'Regarding your course: ${widget.course.title}',
     );
     final messageController = TextEditingController();
-    
+
     // First fetch teacher email
     String? teacherEmail;
     String teacherName = _teacherName ?? 'Teacher';
-    
+
     try {
-      final snapshot = await _db.child('teacher').child(widget.course.teacherUid).child('email').get();
+      final snapshot = await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .child('email')
+          .get();
       if (snapshot.exists) {
         teacherEmail = snapshot.value.toString();
       }
-      final nameSnapshot = await _db.child('teacher').child(widget.course.teacherUid).child('name').get();
+      final nameSnapshot = await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .child('name')
+          .get();
       if (nameSnapshot.exists) {
         teacherName = nameSnapshot.value.toString();
       }
     } catch (e) {
       debugPrint('Error fetching teacher email: $e');
     }
-    
+
     if (!mounted) return;
-    
+
     if (teacherEmail == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Teacher email not found')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Teacher email not found')));
       return;
     }
-    
+
     final parentContext = context;
     final result = await showDialog<bool>(
       context: context,
@@ -1336,7 +1605,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 Text(
                   'To: $teacherName ($teacherEmail)',
                   style: TextStyle(
-                    color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : AppTheme.textSecondary,
                     fontSize: 13,
                   ),
                 ),
@@ -1349,8 +1620,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     filled: true,
-                    fillColor: isDark 
-                        ? Colors.grey[800]!.withOpacity(0.3) 
+                    fillColor: isDark
+                        ? Colors.grey[800]!.withOpacity(0.3)
                         : Colors.grey[100],
                   ),
                 ),
@@ -1366,8 +1637,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                       borderRadius: BorderRadius.circular(8),
                     ),
                     filled: true,
-                    fillColor: isDark 
-                        ? Colors.grey[800]!.withOpacity(0.3) 
+                    fillColor: isDark
+                        ? Colors.grey[800]!.withOpacity(0.3)
                         : Colors.grey[100],
                   ),
                 ),
@@ -1381,7 +1652,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             child: Text(
               'Cancel',
               style: TextStyle(
-                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
               ),
             ),
           ),
@@ -1398,14 +1671,16 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             icon: const Icon(Icons.send, size: 18),
             label: const Text('Send'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: isDark ? AppTheme.darkPrimary : AppTheme.primaryColor,
+              backgroundColor: isDark
+                  ? AppTheme.darkPrimary
+                  : AppTheme.primaryColor,
               foregroundColor: Colors.white,
             ),
           ),
         ],
       ),
     );
-    
+
     if (result == true && mounted) {
       // Send email via server
       try {
@@ -1420,7 +1695,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             'message': messageController.text,
           }),
         );
-        
+
         if (mounted) {
           if (response.statusCode == 200) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -1429,7 +1704,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 backgroundColor: Colors.green,
               ),
             );
-            
+
             // Log the action
             await _logAction('contact_teacher');
           } else {
@@ -1440,13 +1715,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error sending email: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error sending email: $e')));
         }
       }
     }
-    
+
     subjectController.dispose();
     messageController.dispose();
   }
@@ -1454,7 +1729,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   /// View course reports in a dialog
   Future<void> _viewCourseReports() async {
     final isDark = AppTheme.isDarkMode(context);
-    
+
     // Show loading dialog
     showDialog(
       context: context,
@@ -1470,33 +1745,57 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ),
       ),
     );
-    
+
     try {
-      // Check for reports about this course
-      final reportsSnapshot = await _db.child('flagged_content')
-          .orderByChild('courseUid')
-          .equalTo(widget.course.courseUid)
-          .get();
-      
+      // Load all flagged_content and filter client-side to avoid requiring a Firebase index
+      final reportsSnapshot = await _db.child('flagged_content').get();
+
       if (!mounted) return;
       Navigator.pop(context); // Close loading
-      
+
       List<Map<String, dynamic>> reports = [];
       if (reportsSnapshot.exists && reportsSnapshot.value != null) {
         final data = reportsSnapshot.value as Map;
         for (var entry in data.entries) {
-          reports.add({
-            'id': entry.key,
-            ...Map<String, dynamic>.from(entry.value as Map),
-          });
+          final item = Map<String, dynamic>.from(entry.value as Map);
+          // Filter client-side for this course's reports
+          if (item['courseUid'] == widget.course.courseUid ||
+              item['courseId'] == widget.course.courseUid) {
+            reports.add({'id': entry.key, ...item});
+          }
         }
       }
-      
+
+      // Also check content_reports node
+      final contentReportsSnap = await _db.child('content_reports').get();
+      if (contentReportsSnap.exists && contentReportsSnap.value != null) {
+        final data = contentReportsSnap.value as Map;
+        for (var entry in data.entries) {
+          final item = Map<String, dynamic>.from(entry.value as Map);
+          if (item['courseUid'] == widget.course.courseUid ||
+              item['courseId'] == widget.course.courseUid) {
+            // Avoid duplicates
+            if (!reports.any((r) => r['id'] == entry.key)) {
+              reports.add({'id': entry.key, ...item});
+            }
+          }
+        }
+      }
+
+      // Sort by date descending
+      reports.sort((a, b) {
+        final aTime = (a['createdAt'] ?? a['reportedAt'] ?? 0) as int;
+        final bTime = (b['createdAt'] ?? b['reportedAt'] ?? 0) as int;
+        return bTime.compareTo(aTime);
+      });
+
       showDialog(
         context: context,
         builder: (context) => AlertDialog(
           backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(Icons.flag, color: Colors.orange),
@@ -1504,7 +1803,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
               Text(
                 'Course Reports',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
                 ),
               ),
             ],
@@ -1542,7 +1843,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                         subtitle: Text(
                           report['createdAt'] != null
                               ? DateFormat('MMM d, yyyy').format(
-                                  DateTime.fromMillisecondsSinceEpoch(report['createdAt']))
+                                  DateTime.fromMillisecondsSinceEpoch(
+                                    report['createdAt'],
+                                  ),
+                                )
                               : 'Unknown date',
                         ),
                       );
@@ -1560,9 +1864,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     } catch (e) {
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading reports: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading reports: $e')));
       }
     }
   }
@@ -1570,7 +1874,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   /// View course analytics in a dialog
   Future<void> _viewCourseAnalytics() async {
     final isDark = AppTheme.isDarkMode(context);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -1628,15 +1932,17 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 ),
                 _buildAnalyticsRow(
                   'Course Price',
-                  widget.course.isFree ? 'Free' : '\$${widget.course.price.toStringAsFixed(2)}',
+                  widget.course.isFree
+                      ? 'Free'
+                      : '\$${widget.course.price.toStringAsFixed(2)}',
                   Icons.attach_money,
                   Colors.green,
                   isDark,
                 ),
                 _buildAnalyticsRow(
                   'Est. Revenue',
-                  widget.course.isFree 
-                      ? '\$0.00' 
+                  widget.course.isFree
+                      ? '\$0.00'
                       : '\$${(widget.course.price * widget.course.enrolledCount).toStringAsFixed(2)}',
                   Icons.monetization_on,
                   Colors.orange,
@@ -1644,8 +1950,8 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 ),
                 _buildAnalyticsRow(
                   'Platform Commission (20%)',
-                  widget.course.isFree 
-                      ? '\$0.00' 
+                  widget.course.isFree
+                      ? '\$0.00'
                       : '\$${(widget.course.price * widget.course.enrolledCount * 0.2).toStringAsFixed(2)}',
                   Icons.account_balance,
                   Colors.indigo,
@@ -1654,7 +1960,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 _buildAnalyticsRow(
                   'Status',
                   widget.course.isPublished ? 'Published' : 'Draft',
-                  widget.course.isPublished ? Icons.check_circle : Icons.pending,
+                  widget.course.isPublished
+                      ? Icons.check_circle
+                      : Icons.pending,
                   widget.course.isPublished ? Colors.green : Colors.orange,
                   isDark,
                 ),
@@ -1672,7 +1980,13 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     );
   }
 
-  Widget _buildAnalyticsRow(String label, String value, IconData icon, Color color, bool isDark) {
+  Widget _buildAnalyticsRow(
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+    bool isDark,
+  ) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
@@ -1690,7 +2004,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             child: Text(
               label,
               style: TextStyle(
-                color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                color: isDark
+                    ? AppTheme.darkTextSecondary
+                    : AppTheme.textSecondary,
               ),
             ),
           ),
@@ -1715,7 +2031,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Course'),
-        content: Text('Are you sure you want to delete "${widget.course.title}"? This action cannot be undone.'),
+        content: Text(
+          'Are you sure you want to delete "${widget.course.title}"? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -1729,42 +2047,58 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ],
       ),
     );
-    
+
     if (confirm == true) {
       try {
         // Archive course before deleting for recovery purposes
-        final courseData = (await _db.child('courses').child(widget.course.courseUid).get()).value;
+        final courseData =
+            (await _db.child('courses').child(widget.course.courseUid).get())
+                .value;
         if (courseData != null) {
-          await _db.child('deleted_courses').child(widget.course.courseUid).set({
-            ...Map<String, dynamic>.from(courseData as Map),
-            'deletedAt': ServerValue.timestamp,
-          });
+          await _db
+              .child('deleted_courses')
+              .child(widget.course.courseUid)
+              .set({
+                ...Map<String, dynamic>.from(courseData as Map),
+                'deletedAt': ServerValue.timestamp,
+              });
         }
-        
+
         // Delete from courses collection
         await _db.child('courses').child(widget.course.courseUid).remove();
         // Delete from teacher's courses
-        await _db.child('teacher').child(widget.course.teacherUid)
-            .child('courses').child(widget.course.courseUid).remove();
+        await _db
+            .child('teacher')
+            .child(widget.course.teacherUid)
+            .child('courses')
+            .child(widget.course.courseUid)
+            .remove();
         // Remove from any enrolled students' data (cascade)
         final enrolledSnapshot = await _db.child('student').get();
         if (enrolledSnapshot.exists && enrolledSnapshot.value != null) {
-          final students = Map<String, dynamic>.from(enrolledSnapshot.value as Map);
+          final students = Map<String, dynamic>.from(
+            enrolledSnapshot.value as Map,
+          );
           for (var studentId in students.keys) {
             // Remove from enrolled courses
-            await _db.child('student/$studentId/enrolledCourses/${widget.course.courseUid}').remove();
+            await _db
+                .child(
+                  'student/$studentId/enrolledCourses/${widget.course.courseUid}',
+                )
+                .remove();
           }
         }
-        
+
         await _logAction('delete_course');
-        
+
         // Send notification to teacher about course deletion
         await _sendTeacherNotification(
           title: 'Course Deleted',
-          message: 'Your course "${widget.course.title}" has been removed by an administrator. If you believe this was an error, please contact support.',
+          message:
+              'Your course "${widget.course.title}" has been removed by an administrator. If you believe this was an error, please contact support.',
           type: 'course_deleted',
         );
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Course deleted successfully')),
@@ -1773,9 +2107,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         }
       } catch (e) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error deleting course: $e')),
-          );
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text('Error deleting course: $e')));
         }
       }
     }
@@ -1783,7 +2117,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   void _handleVideoAction(Map<String, dynamic> video, String action) async {
     final videoId = video['id'];
-    
+
     switch (action) {
       case 'preview':
         // Open video player dialog
@@ -1799,8 +2133,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       case 'hide':
       case 'show':
         final isHidden = action == 'hide';
-        await _db.child('courses').child(widget.course.courseUid)
-            .child('videos').child(videoId).update({'isHidden': isHidden});
+        await _db
+            .child('courses')
+            .child(widget.course.courseUid)
+            .child('videos')
+            .child(videoId)
+            .update({'isHidden': isHidden});
         await _logAction(isHidden ? 'hide_video' : 'show_video', videoId);
         _loadVideos();
         break;
@@ -1814,7 +2152,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             title: const Text('Delete Video'),
             content: const Text('Are you sure? This cannot be undone.'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1826,11 +2167,20 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         if (confirm == true) {
           try {
             // Delete from both courses node and teacher's courses node
-            await _db.child('courses').child(widget.course.courseUid)
-                .child('videos').child(videoId).remove();
-            await _db.child('teacher').child(widget.course.teacherUid)
-                .child('courses').child(widget.course.courseUid)
-                .child('videos').child(videoId).remove();
+            await _db
+                .child('courses')
+                .child(widget.course.courseUid)
+                .child('videos')
+                .child(videoId)
+                .remove();
+            await _db
+                .child('teacher')
+                .child(widget.course.teacherUid)
+                .child('courses')
+                .child(widget.course.courseUid)
+                .child('videos')
+                .child(videoId)
+                .remove();
             await _logAction('delete_video', videoId);
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1853,13 +2203,17 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   void _handleReviewAction(Map<String, dynamic> review, String action) async {
     final reviewId = review['id'];
-    
+
     switch (action) {
       case 'hide':
       case 'show':
         final isHidden = action == 'hide';
-        await _db.child('courses').child(widget.course.courseUid)
-            .child('reviews').child(reviewId).update({'isHidden': isHidden});
+        await _db
+            .child('courses')
+            .child(widget.course.courseUid)
+            .child('reviews')
+            .child(reviewId)
+            .update({'isHidden': isHidden});
         await _logAction(isHidden ? 'hide_review' : 'show_review', reviewId);
         _loadReviews();
         break;
@@ -1870,7 +2224,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             title: const Text('Delete Review'),
             content: const Text('Are you sure? This cannot be undone.'),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel'),
+              ),
               TextButton(
                 onPressed: () => Navigator.pop(context, true),
                 style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1880,8 +2237,12 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
           ),
         );
         if (confirm == true) {
-          await _db.child('courses').child(widget.course.courseUid)
-              .child('reviews').child(reviewId).remove();
+          await _db
+              .child('courses')
+              .child(widget.course.courseUid)
+              .child('reviews')
+              .child(reviewId)
+              .remove();
           await _logAction('delete_review', reviewId);
           _loadReviews();
         }
@@ -1896,7 +2257,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         title: const Text('Remove Student'),
         content: Text('Remove ${student['name']} from this course?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.red),
@@ -1905,12 +2269,20 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         ],
       ),
     );
-    
+
     if (confirm == true) {
-      await _db.child('courses').child(widget.course.courseUid)
-          .child('enrolledStudents').child(student['id']).remove();
-      await _db.child('student').child(student['id'])
-          .child('enrolledCourses').child(widget.course.courseUid).remove();
+      await _db
+          .child('courses')
+          .child(widget.course.courseUid)
+          .child('enrolledStudents')
+          .child(student['id'])
+          .remove();
+      await _db
+          .child('student')
+          .child(student['id'])
+          .child('enrolledCourses')
+          .child(widget.course.courseUid)
+          .remove();
       await _logAction('remove_student', student['id']);
       _loadEnrolledStudents();
     }
@@ -1933,22 +2305,31 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   }) async {
     try {
       // Add notification to teacher's notifications node
-      await _db.child('notifications').child(widget.course.teacherUid).push().set({
-        'title': title,
-        'message': message,
-        'type': type,
-        'courseId': widget.course.courseUid,
-        'isRead': false,
-        'createdAt': ServerValue.timestamp,
-      });
+      await _db
+          .child('notifications')
+          .child(widget.course.teacherUid)
+          .push()
+          .set({
+            'title': title,
+            'message': message,
+            'type': type,
+            'courseId': widget.course.courseUid,
+            'isRead': false,
+            'createdAt': ServerValue.timestamp,
+          });
 
       // Also send email notification to teacher
-      final teacherSnapshot = await _db.child('teacher').child(widget.course.teacherUid).get();
+      final teacherSnapshot = await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .get();
       if (teacherSnapshot.exists) {
-        final teacherData = Map<String, dynamic>.from(teacherSnapshot.value as Map);
+        final teacherData = Map<String, dynamic>.from(
+          teacherSnapshot.value as Map,
+        );
         final email = teacherData['email'];
         final name = teacherData['name'] ?? 'Teacher';
-        
+
         if (email != null) {
           await http.post(
             Uri.parse('http://localhost:3001/send-admin-email'),
@@ -1972,11 +2353,11 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   /// Format duration in a human-readable way
   String _formatDuration(int seconds) {
     if (seconds <= 0) return '0:00';
-    
+
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
     final secs = seconds % 60;
-    
+
     if (hours > 0) {
       return '$hours:${minutes.toString().padLeft(2, '0')}:${secs.toString().padLeft(2, '0')}';
     }
@@ -1987,175 +2368,207 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
   void _showVideoPreviewDialog(Map<String, dynamic> video, String videoUrl) {
     final isDark = AppTheme.isDarkMode(context);
     final videoTitle = video['title']?.toString() ?? 'Video';
-    
+
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: Container(
-          width: MediaQuery.of(context).size.width * 0.85,
-          constraints: const BoxConstraints(maxWidth: 900, maxHeight: 700),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
-                  borderRadius: const BorderRadius.only(
-                    topLeft: Radius.circular(16),
-                    topRight: Radius.circular(16),
+      builder: (dialogContext) {
+        final screenSize = MediaQuery.of(dialogContext).size;
+        // Calculate responsive dimensions - leave room for header/footer (~120px)
+        final dialogWidth = (screenSize.width * 0.85).clamp(300.0, 900.0);
+        final maxDialogHeight = (screenSize.height * 0.8).clamp(300.0, 700.0);
+
+        return Dialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: 20,
+            vertical: 24,
+          ),
+          child: Container(
+            width: dialogWidth,
+            constraints: BoxConstraints(
+              maxWidth: 900,
+              maxHeight: maxDialogHeight,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Header
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade100,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(16),
+                      topRight: Radius.circular(16),
+                    ),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.play_circle_filled,
+                        color: isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor,
+                        size: 22,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          video['title'] ?? 'Video Preview',
+                          style: TextStyle(
+                            color: AppTheme.getTextPrimary(dialogContext),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // Duration badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 3,
+                        ),
+                        decoration: BoxDecoration(
+                          color:
+                              (isDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.primaryColor)
+                                  .withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.schedule,
+                              size: 13,
+                              color: isDark
+                                  ? AppTheme.darkAccent
+                                  : AppTheme.primaryColor,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              _formatDuration(
+                                video['duration'] is int
+                                    ? video['duration']
+                                    : (video['duration'] is double
+                                          ? (video['duration'] as double)
+                                                .toInt()
+                                          : 0),
+                              ),
+                              style: TextStyle(
+                                color: isDark
+                                    ? AppTheme.darkAccent
+                                    : AppTheme.primaryColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          color: AppTheme.getTextSecondary(dialogContext),
+                          size: 20,
+                        ),
+                        onPressed: () => Navigator.pop(dialogContext),
+                        tooltip: 'Close',
+                        constraints: const BoxConstraints(
+                          minWidth: 36,
+                          minHeight: 36,
+                        ),
+                        padding: EdgeInsets.zero,
+                      ),
+                    ],
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.play_circle_filled,
-                      color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            video['title'] ?? 'Video Preview',
-                            style: TextStyle(
-                              color: AppTheme.getTextPrimary(context),
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (video['description'] != null && video['description'].toString().isNotEmpty)
-                            Text(
-                              video['description'].toString(),
-                              style: TextStyle(
-                                color: AppTheme.getTextSecondary(context),
-                                fontSize: 12,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
-                    ),
-                    // Duration badge
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor).withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.schedule,
-                            size: 14,
-                            color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            _formatDuration(
-                              video['duration'] is int 
-                                  ? video['duration'] 
-                                  : (video['duration'] is double 
-                                      ? (video['duration'] as double).toInt() 
-                                      : 0)
-                            ),
-                            style: TextStyle(
-                              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: Icon(
-                        Icons.close,
-                        color: AppTheme.getTextSecondary(context),
-                      ),
-                      onPressed: () => Navigator.pop(context),
-                      tooltip: 'Close',
-                    ),
-                  ],
-                ),
-              ),
-              
-              // Video Player
-              Flexible(
-                child: Container(
-                  constraints: const BoxConstraints(maxHeight: 500),
-                  child: AspectRatio(
-                    aspectRatio: 16 / 9,
+
+                // Video Player - uses Expanded to fill remaining space instead of fixed AspectRatio
+                Expanded(
+                  child: ClipRRect(
                     child: AdvancedVideoPlayer(
                       videoUrl: videoUrl,
                       videoTitle: videoTitle,
                     ),
                   ),
                 ),
-              ),
-              
-              // Footer with video info
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(16),
-                    bottomRight: Radius.circular(16),
+
+                // Footer with video info
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
                   ),
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline,
-                      size: 16,
-                      color: AppTheme.getTextSecondary(context),
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(16),
+                      bottomRight: Radius.circular(16),
                     ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Admin Preview Mode - This is how students will see this video',
-                        style: TextStyle(
-                          color: AppTheme.getTextSecondary(context),
-                          fontSize: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.info_outline,
+                        size: 15,
+                        color: AppTheme.getTextSecondary(dialogContext),
+                      ),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          'Admin Preview Mode',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(dialogContext),
+                            fontSize: 11,
+                          ),
                         ),
                       ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        // Show video moderation options
-                        _showVideoModerationOptions(video);
-                      },
-                      icon: const Icon(Icons.admin_panel_settings, size: 16),
-                      label: const Text('Moderate'),
-                      style: TextButton.styleFrom(
-                        foregroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                      TextButton.icon(
+                        onPressed: () {
+                          Navigator.pop(dialogContext);
+                          _showVideoModerationOptions(video);
+                        },
+                        icon: const Icon(Icons.admin_panel_settings, size: 15),
+                        label: const Text(
+                          'Moderate',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                        style: TextButton.styleFrom(
+                          foregroundColor: isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor,
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          minimumSize: const Size(0, 32),
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
-  
+
   /// Show video moderation options
   void _showVideoModerationOptions(Map<String, dynamic> video) {
     final isDark = AppTheme.isDarkMode(context);
-    
+
     showModalBottomSheet(
       context: context,
       backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
@@ -2179,9 +2592,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             const SizedBox(height: 8),
             Text(
               video['title'] ?? 'Video',
-              style: TextStyle(
-                color: AppTheme.getTextSecondary(context),
-              ),
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
             ),
             const SizedBox(height: 20),
             ListTile(
@@ -2195,10 +2606,14 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
             ),
             ListTile(
               leading: const Icon(Icons.visibility_off, color: Colors.amber),
-              title: Text(video['isPublic'] == false ? 'Make Public' : 'Make Private'),
-              subtitle: Text(video['isPublic'] == false 
-                  ? 'Allow students to access this video' 
-                  : 'Hide this video from students'),
+              title: Text(
+                video['isPublic'] == false ? 'Make Public' : 'Make Private',
+              ),
+              subtitle: Text(
+                video['isPublic'] == false
+                    ? 'Allow students to access this video'
+                    : 'Hide this video from students',
+              ),
               onTap: () {
                 Navigator.pop(context);
                 _toggleVideoVisibility(video);
@@ -2218,7 +2633,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       ),
     );
   }
-  
+
   void _flagVideoForReview(Map<String, dynamic> video) async {
     try {
       await _db.child('moderation').child('videos').push().set({
@@ -2229,7 +2644,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
         'flaggedAt': ServerValue.timestamp,
         'status': 'pending',
       });
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2240,45 +2655,56 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
-  
+
   void _toggleVideoVisibility(Map<String, dynamic> video) async {
     final newVisibility = !(video['isPublic'] ?? true);
-    
+
     try {
-      await _db.child('courses').child(widget.course.courseUid)
-          .child('videos').child(video['id']).update({'isPublic': newVisibility});
-      await _db.child('teacher').child(widget.course.teacherUid)
-          .child('courses').child(widget.course.courseUid)
-          .child('videos').child(video['id']).update({'isPublic': newVisibility});
-      
+      await _db
+          .child('courses')
+          .child(widget.course.courseUid)
+          .child('videos')
+          .child(video['id'])
+          .update({'isPublic': newVisibility});
+      await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .child('courses')
+          .child(widget.course.courseUid)
+          .child('videos')
+          .child(video['id'])
+          .update({'isPublic': newVisibility});
+
       _loadVideos();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(newVisibility ? 'Video is now public' : 'Video is now private'),
+            content: Text(
+              newVisibility ? 'Video is now public' : 'Video is now private',
+            ),
             backgroundColor: Colors.green,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     }
   }
-  
+
   void _confirmDeleteVideo(Map<String, dynamic> video) {
     final isDark = AppTheme.isDarkMode(context);
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -2315,18 +2741,27 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       ),
     );
   }
-  
+
   Future<void> _deleteVideo(Map<String, dynamic> video) async {
     try {
-      await _db.child('courses').child(widget.course.courseUid)
-          .child('videos').child(video['id']).remove();
-      await _db.child('teacher').child(widget.course.teacherUid)
-          .child('courses').child(widget.course.courseUid)
-          .child('videos').child(video['id']).remove();
-      
+      await _db
+          .child('courses')
+          .child(widget.course.courseUid)
+          .child('videos')
+          .child(video['id'])
+          .remove();
+      await _db
+          .child('teacher')
+          .child(widget.course.teacherUid)
+          .child('courses')
+          .child(widget.course.courseUid)
+          .child('videos')
+          .child(video['id'])
+          .remove();
+
       await _logAction('delete_video', video['id']);
       _loadVideos();
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -2337,9 +2772,9 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting video: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting video: $e')));
       }
     }
   }
@@ -2357,13 +2792,35 @@ class _SliverTabBarDelegate extends SliverPersistentHeaderDelegate {
   double get maxExtent => tabBar.preferredSize.height;
 
   @override
-  Widget build(BuildContext context, double shrinkOffset, bool overlapsContent) {
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
     return Container(
-      color: isDark ? AppTheme.darkSurface : Colors.white,
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.white,
+        border: Border(
+          bottom: BorderSide(
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+            width: 1,
+          ),
+        ),
+        boxShadow: overlapsContent
+            ? [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ]
+            : null,
+      ),
       child: tabBar,
     );
   }
 
   @override
-  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) => false;
+  bool shouldRebuild(_SliverTabBarDelegate oldDelegate) =>
+      isDark != oldDelegate.isDark;
 }

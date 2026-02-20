@@ -168,6 +168,19 @@
       ".write": "auth != null"
     },
     
+    "moderation_resolved": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+    },
+    
+    "warnings": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      "$uid": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin' || $uid === auth.uid",
+        ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
     
     "content_reports": {
       ".read": "auth != null",
