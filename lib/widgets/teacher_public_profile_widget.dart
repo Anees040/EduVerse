@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -252,7 +253,7 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
             .toList();
       }
     }
-    
+
     // Also check credentialDocuments (from registration wizard) as fallback
     final rawCredentialDocs = _profile!['credentialDocuments'];
     List<String>? credentialDocUrls;
@@ -300,11 +301,16 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                   ),
                   child: ClipOval(
                     child: profilePicture != null && profilePicture.isNotEmpty
-                        ? Image.network(
-                            profilePicture,
+                        ? CachedNetworkImage(
+                            imageUrl: profilePicture,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) =>
-                                _buildAvatarPlaceholder(name),
+                            placeholder: (context, url) => const Center(
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            ),
+                            errorWidget: (context, url, error) => const Icon(
+                              Icons.broken_image,
+                              color: Colors.grey,
+                            ),
                           )
                         : _buildAvatarPlaceholder(name),
                   ),
@@ -328,10 +334,11 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                       Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: (widget.isDark
-                                  ? AppTheme.darkSuccess
-                                  : AppTheme.success)
-                              .withOpacity(0.1),
+                          color:
+                              (widget.isDark
+                                      ? AppTheme.darkSuccess
+                                      : AppTheme.success)
+                                  .withOpacity(0.1),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
@@ -568,30 +575,21 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                       cred['imageUrl'] != null
                           ? ClipRRect(
                               borderRadius: BorderRadius.circular(8),
-                              child: Image.network(
-                                cred['imageUrl'],
+                              child: CachedNetworkImage(
+                                imageUrl: cred['imageUrl'],
                                 width: 50,
                                 height: 50,
                                 fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => Container(
-                                  width: 50,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    color:
-                                        (widget.isDark
-                                                ? AppTheme.darkWarning
-                                                : AppTheme.warning)
-                                            .withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Icon(
-                                    Icons.workspace_premium,
-                                    size: 24,
-                                    color: widget.isDark
-                                        ? AppTheme.darkWarning
-                                        : AppTheme.warning,
+                                placeholder: (context, url) => const Center(
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
                                   ),
                                 ),
+                                errorWidget: (context, url, error) =>
+                                    const Icon(
+                                      Icons.broken_image,
+                                      color: Colors.grey,
+                                    ),
                               ),
                             )
                           : Container(
@@ -677,114 +675,103 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
           ],
 
           // Credential documents from registration wizard (URLs only)
-          if (credentialDocUrls != null && credentialDocUrls.isNotEmpty && (credentials == null || credentials.isEmpty)) ...[
+          if (credentialDocUrls != null &&
+              credentialDocUrls.isNotEmpty &&
+              (credentials == null || credentials.isEmpty)) ...[
             const SizedBox(height: 24),
             _buildSectionHeader('Verified Documents', Icons.folder_special),
             const SizedBox(height: 12),
-            ...credentialDocUrls.asMap().entries.map(
-              (entry) {
-                final index = entry.key;
-                final url = entry.value;
-                return GestureDetector(
-                  onTap: () => _showCertificateImage(
-                    context,
-                    url,
-                    'Document ${index + 1}',
-                  ),
-                  child: Container(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
+            ...credentialDocUrls.asMap().entries.map((entry) {
+              final index = entry.key;
+              final url = entry.value;
+              return GestureDetector(
+                onTap: () => _showCertificateImage(
+                  context,
+                  url,
+                  'Document ${index + 1}',
+                ),
+                child: Container(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: widget.isDark
+                        ? AppTheme.darkElevated
+                        : Colors.grey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
                       color: widget.isDark
-                          ? AppTheme.darkElevated
-                          : Colors.grey.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(
-                        color: widget.isDark
-                            ? AppTheme.darkSuccess.withOpacity(0.3)
-                            : AppTheme.success.withOpacity(0.3),
-                        width: 1,
-                      ),
+                          ? AppTheme.darkSuccess.withOpacity(0.3)
+                          : AppTheme.success.withOpacity(0.3),
+                      width: 1,
                     ),
-                    child: Row(
-                      children: [
-                        // Document thumbnail
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            url,
-                            width: 50,
-                            height: 50,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => Container(
-                              width: 50,
-                              height: 50,
-                              decoration: BoxDecoration(
-                                color: (widget.isDark
-                                        ? AppTheme.darkWarning
-                                        : AppTheme.warning)
-                                    .withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Icon(
-                                Icons.description,
-                                size: 24,
-                                color: widget.isDark
-                                    ? AppTheme.darkWarning
-                                    : AppTheme.warning,
-                              ),
-                            ),
+                  ),
+                  child: Row(
+                    children: [
+                      // Document thumbnail
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: CachedNetworkImage(
+                          imageUrl: url,
+                          width: 50,
+                          height: 50,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          ),
+                          errorWidget: (context, url, error) => const Icon(
+                            Icons.broken_image,
+                            color: Colors.grey,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Certificate ${index + 1}',
-                                style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
-                                  color: AppTheme.getTextPrimary(context),
-                                ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Certificate ${index + 1}',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                                color: AppTheme.getTextPrimary(context),
                               ),
-                              const SizedBox(height: 4),
-                              Row(
-                                children: [
-                                  Icon(
-                                    Icons.verified,
-                                    size: 14,
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.verified,
+                                  size: 14,
+                                  color: widget.isDark
+                                      ? AppTheme.darkSuccess
+                                      : AppTheme.success,
+                                ),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Tap to view document',
+                                  style: TextStyle(
+                                    fontSize: 11,
                                     color: widget.isDark
                                         ? AppTheme.darkSuccess
                                         : AppTheme.success,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                  const SizedBox(width: 4),
-                                  Text(
-                                    'Tap to view document',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: widget.isDark
-                                          ? AppTheme.darkSuccess
-                                          : AppTheme.success,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                        Icon(
-                          Icons.chevron_right,
-                          color: AppTheme.getTextSecondary(context),
-                        ),
-                      ],
-                    ),
+                      ),
+                      Icon(
+                        Icons.chevron_right,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            }),
           ],
 
           // Achievements section
@@ -1053,49 +1040,14 @@ class _TeacherProfileContentState extends State<_TeacherProfileContent> {
                 child: InteractiveViewer(
                   minScale: 0.5,
                   maxScale: 3.0,
-                  child: Image.network(
-                    imageUrl,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
                     fit: BoxFit.contain,
-                    loadingBuilder: (context, child, loadingProgress) {
-                      if (loadingProgress == null) return child;
-                      return Container(
-                        height: 300,
-                        color: widget.isDark
-                            ? AppTheme.darkElevated
-                            : Colors.grey.shade100,
-                        child: Center(
-                          child: CircularProgressIndicator(
-                            value: loadingProgress.expectedTotalBytes != null
-                                ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
-                                : null,
-                          ),
-                        ),
-                      );
-                    },
-                    errorBuilder: (_, __, ___) => Container(
-                      height: 200,
-                      color: widget.isDark
-                          ? AppTheme.darkElevated
-                          : Colors.grey.shade100,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.broken_image,
-                            size: 48,
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Could not load certificate image',
-                            style: TextStyle(
-                              color: AppTheme.getTextSecondary(context),
-                            ),
-                          ),
-                        ],
-                      ),
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
+                    errorWidget: (context, url, error) =>
+                        const Icon(Icons.broken_image, color: Colors.grey),
                   ),
                 ),
               ),
