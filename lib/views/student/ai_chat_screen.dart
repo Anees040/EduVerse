@@ -40,6 +40,13 @@ class _AIChatScreenState extends State<AIChatScreen> {
     _loadChatHistory();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   Future<void> _detectRole() async {
     final uid = FirebaseAuth.instance.currentUser?.uid;
     ownerId = uid;
