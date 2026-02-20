@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
 class CourseCard extends StatelessWidget {
@@ -59,7 +60,6 @@ class CourseCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
-    final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
     final tealAccent = isDark ? const Color(0xFF4ECDC4) : AppTheme.accentColor;
     // Use same color as the 'Create Course' button:
     // - Light theme: primaryColor
@@ -101,33 +101,14 @@ class CourseCard extends StatelessWidget {
                   ),
                   child: AspectRatio(
                     aspectRatio: 16 / 9,
-                    child: Image.network(
-                      imageUrl,
+                    child: CachedNetworkImage(
+                      imageUrl: imageUrl,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: isDark
-                                ? [
-                                    accentColor.withOpacity(0.8),
-                                    tealAccent.withOpacity(0.6),
-                                  ]
-                                : [
-                                    AppTheme.primaryColor.withOpacity(0.8),
-                                    AppTheme.primaryLight.withOpacity(0.6),
-                                  ],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                        ),
-                        child: const Center(
-                          child: Icon(
-                            Icons.school,
-                            size: 40,
-                            color: Colors.white54,
-                          ),
-                        ),
+                      placeholder: (context, url) => const Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
                       ),
+                      errorWidget: (context, url, error) =>
+                          const Icon(Icons.broken_image, color: Colors.grey),
                     ),
                   ),
                 ),
@@ -714,29 +695,14 @@ class CourseCardHorizontal extends StatelessWidget {
               child: SizedBox(
                 width: 100,
                 height: 100,
-                child: Image.network(
-                  imageUrl,
+                child: CachedNetworkImage(
+                  imageUrl: imageUrl,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: isDark
-                            ? [
-                                accentColor.withOpacity(0.8),
-                                tealAccent.withOpacity(0.6),
-                              ]
-                            : [
-                                AppTheme.primaryColor.withOpacity(0.8),
-                                AppTheme.primaryLight.withOpacity(0.6),
-                              ],
-                      ),
-                    ),
-                    child: const Icon(
-                      Icons.school,
-                      color: Colors.white54,
-                      size: 32,
-                    ),
+                  placeholder: (context, url) => const Center(
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   ),
+                  errorWidget: (context, url, error) =>
+                      const Icon(Icons.broken_image, color: Colors.grey),
                 ),
               ),
             ),
