@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:convert';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
@@ -29,7 +30,8 @@ class StudentEditProfileScreen extends StatefulWidget {
   });
 
   @override
-  State<StudentEditProfileScreen> createState() => _StudentEditProfileScreenState();
+  State<StudentEditProfileScreen> createState() =>
+      _StudentEditProfileScreenState();
 }
 
 class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
@@ -181,7 +183,7 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
 
   Widget _buildProfilePicture() {
     final isDark = AppTheme.isDarkMode(context);
-    
+
     return Center(
       child: Stack(
         children: [
@@ -193,13 +195,18 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
                   width: 3,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                        .withOpacity(0.3),
+                    color:
+                        (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                            .withOpacity(0.3),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -208,23 +215,36 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
               child: ClipOval(
                 child: _selectedImage != null
                     ? (kIsWeb
-                        ? Image.network(
-                            _selectedImage!.path,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder(isDark),
-                          )
-                        : Image.file(
-                            File(_selectedImage!.path),
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder(isDark),
-                          ))
+                          ? CachedNetworkImage(
+                              imageUrl: _selectedImage!.path,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => const Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              errorWidget: (context, url, error) => const Icon(
+                                Icons.broken_image,
+                                color: Colors.grey,
+                              ),
+                            )
+                          : Image.file(
+                              File(_selectedImage!.path),
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _buildPlaceholder(isDark),
+                            ))
                     : _photoUrl != null && _photoUrl!.isNotEmpty
-                        ? Image.network(
-                            _photoUrl!,
-                            fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => _buildPlaceholder(isDark),
-                          )
-                        : _buildPlaceholder(isDark),
+                    ? CachedNetworkImage(
+                        imageUrl: _photoUrl!,
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => const Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        errorWidget: (context, url, error) =>
+                            const Icon(Icons.broken_image, color: Colors.grey),
+                      )
+                    : _buildPlaceholder(isDark),
               ),
             ),
           ),
@@ -236,7 +256,9 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
               child: Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                  color: isDark
+                      ? AppTheme.darkPrimaryLight
+                      : AppTheme.primaryColor,
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
@@ -272,7 +294,7 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
 
   Widget _buildInterestChips() {
     final isDark = AppTheme.isDarkMode(context);
-    
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -302,19 +324,28 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   }
                 });
               },
-              backgroundColor: isDark ? AppTheme.darkCardColor : Colors.grey[200],
-              selectedColor: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                  .withOpacity(0.2),
-              checkmarkColor: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+              backgroundColor: isDark
+                  ? AppTheme.darkCardColor
+                  : Colors.grey[200],
+              selectedColor:
+                  (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                      .withOpacity(0.2),
+              checkmarkColor: isDark
+                  ? AppTheme.darkPrimaryLight
+                  : AppTheme.primaryColor,
               labelStyle: TextStyle(
                 color: isSelected
-                    ? (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                    ? (isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor)
                     : AppTheme.getTextSecondary(context),
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
               ),
               side: BorderSide(
                 color: isSelected
-                    ? (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
+                    ? (isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor)
                     : AppTheme.getBorderColor(context),
               ),
             );
@@ -339,9 +370,7 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
           ),
         ),
         backgroundColor: AppTheme.getCardColor(context),
-        iconTheme: IconThemeData(
-          color: AppTheme.getTextPrimary(context),
-        ),
+        iconTheme: IconThemeData(color: AppTheme.getTextPrimary(context)),
         elevation: 0,
       ),
       body: SingleChildScrollView(
@@ -359,19 +388,23 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   icon: const Icon(Icons.edit),
                   label: const Text('Change Photo'),
                   style: TextButton.styleFrom(
-                    foregroundColor: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                    foregroundColor: isDark
+                        ? AppTheme.darkPrimaryLight
+                        : AppTheme.primaryColor,
                   ),
                 ),
               ),
               const SizedBox(height: 24),
-              
+
               // Full Name
               TextFormField(
                 controller: _nameController,
                 style: TextStyle(color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   labelText: 'Full Name *',
-                  labelStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  labelStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
                   prefixIcon: Icon(
                     Icons.person_outline,
                     color: AppTheme.getTextSecondary(context),
@@ -381,12 +414,16 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    borderSide: BorderSide(
+                      color: AppTheme.getBorderColor(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                       width: 2,
                     ),
                   ),
@@ -406,9 +443,13 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                 style: TextStyle(color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   labelText: 'Headline',
-                  labelStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  labelStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
                   hintText: 'e.g., Computer Science Student',
-                  hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withOpacity(0.5)),
+                  hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.5),
+                  ),
                   prefixIcon: Icon(
                     Icons.work_outline,
                     color: AppTheme.getTextSecondary(context),
@@ -418,12 +459,16 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    borderSide: BorderSide(
+                      color: AppTheme.getBorderColor(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                       width: 2,
                     ),
                   ),
@@ -438,9 +483,13 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                 style: TextStyle(color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   labelText: 'Bio',
-                  labelStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  labelStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
                   hintText: 'Tell us about yourself...',
-                  hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withOpacity(0.5)),
+                  hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.5),
+                  ),
                   prefixIcon: Icon(
                     Icons.description_outlined,
                     color: AppTheme.getTextSecondary(context),
@@ -450,12 +499,16 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    borderSide: BorderSide(
+                      color: AppTheme.getBorderColor(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                       width: 2,
                     ),
                   ),
@@ -475,9 +528,13 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                 style: TextStyle(color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   labelText: 'LinkedIn Profile',
-                  labelStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  labelStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
                   hintText: 'https://linkedin.com/in/yourprofile',
-                  hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withOpacity(0.5)),
+                  hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.5),
+                  ),
                   prefixIcon: Icon(
                     Icons.business,
                     color: AppTheme.getTextSecondary(context),
@@ -487,12 +544,16 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    borderSide: BorderSide(
+                      color: AppTheme.getBorderColor(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                       width: 2,
                     ),
                   ),
@@ -506,9 +567,13 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                 style: TextStyle(color: AppTheme.getTextPrimary(context)),
                 decoration: InputDecoration(
                   labelText: 'GitHub Profile',
-                  labelStyle: TextStyle(color: AppTheme.getTextSecondary(context)),
+                  labelStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context),
+                  ),
                   hintText: 'https://github.com/yourusername',
-                  hintStyle: TextStyle(color: AppTheme.getTextSecondary(context).withOpacity(0.5)),
+                  hintStyle: TextStyle(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.5),
+                  ),
                   prefixIcon: Icon(
                     Icons.code,
                     color: AppTheme.getTextSecondary(context),
@@ -518,12 +583,16 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppTheme.getBorderColor(context)),
+                    borderSide: BorderSide(
+                      color: AppTheme.getBorderColor(context),
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide(
-                      color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+                      color: isDark
+                          ? AppTheme.darkPrimaryLight
+                          : AppTheme.primaryColor,
                       width: 2,
                     ),
                   ),
@@ -537,8 +606,9 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                          .withOpacity(0.4),
+                      color:
+                          (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                              .withOpacity(0.4),
                       blurRadius: 8,
                       offset: const Offset(0, 3),
                     ),
@@ -547,7 +617,9 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                 child: ElevatedButton(
                   onPressed: _isUploading ? null : _saveProfile,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                    backgroundColor: isDark
+                        ? AppTheme.darkAccent
+                        : AppTheme.primaryColor,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -561,7 +633,9 @@ class _StudentEditProfileScreenState extends State<StudentEditProfileScreen> {
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : const Text(
