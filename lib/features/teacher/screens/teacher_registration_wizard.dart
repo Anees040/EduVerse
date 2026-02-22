@@ -104,7 +104,7 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
     final isDark = AppTheme.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey.shade50,
+      backgroundColor: isDark ? Colors.transparent : Colors.grey.shade50,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
