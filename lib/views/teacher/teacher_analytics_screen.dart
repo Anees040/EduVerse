@@ -280,7 +280,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
     // Show loading indicator only during initial load
     if (_isInitialLoading && _analytics == null) {
       return Scaffold(
-        backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey[100],
+        backgroundColor: isDark ? Colors.transparent : Colors.grey[100],
         body: const Center(
           child: EngagingLoadingIndicator(
             message: 'Loading Insights...',
@@ -291,7 +291,7 @@ class _TeacherAnalyticsScreenState extends State<TeacherAnalyticsScreen>
     }
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey[100],
+      backgroundColor: isDark ? Colors.transparent : Colors.grey[100],
       body: Column(
         children: [
           // Header with tabs
