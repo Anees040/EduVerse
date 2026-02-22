@@ -6,11 +6,14 @@ import 'package:eduverse/services/bookmark_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/services/certificate_service.dart';
+import 'package:eduverse/services/study_streak_service.dart';
+import 'package:eduverse/services/learning_stats_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/video_thumbnail_widget.dart';
+import 'package:eduverse/widgets/course_notes_sheet.dart';
 import 'package:eduverse/views/student/certificate_screen.dart';
 import 'package:eduverse/views/student/courses_screen.dart';
 import 'package:eduverse/views/student/profile_screen.dart';
@@ -392,6 +395,15 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       // Clear all caches so other screens get fresh data
       _clearAllProgressCaches();
 
+      // Record study activity for streak & stats tracking
+      StudyStreakService().recordStudyActivity();
+      LearningStatsService().logStudySession(
+        durationSeconds: pos > 0 ? pos : 60,
+        activityType: 'video',
+        courseId: widget.courseUid,
+        videoId: videoId,
+      );
+
       // Check if course is now complete and award certificate
       if (_overallProgress >= 1.0 && !_certificateAwarded) {
         await _checkAndAwardCertificate();
@@ -731,6 +743,27 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
       ),
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.note_alt_outlined, color: Colors.white),
+          tooltip: 'Course Notes',
+          onPressed: () {
+            final videoTitle = _videos.isNotEmpty
+                ? _videos[_currentVideoIndex]['title'] as String?
+                : null;
+            final videoId = _videos.isNotEmpty
+                ? _videos[_currentVideoIndex]['videoId'] as String?
+                : null;
+            CourseNotesSheet.show(
+              context,
+              courseId: widget.courseUid,
+              courseTitle: widget.courseTitle,
+              currentVideoId: videoId,
+              currentVideoTitle: videoTitle,
+            );
+          },
+        ),
+      ],
     );
   }
 
