@@ -310,4 +310,173 @@ class QAService {
           'answerEditedAt': null,
         });
   }
+
+  // ==================== YOUTUBE-STYLE FEATURES ====================
+
+  /// Upvote or remove upvote on a question.
+  /// Returns the updated vote count.
+  Future<int> toggleUpvote({
+    required String courseUid,
+    required String questionId,
+    required String userUid,
+  }) async {
+    final ref = _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId);
+
+    final snap = await ref.get();
+    if (!snap.exists || snap.value == null) return 0;
+
+    final data = Map<String, dynamic>.from(snap.value as Map);
+    final upvoters = data['upvoters'] != null
+        ? Map<String, dynamic>.from(data['upvoters'] as Map)
+        : <String, dynamic>{};
+    final downvoters = data['downvoters'] != null
+        ? Map<String, dynamic>.from(data['downvoters'] as Map)
+        : <String, dynamic>{};
+
+    if (upvoters.containsKey(userUid)) {
+      // Remove upvote
+      upvoters.remove(userUid);
+    } else {
+      // Add upvote, remove downvote if exists
+      upvoters[userUid] = true;
+      downvoters.remove(userUid);
+    }
+
+    final netVotes = upvoters.length - downvoters.length;
+    await ref.update({
+      'upvoters': upvoters.isEmpty ? null : upvoters,
+      'downvoters': downvoters.isEmpty ? null : downvoters,
+      'voteCount': netVotes,
+    });
+    return netVotes;
+  }
+
+  /// Downvote or remove downvote on a question.
+  Future<int> toggleDownvote({
+    required String courseUid,
+    required String questionId,
+    required String userUid,
+  }) async {
+    final ref = _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId);
+
+    final snap = await ref.get();
+    if (!snap.exists || snap.value == null) return 0;
+
+    final data = Map<String, dynamic>.from(snap.value as Map);
+    final upvoters = data['upvoters'] != null
+        ? Map<String, dynamic>.from(data['upvoters'] as Map)
+        : <String, dynamic>{};
+    final downvoters = data['downvoters'] != null
+        ? Map<String, dynamic>.from(data['downvoters'] as Map)
+        : <String, dynamic>{};
+
+    if (downvoters.containsKey(userUid)) {
+      downvoters.remove(userUid);
+    } else {
+      downvoters[userUid] = true;
+      upvoters.remove(userUid);
+    }
+
+    final netVotes = upvoters.length - downvoters.length;
+    await ref.update({
+      'upvoters': upvoters.isEmpty ? null : upvoters,
+      'downvoters': downvoters.isEmpty ? null : downvoters,
+      'voteCount': netVotes,
+    });
+    return netVotes;
+  }
+
+  /// Pin or unpin a question (teacher only).
+  Future<void> togglePinQuestion({
+    required String courseUid,
+    required String questionId,
+  }) async {
+    final ref = _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId);
+
+    final snap = await ref.child('isPinned').get();
+    final isPinned = snap.value == true;
+    await ref.update({'isPinned': !isPinned});
+  }
+
+  /// Add a threaded reply to a question.
+  Future<void> addReply({
+    required String courseUid,
+    required String questionId,
+    required String userUid,
+    required String userName,
+    required String replyText,
+    required bool isTeacher,
+  }) async {
+    final replyRef = _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId)
+        .child('replies')
+        .push();
+
+    await replyRef.set({
+      'replyId': replyRef.key,
+      'userUid': userUid,
+      'userName': userName,
+      'text': replyText,
+      'isTeacher': isTeacher,
+      'createdAt': DateTime.now().millisecondsSinceEpoch,
+    });
+
+    // Also mark question as answered if teacher is replying
+    if (isTeacher) {
+      await _db
+          .child('courses')
+          .child(courseUid)
+          .child('questions')
+          .child(questionId)
+          .update({
+            'isAnswered': true,
+            'answeredAt': DateTime.now().millisecondsSinceEpoch,
+          });
+    }
+  }
+
+  /// Delete a reply from a question thread.
+  Future<void> deleteReply({
+    required String courseUid,
+    required String questionId,
+    required String replyId,
+  }) async {
+    await _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId)
+        .child('replies')
+        .child(replyId)
+        .remove();
+  }
+
+  /// Mark a reply as "best answer" (teacher only).
+  Future<void> markBestAnswer({
+    required String courseUid,
+    required String questionId,
+    required String replyId,
+  }) async {
+    await _db
+        .child('courses')
+        .child(courseUid)
+        .child('questions')
+        .child(questionId)
+        .update({'bestReplyId': replyId});
+  }
 }
