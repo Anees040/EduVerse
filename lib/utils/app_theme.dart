@@ -83,8 +83,17 @@ class AppTheme {
 
   // ===== CONTEXT-AWARE COLOR HELPERS =====
 
-  /// Get background color based on theme
+  /// Get background color based on theme.
+  /// In dark mode, returns transparent so the animated background shows through.
   static Color getBackgroundColor(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark
+        ? Colors.transparent
+        : backgroundColor;
+  }
+
+  /// Get the solid dark background color (for non-Scaffold surfaces that need
+  /// an opaque background even in animated-bg mode).
+  static Color getSolidBackgroundColor(BuildContext context) {
     return Theme.of(context).brightness == Brightness.dark
         ? darkBackground
         : backgroundColor;
@@ -687,7 +696,7 @@ class AppTheme {
         outlineVariant: darkDivider,
         shadow: Colors.black,
       ),
-      scaffoldBackgroundColor: darkBackground,
+      scaffoldBackgroundColor: Colors.transparent, // Animated bg shows through
 
       // AppBar Theme - Premium dark gradient header
       appBarTheme: AppBarTheme(
