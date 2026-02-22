@@ -40,23 +40,29 @@ class _AdminSupportScreenState extends State<AdminSupportScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final tickets = await _supportService.getAllTickets(
-        statusFilter: _statusFilter == 'all' ? null : _statusFilter,
-        categoryFilter: _categoryFilter == 'all' ? null : _categoryFilter,
-        priorityFilter: _priorityFilter == 'all' ? null : _priorityFilter,
-      );
-      final counts = await _supportService.getTicketCounts();
+      final results = await Future.wait([
+        _supportService.getAllTickets(
+          statusFilter: _statusFilter == 'all' ? null : _statusFilter,
+          categoryFilter: _categoryFilter == 'all' ? null : _categoryFilter,
+          priorityFilter: _priorityFilter == 'all' ? null : _priorityFilter,
+        ),
+        _supportService.getTicketCounts(),
+      ]);
 
       if (mounted) {
         setState(() {
-          _tickets = tickets;
-          _ticketCounts = counts;
+          _tickets = results[0] as List<Map<String, dynamic>>;
+          _ticketCounts = results[1] as Map<String, int>;
           _isLoading = false;
         });
       }
     } catch (e) {
+      debugPrint('Error loading tickets: $e');
       if (mounted) {
         setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading tickets: $e')));
       }
     }
   }
