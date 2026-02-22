@@ -10,6 +10,7 @@ import 'package:eduverse/views/student/ai_chat_screen.dart';
 import 'package:eduverse/views/student/student_course_detail_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
+import 'package:eduverse/widgets/study_streak_card.dart';
 
 class HomeTab extends StatefulWidget {
   final String uid;
@@ -351,6 +352,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                 ],
               ),
             ),
+            const SizedBox(height: 16),
+
+            // Study Streak & Stats
+            const StudyStreakCard(),
             const SizedBox(height: 24),
 
             // Search Bar
