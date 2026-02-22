@@ -179,9 +179,8 @@ class SupportService {
     int limit = 50,
   }) async {
     try {
-      Query query = _db.child('support_tickets').orderByChild('createdAt');
-
-      final snapshot = await query.limitToLast(limit).get();
+      // Use simple get() without ordering to avoid query issues
+      final snapshot = await _db.child('support_tickets').get();
 
       if (!snapshot.exists || snapshot.value == null) {
         return [];
