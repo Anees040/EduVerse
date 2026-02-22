@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/quiz_service.dart';
+import 'package:eduverse/services/study_streak_service.dart';
+import 'package:eduverse/services/learning_stats_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -1002,6 +1004,14 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
         _isCompleted = true;
         _results = results;
       });
+
+      // Record study activity for streak & stats tracking
+      StudyStreakService().recordStudyActivity();
+      LearningStatsService().logStudySession(
+        durationSeconds: timeTaken,
+        activityType: 'quiz',
+        courseId: widget.courseId,
+      );
     }
   }
 
