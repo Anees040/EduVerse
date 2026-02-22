@@ -207,6 +207,14 @@
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
     },
+    "deleted_courses": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      "$courseId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
     "payments": {
       ".read": "auth != null",
       ".write": "auth != null",
@@ -250,6 +258,28 @@
     },
     "bookmarks": {
       ".read": "auth != null",
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
+      }
+    },
+    "study_streaks": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
+      }
+    },
+    "course_notes": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid",
+        "$courseId": {
+          ".read": "auth != null && $uid === auth.uid",
+          ".write": "auth != null && $uid === auth.uid"
+        }
+      }
+    },
+    "learning_stats": {
       "$uid": {
         ".read": "auth != null && $uid === auth.uid",
         ".write": "auth != null && $uid === auth.uid"
