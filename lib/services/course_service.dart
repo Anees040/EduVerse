@@ -621,6 +621,16 @@ class CourseService {
     required String teacherUid,
     required String courseUid,
   }) async {
+    // Get enrolled students from the course's enrolledStudents sub-node
+    // instead of downloading ALL students
+    final enrolledSnap = await _db
+        .child("teacher")
+        .child(teacherUid)
+        .child("courses")
+        .child(courseUid)
+        .child("enrolledStudents")
+        .get();
+
     // Delete from teacher's courses
     await _db
         .child("teacher")
@@ -632,18 +642,18 @@ class CourseService {
     // Delete from courses node
     await _db.child("courses").child(courseUid).remove();
 
-    // Remove from all enrolled students
-    final studentsSnapshot = await _db.child("student").get();
-    if (studentsSnapshot.exists) {
-      final students = Map<String, dynamic>.from(studentsSnapshot.value as Map);
-      for (final studentUid in students.keys) {
-        await _db
+    // Remove from enrolled students only (not ALL students)
+    if (enrolledSnap.exists && enrolledSnap.value != null) {
+      final enrolled = Map<String, dynamic>.from(enrolledSnap.value as Map);
+      final unenrollFutures = enrolled.keys.map((studentUid) {
+        return _db
             .child("student")
             .child(studentUid)
             .child("enrolledCourses")
             .child(courseUid)
             .remove();
-      }
+      });
+      await Future.wait(unenrollFutures);
     }
   }
 
@@ -746,6 +756,9 @@ class CourseService {
       final courseData = Map<String, dynamic>.from(entry.value as Map);
       // Skip unpublished courses
       if (courseData['isPublished'] == false) continue;
+      // Skip incomplete courses (no title = broken/draft entry)
+      final title = courseData['title']?.toString().trim() ?? '';
+      if (title.isEmpty) continue;
       final teacherUid = courseData['teacherUid']?.toString();
       if (teacherUid != null) teacherUids.add(teacherUid);
     }
@@ -769,8 +782,10 @@ class CourseService {
       final courseUid = entry.key.toString();
       final courseData = Map<String, dynamic>.from(entry.value as Map);
 
-      // Skip unpublished courses
+      // Skip unpublished or incomplete courses
       if (courseData['isPublished'] == false) continue;
+      final title = courseData['title']?.toString().trim() ?? '';
+      if (title.isEmpty) continue;
 
       final teacherUid = courseData['teacherUid']?.toString() ?? '';
       final teacherData = teacherCache[teacherUid];
