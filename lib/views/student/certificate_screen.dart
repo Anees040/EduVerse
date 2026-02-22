@@ -84,7 +84,7 @@ class _CertificateScreenState extends State<CertificateScreen> {
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey.shade100,
+      backgroundColor: isDark ? Colors.transparent : Colors.grey.shade100,
       appBar: AppBar(
         title: const Text('Certificate'),
         flexibleSpace: Container(
