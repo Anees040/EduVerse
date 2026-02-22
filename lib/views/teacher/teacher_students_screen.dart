@@ -316,7 +316,7 @@ class _TeacherStudentsScreenState extends State<TeacherStudentsScreen>
     final isDark = AppTheme.isDarkMode(context);
 
     return Scaffold(
-      backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey[100],
+      backgroundColor: isDark ? Colors.transparent : Colors.grey[100],
       body: isLoading
           ? const Center(
               child: EngagingLoadingIndicator(
