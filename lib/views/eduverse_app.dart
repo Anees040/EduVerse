@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:eduverse/views/splash_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/services/theme_service.dart';
+import 'package:eduverse/widgets/animated_dark_background.dart';
 
 class EduVerseApp extends StatelessWidget {
   const EduVerseApp({super.key});
@@ -20,8 +21,8 @@ class EduVerseApp extends StatelessWidget {
             canvasColor: AppTheme.backgroundColor,
           ),
           darkTheme: AppTheme.darkTheme.copyWith(
-            // Ensure no gaps in dark theme
-            scaffoldBackgroundColor: AppTheme.darkBackground,
+            // Transparent so AnimatedDarkBackground shows through
+            scaffoldBackgroundColor: Colors.transparent,
             canvasColor: AppTheme.darkBackground,
           ),
           themeMode: themeService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
@@ -38,13 +39,26 @@ class EduVerseApp extends StatelessWidget {
                 behavior: _NoOverscrollBehavior(),
                 child: LayoutBuilder(
                   builder: (context, constraints) {
-                    return ColoredBox(
-                      color: theme.scaffoldBackgroundColor,
-                      child: SizedBox(
-                        width: double.infinity,
-                        height: double.infinity,
-                        child: child ?? const SizedBox.shrink(),
-                      ),
+                    final isDark =
+                        Theme.of(context).brightness == Brightness.dark;
+                    final bg = isDark
+                        ? const AnimatedDarkBackground(
+                            child: SizedBox.expand(),
+                          )
+                        : ColoredBox(
+                            color: theme.scaffoldBackgroundColor,
+                            child: const SizedBox.expand(),
+                          );
+
+                    return Stack(
+                      children: [
+                        bg,
+                        SizedBox(
+                          width: double.infinity,
+                          height: double.infinity,
+                          child: child ?? const SizedBox.shrink(),
+                        ),
+                      ],
                     );
                   },
                 ),
