@@ -142,19 +142,20 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       final fetchedCourses = results[0] as List<Map<String, dynamic>>;
       final studentCount = results[1] as int;
 
-      // Fetch rating stats for each course
-      for (int i = 0; i < fetchedCourses.length; i++) {
-        final courseUid = fetchedCourses[i]['courseUid'];
+      // Fetch rating stats for all courses in parallel
+      final ratingFutures = fetchedCourses.map((c) async {
         try {
-          final stats = await _courseService.getCourseRatingStats(
-            courseUid: courseUid,
+          return await _courseService.getCourseRatingStats(
+            courseUid: c['courseUid'],
           );
-          fetchedCourses[i]['averageRating'] = stats['averageRating'] ?? 0.0;
-          fetchedCourses[i]['reviewCount'] = stats['reviewCount'] ?? 0;
         } catch (_) {
-          fetchedCourses[i]['averageRating'] = 0.0;
-          fetchedCourses[i]['reviewCount'] = 0;
+          return {'averageRating': 0.0, 'reviewCount': 0};
         }
+      }).toList();
+      final ratings = await Future.wait(ratingFutures);
+      for (int i = 0; i < fetchedCourses.length; i++) {
+        fetchedCourses[i]['averageRating'] = ratings[i]['averageRating'] ?? 0.0;
+        fetchedCourses[i]['reviewCount'] = ratings[i]['reviewCount'] ?? 0;
       }
 
       // Cache results
@@ -202,19 +203,21 @@ class _TeacherCoursesScreenState extends State<TeacherCoursesScreen>
       final fetchedCourses = results[0] as List<Map<String, dynamic>>;
       final studentCount = results[1] as int;
 
-      // Fetch rating stats for each course
-      for (int i = 0; i < fetchedCourses.length; i++) {
-        final courseUid = fetchedCourses[i]['courseUid'];
+      // Fetch rating stats for all courses in parallel
+      final ratingFutures2 = fetchedCourses.map((c) async {
         try {
-          final stats = await _courseService.getCourseRatingStats(
-            courseUid: courseUid,
+          return await _courseService.getCourseRatingStats(
+            courseUid: c['courseUid'],
           );
-          fetchedCourses[i]['averageRating'] = stats['averageRating'] ?? 0.0;
-          fetchedCourses[i]['reviewCount'] = stats['reviewCount'] ?? 0;
         } catch (_) {
-          fetchedCourses[i]['averageRating'] = 0.0;
-          fetchedCourses[i]['reviewCount'] = 0;
+          return {'averageRating': 0.0, 'reviewCount': 0};
         }
+      }).toList();
+      final ratings2 = await Future.wait(ratingFutures2);
+      for (int i = 0; i < fetchedCourses.length; i++) {
+        fetchedCourses[i]['averageRating'] =
+            ratings2[i]['averageRating'] ?? 0.0;
+        fetchedCourses[i]['reviewCount'] = ratings2[i]['reviewCount'] ?? 0;
       }
 
       _cacheService.set(cacheKeyCourses, fetchedCourses);
