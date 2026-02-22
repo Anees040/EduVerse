@@ -771,7 +771,7 @@ class _AdminVerificationQueueScreenState
       ),
       label: Text('Document ${index + 1}'),
       onPressed: () => _showDocumentViewer(url),
-      backgroundColor: isDark ? AppTheme.darkBackground : Colors.grey.shade100,
+      backgroundColor: isDark ? Colors.transparent : Colors.grey.shade100,
       labelStyle: TextStyle(
         color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
         fontSize: 12,
