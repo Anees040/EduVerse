@@ -1373,12 +1373,25 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     if (confirm == true) {
       try {
         // Archive before deleting
-        final courseData =
-            (await _db.child('courses').child(course.courseUid).get()).value;
-        await _db.child('deleted_courses').child(course.courseUid).set({
-          ...Map<String, dynamic>.from(courseData as Map),
-          'deletedAt': ServerValue.timestamp,
-        });
+        final courseSnap = await _db
+            .child('courses')
+            .child(course.courseUid)
+            .get();
+        if (courseSnap.exists && courseSnap.value != null) {
+          await _db.child('deleted_courses').child(course.courseUid).set({
+            ...Map<String, dynamic>.from(courseSnap.value as Map),
+            'deletedAt': ServerValue.timestamp,
+          });
+        }
+
+        // Get enrolled students before deleting
+        final enrolledSnap = await _db
+            .child('teacher')
+            .child(course.teacherUid)
+            .child('courses')
+            .child(course.courseUid)
+            .child('enrolledStudents')
+            .get();
 
         // Delete from both locations
         await _db.child('courses').child(course.courseUid).remove();
@@ -1388,6 +1401,21 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
             .child('courses')
             .child(course.courseUid)
             .remove();
+
+        // Unenroll all students from this course
+        if (enrolledSnap.exists && enrolledSnap.value != null) {
+          final enrolled = Map<String, dynamic>.from(enrolledSnap.value as Map);
+          await Future.wait(
+            enrolled.keys.map(
+              (studentUid) => _db
+                  .child('student')
+                  .child(studentUid)
+                  .child('enrolledCourses')
+                  .child(course.courseUid)
+                  .remove(),
+            ),
+          );
+        }
 
         await _logAdminAction(
           action: 'delete_course',
