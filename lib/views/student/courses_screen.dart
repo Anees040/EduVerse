@@ -2813,20 +2813,25 @@ class _CoursesScreenState extends State<CoursesScreen>
         studentUid: _studentUid,
       );
       if (!mounted) return;
-      // Populate enrolled courses and compute per-course progress
+      // Parallel progress calculation instead of sequential for loop
       final Map<String, double> progressMap = {};
-      for (final c in fetched) {
-        final cid = c['courseUid'] as String?;
-        if (cid == null) continue;
-        try {
-          final p = await _courseService.calculateCourseProgress(
-            studentUid: _studentUid,
-            courseUid: cid,
-          );
-          progressMap[cid] = p;
-        } catch (_) {
-          progressMap[cid] = 0.0;
-        }
+      final progressEntries = await Future.wait(
+        fetched.map((c) async {
+          final cid = c['courseUid'] as String?;
+          if (cid == null) return MapEntry(cid ?? '', 0.0);
+          try {
+            final p = await _courseService.calculateCourseProgress(
+              studentUid: _studentUid,
+              courseUid: cid,
+            );
+            return MapEntry(cid, p);
+          } catch (_) {
+            return MapEntry(cid, 0.0);
+          }
+        }),
+      );
+      for (final entry in progressEntries) {
+        if (entry.key.isNotEmpty) progressMap[entry.key] = entry.value;
       }
 
       setState(() {
