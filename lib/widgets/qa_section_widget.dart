@@ -43,11 +43,21 @@ class _QASectionWidgetState extends State<QASectionWidget>
   final ContentFilterService _contentFilter = ContentFilterService();
   final TextEditingController _questionController = TextEditingController();
   final TextEditingController _answerController = TextEditingController();
+  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController _replyController = TextEditingController();
   String? _studentName;
   bool _isSubmitting = false;
   bool _showAllQuestions = true; // Default to showing all questions
-  String _selectedFilter = 'all'; // all, unanswered, answered, recent
+  String _selectedFilter = 'all'; // all, unanswered, answered, recent, pinned
+  String _sortBy = 'recent'; // recent, votes, oldest
+  String _searchQuery = '';
   Set<String> _hiddenContentIds = {};
+
+  /// Tracks which question's reply box is open
+  String? _activeReplyQuestionId;
+
+  /// Tracks which question's replies are expanded
+  final Set<String> _expandedReplies = {};
 
   // Cache the stream to prevent rebuilding
   Stream<List<Map<String, dynamic>>>? _questionsStream;
@@ -123,7 +133,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
       // Check for inappropriate content with comprehensive filter
       final filterResult = _contentFilter.checkContent(questionText);
-      
+
       if (!filterResult.isClean) {
         // Report user for inappropriate content
         await _contentFilter.reportUserForInappropriateContent(
@@ -135,7 +145,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
           severity: filterResult.severity,
           contentLocation: widget.courseUid,
         );
-        
+
         if (mounted) {
           setState(() => _isSubmitting = false);
           final isDark = AppTheme.isDarkMode(context);
@@ -148,7 +158,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
               ),
               backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
         }
@@ -182,7 +194,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
             backgroundColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -216,7 +230,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
       // Check for inappropriate content
       final filterResult = _contentFilter.checkContent(answerText);
-      
+
       if (!filterResult.isClean) {
         // Report the attempt
         await _contentFilter.reportUserForInappropriateContent(
@@ -228,7 +242,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
           severity: filterResult.severity,
           contentLocation: widget.courseUid,
         );
-        
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -239,7 +253,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
               ),
               backgroundColor: isDark ? AppTheme.darkError : AppTheme.error,
               behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
         }
@@ -267,7 +283,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
             backgroundColor: isDark ? AppTheme.darkSuccess : AppTheme.success,
             duration: const Duration(seconds: 2),
             behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
           ),
         );
       }
@@ -966,22 +984,100 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
           const Divider(height: 1),
 
-          // Filter chips (For both Teacher and Student)
+          // Search bar
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildFilterChip('All', 'all', isDark),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Unanswered', 'unanswered', isDark),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Answered', 'answered', isDark),
-                  const SizedBox(width: 8),
-                  _buildFilterChip('Recent', 'recent', isDark),
-                ],
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+            child: TextField(
+              controller: _searchController,
+              onChanged: (v) =>
+                  setState(() => _searchQuery = v.trim().toLowerCase()),
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
               ),
+              decoration: InputDecoration(
+                hintText: 'Search questions...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
+                ),
+                prefixIcon: Icon(
+                  Icons.search,
+                  size: 18,
+                  color: isDark ? AppTheme.darkTextSecondary : Colors.grey,
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.close,
+                          size: 16,
+                          color: isDark
+                              ? AppTheme.darkTextSecondary
+                              : Colors.grey,
+                        ),
+                        onPressed: () {
+                          _searchController.clear();
+                          setState(() => _searchQuery = '');
+                        },
+                      )
+                    : null,
+                filled: true,
+                fillColor: isDark ? AppTheme.darkSurface : Colors.grey.shade100,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  borderSide: BorderSide.none,
+                ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                isDense: true,
+              ),
+            ),
+          ),
+
+          // Filter chips + Sort (For both Teacher and Student)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+            child: Row(
+              children: [
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildFilterChip('All', 'all', isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterChip('📌 Pinned', 'pinned', isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterChip('Unanswered', 'unanswered', isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterChip('Answered', 'answered', isDark),
+                        const SizedBox(width: 6),
+                        _buildFilterChip('Recent', 'recent', isDark),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Sort dropdown
+                PopupMenuButton<String>(
+                  onSelected: (v) => setState(() => _sortBy = v),
+                  icon: Icon(
+                    Icons.sort,
+                    size: 20,
+                    color: isDark
+                        ? AppTheme.darkTextSecondary
+                        : Colors.grey.shade700,
+                  ),
+                  tooltip: 'Sort',
+                  itemBuilder: (_) => [
+                    _buildSortItem('Recent', 'recent', Icons.access_time),
+                    _buildSortItem('Most Voted', 'votes', Icons.trending_up),
+                    _buildSortItem('Oldest', 'oldest', Icons.history),
+                  ],
+                ),
+              ],
             ),
           ),
           const Divider(height: 1),
@@ -1260,24 +1356,108 @@ class _QASectionWidgetState extends State<QASectionWidget>
   List<Map<String, dynamic>> _applyFilter(
     List<Map<String, dynamic>> questions,
   ) {
+    // 1. Apply text search
+    var filtered = questions;
+    if (_searchQuery.isNotEmpty) {
+      filtered = filtered.where((q) {
+        final question = (q['question'] ?? '').toString().toLowerCase();
+        final studentName = (q['studentName'] ?? '').toString().toLowerCase();
+        return question.contains(_searchQuery) ||
+            studentName.contains(_searchQuery);
+      }).toList();
+    }
+
+    // 2. Apply category filter
     switch (_selectedFilter) {
       case 'unanswered':
-        return questions.where((q) => q['isAnswered'] != true).toList();
+        filtered = filtered.where((q) => q['isAnswered'] != true).toList();
+        break;
       case 'answered':
-        return questions.where((q) => q['isAnswered'] == true).toList();
+        filtered = filtered.where((q) => q['isAnswered'] == true).toList();
+        break;
+      case 'pinned':
+        filtered = filtered.where((q) => q['isPinned'] == true).toList();
+        break;
       case 'recent':
-        // Sort by timestamp descending and take recent ones (last 7 days)
         final now = DateTime.now().millisecondsSinceEpoch;
         final sevenDaysAgo = now - (7 * 24 * 60 * 60 * 1000);
-        return questions.where((q) {
-          final timestamp = q['timestamp'];
+        filtered = filtered.where((q) {
+          final timestamp = q['createdAt'] ?? q['timestamp'];
           if (timestamp == null) return false;
           return timestamp > sevenDaysAgo;
         }).toList();
+        break;
       case 'all':
       default:
-        return questions;
+        break;
     }
+
+    // 3. Always keep pinned questions at top
+    final pinned = filtered.where((q) => q['isPinned'] == true).toList();
+    final unpinned = filtered.where((q) => q['isPinned'] != true).toList();
+
+    // 4. Apply sort to unpinned questions
+    switch (_sortBy) {
+      case 'votes':
+        unpinned.sort(
+          (a, b) => ((b['voteCount'] ?? 0) as int).compareTo(
+            (a['voteCount'] ?? 0) as int,
+          ),
+        );
+        break;
+      case 'oldest':
+        unpinned.sort(
+          (a, b) => ((a['createdAt'] ?? 0) as int).compareTo(
+            (b['createdAt'] ?? 0) as int,
+          ),
+        );
+        break;
+      case 'recent':
+      default:
+        unpinned.sort(
+          (a, b) => ((b['createdAt'] ?? 0) as int).compareTo(
+            (a['createdAt'] ?? 0) as int,
+          ),
+        );
+        break;
+    }
+
+    return [...pinned, ...unpinned];
+  }
+
+  PopupMenuEntry<String> _buildSortItem(
+    String label,
+    String value,
+    IconData icon,
+  ) {
+    final isDark = AppTheme.isDarkMode(context);
+    return PopupMenuItem<String>(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 16,
+            color: _sortBy == value
+                ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: _sortBy == value
+                  ? FontWeight.bold
+                  : FontWeight.normal,
+              color: _sortBy == value
+                  ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                  : (isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildQuestionTile(Map<String, dynamic> q, bool isDark) {
@@ -1286,20 +1466,76 @@ class _QASectionWidgetState extends State<QASectionWidget>
     final isQuestionOwner = q['studentUid'] == currentUid;
     final wasEdited = q['editedAt'] != null;
     final answerWasEdited = q['answerEditedAt'] != null;
+    final isPinned = q['isPinned'] == true;
+    final questionId = q['questionId'] as String? ?? '';
+    final voteCount = (q['voteCount'] ?? 0) as int;
+    final upvoters = q['upvoters'] is Map
+        ? Map<String, dynamic>.from(q['upvoters'] as Map)
+        : <String, dynamic>{};
+    final downvoters = q['downvoters'] is Map
+        ? Map<String, dynamic>.from(q['downvoters'] as Map)
+        : <String, dynamic>{};
+    final hasUpvoted = currentUid != null && upvoters.containsKey(currentUid);
+    final hasDownvoted =
+        currentUid != null && downvoters.containsKey(currentUid);
+    final replies = q['replies'] is Map
+        ? Map<String, dynamic>.from(q['replies'] as Map)
+        : <String, dynamic>{};
+    final replyCount = replies.length;
+    final hasReplies = replyCount > 0;
+    final isReplyOpen = _activeReplyQuestionId == questionId;
+    final areRepliesExpanded = _expandedReplies.contains(questionId);
 
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 2),
       decoration: BoxDecoration(
-        color: isDark
-            ? Colors.white.withOpacity(0.02)
-            : Colors.grey.shade50.withOpacity(0.5),
+        color: isPinned
+            ? (isDark
+                  ? AppTheme.darkGold.withOpacity(0.06)
+                  : Colors.amber.withOpacity(0.06))
+            : (isDark
+                  ? Colors.white.withOpacity(0.02)
+                  : Colors.grey.shade50.withOpacity(0.5)),
         borderRadius: BorderRadius.circular(10),
+        border: isPinned
+            ? Border.all(
+                color: isDark
+                    ? AppTheme.darkGold.withOpacity(0.25)
+                    : Colors.amber.withOpacity(0.3),
+                width: 1,
+              )
+            : null,
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Pinned badge
+            if (isPinned)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.push_pin,
+                      size: 13,
+                      color: isDark ? AppTheme.darkGold : Colors.amber.shade700,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Pinned by instructor',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: isDark
+                            ? AppTheme.darkGold
+                            : Colors.amber.shade700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             // Question Header Row
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1488,10 +1724,99 @@ class _QASectionWidgetState extends State<QASectionWidget>
                         ),
                       ],
 
-                      // Question actions row
+                      // Question actions row — votes + status + actions
                       const SizedBox(height: 6),
                       Row(
                         children: [
+                          // Upvote button
+                          _buildVoteButton(
+                            icon: Icons.thumb_up_alt,
+                            isActive: hasUpvoted,
+                            onTap: () async {
+                              if (currentUid == null) return;
+                              await _qaService.toggleUpvote(
+                                courseUid: widget.courseUid,
+                                questionId: questionId,
+                                userUid: currentUid,
+                              );
+                            },
+                            isDark: isDark,
+                          ),
+                          // Vote count
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                            child: Text(
+                              voteCount.toString(),
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: voteCount > 0
+                                    ? (isDark
+                                          ? AppTheme.darkAccent
+                                          : AppTheme.primaryColor)
+                                    : voteCount < 0
+                                    ? (isDark
+                                          ? AppTheme.darkError
+                                          : AppTheme.error)
+                                    : (isDark
+                                          ? AppTheme.darkTextSecondary
+                                          : Colors.grey),
+                              ),
+                            ),
+                          ),
+                          // Downvote button
+                          _buildVoteButton(
+                            icon: Icons.thumb_down_alt,
+                            isActive: hasDownvoted,
+                            onTap: () async {
+                              if (currentUid == null) return;
+                              await _qaService.toggleDownvote(
+                                courseUid: widget.courseUid,
+                                questionId: questionId,
+                                userUid: currentUid,
+                              );
+                            },
+                            isDark: isDark,
+                          ),
+                          const SizedBox(width: 8),
+
+                          // Reply count button
+                          GestureDetector(
+                            onTap: () {
+                              setState(() {
+                                if (areRepliesExpanded) {
+                                  _expandedReplies.remove(questionId);
+                                } else {
+                                  _expandedReplies.add(questionId);
+                                }
+                              });
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 14,
+                                  color: isDark
+                                      ? AppTheme.darkTextSecondary
+                                      : Colors.grey,
+                                ),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '$replyCount',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? AppTheme.darkTextSecondary
+                                        : Colors.grey,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                          const SizedBox(width: 8),
+
                           // Status badge
                           if (!isAnswered)
                             Container(
@@ -1513,7 +1838,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
                                   ),
                                   const SizedBox(width: 4),
                                   const Text(
-                                    'Awaiting answer',
+                                    'Awaiting',
                                     style: TextStyle(
                                       color: AppTheme.warning,
                                       fontSize: 11,
@@ -1555,6 +1880,37 @@ class _QASectionWidgetState extends State<QASectionWidget>
                             ),
 
                           const Spacer(),
+
+                          // Pin button (teacher only)
+                          if (widget.isTeacher)
+                            _buildIconButton(
+                              icon: isPinned
+                                  ? Icons.push_pin
+                                  : Icons.push_pin_outlined,
+                              tooltip: isPinned ? 'Unpin' : 'Pin question',
+                              onTap: () => _qaService.togglePinQuestion(
+                                courseUid: widget.courseUid,
+                                questionId: questionId,
+                              ),
+                              isDark: isDark,
+                            ),
+
+                          // Reply button (everyone can reply)
+                          _buildIconButton(
+                            icon: Icons.reply,
+                            tooltip: 'Reply',
+                            onTap: () {
+                              setState(() {
+                                _activeReplyQuestionId = isReplyOpen
+                                    ? null
+                                    : questionId;
+                                if (!isReplyOpen) {
+                                  _expandedReplies.add(questionId);
+                                }
+                              });
+                            },
+                            isDark: isDark,
+                          ),
 
                           // Report button for non-owners
                           if (!isQuestionOwner)
@@ -1711,6 +2067,18 @@ class _QASectionWidgetState extends State<QASectionWidget>
               ),
             ],
 
+            // ===== THREADED REPLIES SECTION =====
+            if (hasReplies && areRepliesExpanded) ...[
+              const SizedBox(height: 6),
+              _buildRepliesSection(q, replies, isDark),
+            ],
+
+            // Reply input box
+            if (isReplyOpen) ...[
+              const SizedBox(height: 8),
+              _buildReplyInput(questionId, isDark),
+            ],
+
             // Answer Button (Teacher only)
             if (widget.isTeacher && !isAnswered) ...[
               const SizedBox(height: 6),
@@ -1776,6 +2144,351 @@ class _QASectionWidgetState extends State<QASectionWidget>
     );
   }
 
+  // ==================== YOUTUBE-STYLE HELPER WIDGETS ====================
+
+  Widget _buildVoteButton({
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.all(4),
+        child: Icon(
+          isActive
+              ? icon
+              : IconData(icon.codePoint, fontFamily: 'MaterialIcons'),
+          size: 16,
+          color: isActive
+              ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+              : (isDark ? AppTheme.darkTextSecondary : Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRepliesSection(
+    Map<String, dynamic> q,
+    Map<String, dynamic> repliesMap,
+    bool isDark,
+  ) {
+    final bestReplyId = q['bestReplyId'] as String?;
+    final replyList = repliesMap.entries.map((e) {
+      final r = Map<String, dynamic>.from(e.value as Map);
+      r['replyId'] = e.key;
+      return r;
+    }).toList();
+    replyList.sort((a, b) {
+      // Best answer first
+      if (a['replyId'] == bestReplyId) return -1;
+      if (b['replyId'] == bestReplyId) return 1;
+      // Teacher replies second
+      if (a['isTeacher'] == true && b['isTeacher'] != true) return -1;
+      if (b['isTeacher'] == true && a['isTeacher'] != true) return 1;
+      // Then by time
+      return ((a['createdAt'] ?? 0) as int).compareTo(
+        (b['createdAt'] ?? 0) as int,
+      );
+    });
+
+    return Container(
+      margin: const EdgeInsets.only(left: 28),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (final reply in replyList)
+            _buildReplyTile(reply, bestReplyId, q, isDark),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyTile(
+    Map<String, dynamic> reply,
+    String? bestReplyId,
+    Map<String, dynamic> parentQuestion,
+    bool isDark,
+  ) {
+    final isTeacherReply = reply['isTeacher'] == true;
+    final isBest = reply['replyId'] == bestReplyId;
+    final currentUid = FirebaseAuth.instance.currentUser?.uid;
+    final isOwner = reply['userUid'] == currentUid;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 4),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isBest
+            ? (isDark
+                  ? AppTheme.darkGold.withOpacity(0.08)
+                  : Colors.amber.withOpacity(0.06))
+            : isTeacherReply
+            ? (isDark
+                  ? AppTheme.success.withOpacity(0.06)
+                  : AppTheme.success.withOpacity(0.04))
+            : (isDark ? Colors.white.withOpacity(0.02) : Colors.grey.shade50),
+        borderRadius: BorderRadius.circular(8),
+        border: isBest
+            ? Border.all(
+                color: isDark
+                    ? AppTheme.darkGold.withOpacity(0.3)
+                    : Colors.amber.withOpacity(0.3),
+              )
+            : null,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Avatar
+              CircleAvatar(
+                radius: 10,
+                backgroundColor: isTeacherReply
+                    ? AppTheme.success.withOpacity(0.2)
+                    : (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                          .withOpacity(0.15),
+                child: Text(
+                  (reply['userName'] ?? 'U')[0].toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    color: isTeacherReply
+                        ? AppTheme.success
+                        : (isDark
+                              ? AppTheme.darkAccent
+                              : AppTheme.primaryColor),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              // Name
+              Flexible(
+                child: Text(
+                  reply['userName'] ?? 'User',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: isTeacherReply
+                        ? AppTheme.success
+                        : (isDark
+                              ? AppTheme.darkTextPrimary
+                              : AppTheme.textPrimary),
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (isTeacherReply) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppTheme.success.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: const Text(
+                    'Instructor',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.success,
+                    ),
+                  ),
+                ),
+              ],
+              if (isBest) ...[
+                const SizedBox(width: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? AppTheme.darkGold.withOpacity(0.2)
+                        : Colors.amber.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.star,
+                        size: 10,
+                        color: isDark
+                            ? AppTheme.darkGold
+                            : Colors.amber.shade700,
+                      ),
+                      const SizedBox(width: 2),
+                      Text(
+                        'Best',
+                        style: TextStyle(
+                          fontSize: 9,
+                          fontWeight: FontWeight.bold,
+                          color: isDark
+                              ? AppTheme.darkGold
+                              : Colors.amber.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(width: 6),
+              Text(
+                _formatTime(reply['createdAt']),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
+                ),
+              ),
+              const Spacer(),
+              // Best answer button (teacher only)
+              if (widget.isTeacher && !isBest)
+                GestureDetector(
+                  onTap: () => _qaService.markBestAnswer(
+                    courseUid: widget.courseUid,
+                    questionId: parentQuestion['questionId'],
+                    replyId: reply['replyId'],
+                  ),
+                  child: Tooltip(
+                    message: 'Mark as best answer',
+                    child: Icon(
+                      Icons.star_outline,
+                      size: 14,
+                      color: isDark ? AppTheme.darkGold : Colors.amber,
+                    ),
+                  ),
+                ),
+              // Delete own reply
+              if (isOwner || widget.isTeacher)
+                GestureDetector(
+                  onTap: () => _qaService.deleteReply(
+                    courseUid: widget.courseUid,
+                    questionId: parentQuestion['questionId'],
+                    replyId: reply['replyId'],
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: Icon(
+                      Icons.close,
+                      size: 13,
+                      color: isDark
+                          ? AppTheme.darkError.withOpacity(0.6)
+                          : Colors.red.withOpacity(0.5),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            reply['text'] ?? '',
+            style: TextStyle(
+              fontSize: 12,
+              height: 1.3,
+              color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReplyInput(String questionId, bool isDark) {
+    return Container(
+      margin: const EdgeInsets.only(left: 28),
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkSurface : Colors.grey.shade100,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _replyController,
+              style: TextStyle(
+                fontSize: 13,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              ),
+              decoration: InputDecoration(
+                hintText: 'Write a reply...',
+                hintStyle: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? AppTheme.darkTextTertiary : Colors.grey,
+                ),
+                border: InputBorder.none,
+                isDense: true,
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 6,
+                ),
+              ),
+              maxLines: 3,
+              minLines: 1,
+            ),
+          ),
+          const SizedBox(width: 6),
+          GestureDetector(
+            onTap: () async {
+              final text = _replyController.text.trim();
+              if (text.isEmpty) return;
+              final uid = FirebaseAuth.instance.currentUser?.uid;
+              if (uid == null) return;
+
+              // Content filter
+              final filterResult = _contentFilter.checkContent(text);
+              if (!filterResult.isClean) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: const Text(
+                        'Please keep your language respectful.',
+                      ),
+                      backgroundColor: isDark
+                          ? AppTheme.darkError
+                          : AppTheme.error,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+                return;
+              }
+
+              final userName = widget.isTeacher
+                  ? (widget.teacherName ?? 'Instructor')
+                  : (_studentName ?? 'Student');
+              await _qaService.addReply(
+                courseUid: widget.courseUid,
+                questionId: questionId,
+                userUid: uid,
+                userName: userName,
+                replyText: text,
+                isTeacher: widget.isTeacher,
+              );
+              _replyController.clear();
+              setState(() => _activeReplyQuestionId = null);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(Icons.send, size: 16, color: Colors.white),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showReportDialog({
     required String contentId,
     required String contentType,
@@ -1797,7 +2510,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           title: Row(
             children: [
               Icon(
@@ -1808,7 +2523,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
               Text(
                 'Report Content',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
                   fontSize: 18,
                 ),
               ),
@@ -1821,28 +2538,36 @@ class _QASectionWidgetState extends State<QASectionWidget>
               Text(
                 'Why are you reporting this?',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),
               const SizedBox(height: 12),
-              ...reasons.map((reason) => RadioListTile<String>(
-                title: Text(
-                  reason,
-                  style: TextStyle(
-                    color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
-                    fontSize: 14,
+              ...reasons.map(
+                (reason) => RadioListTile<String>(
+                  title: Text(
+                    reason,
+                    style: TextStyle(
+                      color: isDark
+                          ? AppTheme.darkTextPrimary
+                          : AppTheme.textPrimary,
+                      fontSize: 14,
+                    ),
                   ),
+                  value: reason,
+                  groupValue: selectedReason,
+                  activeColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.accentColor,
+                  contentPadding: EdgeInsets.zero,
+                  dense: true,
+                  onChanged: (value) {
+                    setDialogState(() => selectedReason = value!);
+                  },
                 ),
-                value: reason,
-                groupValue: selectedReason,
-                activeColor: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
-                contentPadding: EdgeInsets.zero,
-                dense: true,
-                onChanged: (value) {
-                  setDialogState(() => selectedReason = value!);
-                },
-              )),
+              ),
             ],
           ),
           actions: [
@@ -1851,7 +2576,9 @@ class _QASectionWidgetState extends State<QASectionWidget>
               child: Text(
                 'Cancel',
                 style: TextStyle(
-                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                  color: isDark
+                      ? AppTheme.darkTextSecondary
+                      : AppTheme.textSecondary,
                 ),
               ),
             ),
@@ -1860,7 +2587,7 @@ class _QASectionWidgetState extends State<QASectionWidget>
                 final reason = selectedReason;
                 final dialogCtx = context;
                 Navigator.pop(dialogCtx);
-                
+
                 final currentUid = FirebaseAuth.instance.currentUser?.uid;
                 if (currentUid == null) return;
 
@@ -1874,7 +2601,10 @@ class _QASectionWidgetState extends State<QASectionWidget>
 
                 // Hide the content locally for this user
                 if (success) {
-                  await _moderationService.hideContentForUser(contentId, contentType);
+                  await _moderationService.hideContentForUser(
+                    contentId,
+                    contentType,
+                  );
                   if (mounted) {
                     setState(() {
                       _hiddenContentIds.add(contentId);
@@ -1945,6 +2675,8 @@ class _QASectionWidgetState extends State<QASectionWidget>
   void dispose() {
     _questionController.dispose();
     _answerController.dispose();
+    _searchController.dispose();
+    _replyController.dispose();
     super.dispose();
   }
 }
