@@ -9,6 +9,8 @@ import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/views/student/ai_chat_screen.dart';
 import 'package:eduverse/views/teacher/teacher_course_manage_screen.dart';
+import 'package:eduverse/views/teacher/teacher_course_engagement_screen.dart';
+import 'package:eduverse/views/teacher/teacher_revenue_dashboard.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/utils/route_transitions.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
@@ -905,6 +907,49 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
                 Navigator.push(
                   context,
                   SlideAndFadeRoute(page: const AIChatScreen(openNew: true)),
+                );
+              },
+            ),
+
+            const SizedBox(height: 28),
+
+            // Teacher Quick Actions
+            Text(
+              "Teaching Tools",
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            _buildFeatureCard(
+              icon: Icons.insights_rounded,
+              title: "Course Engagement",
+              subtitle: "View student engagement, ratings & analytics",
+              color: const Color(0xFF7C4DFF),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  SlideAndFadeRoute(
+                    page: const TeacherCourseEngagementScreen(),
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 10),
+            _buildFeatureCard(
+              icon: Icons.account_balance_wallet_rounded,
+              title: "Revenue Dashboard",
+              subtitle: "Track your earnings, growth & course revenue",
+              color: const Color(0xFF00C853),
+              onTap: () {
+                Navigator.push(
+                  context,
+                  SlideAndFadeRoute(
+                    page: const TeacherRevenueDashboard(),
+                  ),
                 );
               },
             ),
