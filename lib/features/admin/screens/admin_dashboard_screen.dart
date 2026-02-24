@@ -14,6 +14,11 @@ import 'admin_analytics_screen.dart';
 import 'admin_data_screen.dart';
 import 'admin_support_screen.dart';
 import 'admin_all_courses_screen.dart';
+import 'admin_announcements_screen.dart';
+import 'admin_audit_log_screen.dart';
+import 'admin_platform_settings_screen.dart';
+import 'admin_bulk_actions_screen.dart';
+import 'admin_content_insights_screen.dart';
 
 /// Main Admin Dashboard Screen
 /// Hub for all admin functionalities with KPI overview
@@ -37,6 +42,11 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     const AdminDataScreen(),
     const AdminSupportScreen(),
     const AdminAllCoursesScreen(),
+    const AdminAnnouncementsScreen(),
+    const AdminAuditLogScreen(),
+    const AdminPlatformSettingsScreen(),
+    const AdminBulkActionsScreen(),
+    const AdminContentInsightsScreen(),
   ];
 
   @override
@@ -133,6 +143,16 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Support';
       case 7:
         return 'Courses';
+      case 8:
+        return 'Announcements';
+      case 9:
+        return 'Audit Log';
+      case 10:
+        return 'Settings';
+      case 11:
+        return 'Bulk Actions';
+      case 12:
+        return 'Content Insights';
       default:
         return 'Dashboard';
     }
@@ -665,6 +685,66 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(7);
+            }
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.campaign_rounded,
+          label: 'Announcements',
+          color: Colors.indigo,
+          onTap: () {
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(8);
+            }
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.history_rounded,
+          label: 'Audit Log',
+          color: Colors.blueGrey,
+          onTap: () {
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(9);
+            }
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.settings_rounded,
+          label: 'Settings',
+          color: Colors.purple,
+          onTap: () {
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(10);
+            }
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.groups_rounded,
+          label: 'Bulk Actions',
+          color: Colors.cyan,
+          onTap: () {
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(11);
+            }
+          },
+        ),
+        _QuickActionButton(
+          icon: Icons.insights_rounded,
+          label: 'Content Insights',
+          color: Colors.pink,
+          onTap: () {
+            final dashboardState = context
+                .findAncestorStateOfType<_AdminDashboardScreenState>();
+            if (dashboardState != null) {
+              dashboardState.navigateToTab(12);
             }
           },
         ),
