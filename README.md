@@ -175,7 +175,39 @@ The admin panel features a **responsive sidebar/drawer navigation** (desktop exp
 
 ---
 
-## 🛠️ Tech Stack
+## � Screenshots
+
+### Authentication
+| Sign In | Sign Up |
+|---------|---------|
+| ![Sign In](docs/screenshots/signin_page.png) | ![Sign Up](docs/screenshots/signup_page.png) |
+
+### Student
+| Home | Courses | Profile |
+|------|---------|---------|
+| ![Student Home](docs/screenshots/student_home.png) | ![Student Courses](docs/screenshots/student_courses.png) | ![Student Profile](docs/screenshots/student_profile.png) |
+
+| Course Video Player |
+|---------------------|
+| ![Course Video Player](docs/screenshots/course_video_player.png) |
+
+### Teacher
+| Home | Courses | Profile |
+|------|---------|---------|
+| ![Teacher Home](docs/screenshots/teacher_home.png) | ![Teacher Courses](docs/screenshots/teacher_courses.png) | ![Teacher Profile](docs/screenshots/teacher_profile.png) |
+
+| Create Course | Insights |
+|---------------|----------|
+| ![Create Course](docs/screenshots/create_course.png) | ![Teacher Insights](docs/screenshots/teacher_insights.png) |
+
+### Admin
+| Dashboard | Course Management | Sidebar |
+|-----------|-------------------|---------|
+| ![Admin Dashboard](docs/screenshots/admin_dashboard.png) | ![Admin Course Management](docs/screenshots/admin_course_management.png) | ![Admin Sidebar](docs/screenshots/admin_sidebar.png) |
+
+---
+
+## �🛠️ Tech Stack
 
 ### Frontend
 | Technology | Purpose |
