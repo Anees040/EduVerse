@@ -11,6 +11,7 @@ import 'package:eduverse/views/student/student_course_detail_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/study_streak_card.dart';
+import 'package:eduverse/services/course_recommendation_service.dart';
 
 class HomeTab extends StatefulWidget {
   final String uid;
@@ -55,6 +56,11 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   bool _isInitialLoading = true;
   String searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
+
+  // Recommendations
+  final _recommendationService = CourseRecommendationService();
+  List<Map<String, dynamic>> _recommendedCourses = [];
+  bool _isLoadingRecommendations = false;
 
   // Auto-scroll carousel
   late PageController _pageController;
@@ -139,6 +145,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
           _isInitialLoading = false;
         });
         _startAutoScroll();
+        _loadRecommendations();
       }
       return;
     }
@@ -214,6 +221,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
           _isInitialLoading = false;
         });
         _startAutoScroll();
+        _loadRecommendations();
       }
     } catch (e) {
       if (mounted) {
@@ -264,6 +272,24 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       }
     } catch (_) {
       // Silent fail for background refresh
+    }
+  }
+
+  /// Load personalized course recommendations
+  Future<void> _loadRecommendations() async {
+    if (_isLoadingRecommendations) return;
+    _isLoadingRecommendations = true;
+    try {
+      final recs = await _recommendationService.getRecommendations(limit: 6);
+      if (mounted) {
+        setState(() {
+          _recommendedCourses = recs;
+          _isLoadingRecommendations = false;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading recommendations: $e');
+      if (mounted) setState(() => _isLoadingRecommendations = false);
     }
   }
 
@@ -356,7 +382,56 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
             // Study Streak & Stats
             const StudyStreakCard(),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
+
+            // Recommended For You
+            if (_recommendedCourses.isNotEmpty) ...[
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.auto_awesome,
+                        color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        "Recommended For You",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getTextPrimary(context),
+                        ),
+                      ),
+                    ],
+                  ),
+                  IconButton(
+                    icon: Icon(
+                      Icons.refresh,
+                      color: AppTheme.getTextSecondary(context),
+                      size: 20,
+                    ),
+                    onPressed: _loadRecommendations,
+                    tooltip: 'Refresh recommendations',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              SizedBox(
+                height: 160,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _recommendedCourses.length,
+                  itemBuilder: (context, index) {
+                    final course = _recommendedCourses[index];
+                    return _buildRecommendationCard(course, isDark);
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
 
             // Search Bar
             Container(
@@ -567,6 +642,120 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                 );
               },
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Recommendation card — compact horizontal card
+  Widget _buildRecommendationCard(Map<String, dynamic> course, bool isDark) {
+    final title = (course['title'] as String? ?? 'Course').toString();
+    final category = (course['category'] as String? ?? '').toString();
+    final imageUrl = (course['imageUrl'] as String? ?? '').toString();
+    final courseUid = course['courseUid'] as String?;
+    final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+
+    return GestureDetector(
+      onTap: () {
+        if (courseUid != null) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => StudentCourseDetailScreen(
+                courseUid: courseUid,
+                courseTitle: title,
+                imageUrl: imageUrl,
+                description: course['description'] as String? ?? '',
+                createdAt: course['createdAt'],
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
+        width: 220,
+        margin: const EdgeInsets.only(right: 12),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorderColor : Colors.grey.shade200,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(15),
+              ),
+              child: imageUrl.isNotEmpty
+                  ? CachedNetworkImage(
+                      imageUrl: imageUrl,
+                      height: 80,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        height: 80,
+                        color: accentColor.withOpacity(0.1),
+                        child: Center(
+                          child: Icon(
+                            Icons.image,
+                            color: accentColor.withOpacity(0.3),
+                          ),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Container(
+                        height: 80,
+                        color: accentColor.withOpacity(0.1),
+                        child: Icon(Icons.school, color: accentColor),
+                      ),
+                    )
+                  : Container(
+                      height: 80,
+                      color: accentColor.withOpacity(0.1),
+                      child: Center(
+                        child: Icon(Icons.school, color: accentColor, size: 30),
+                      ),
+                    ),
+            ),
+            // Title + category
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+              child: Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            if (category.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+                child: Text(
+                  category,
+                  style: TextStyle(
+                    color: accentColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
           ],
         ),
       ),
