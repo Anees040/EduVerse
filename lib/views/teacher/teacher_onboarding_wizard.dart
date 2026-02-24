@@ -1489,70 +1489,120 @@ class _CredentialDialogState extends State<_CredentialDialog> {
     // Prevent multiple calls
     if (_isUploading) return;
 
-    // Capture context before async gap
+    // Capture context refs before async gap
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       final picker = ImagePicker();
 
-      // Pick image - don't show loading during picker
-      final picked = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1200,
-        maxHeight: 1200,
-        imageQuality: 85,
-      );
-
-      // User cancelled
-      if (picked == null) return;
-
-      // Show uploading state
-      if (mounted) {
-        setState(() => _isUploading = true);
-      }
-
-      // Read bytes
-      final bytes = await picked.readAsBytes();
-
-      if (bytes.isEmpty) {
-        if (mounted) {
-          setState(() => _isUploading = false);
-        }
+      // Pick image
+      XFile? picked;
+      try {
+        picked = await picker.pickImage(
+          source: ImageSource.gallery,
+          maxWidth: 1200,
+          maxHeight: 1200,
+          imageQuality: 85,
+        );
+      } catch (pickerError) {
+        debugPrint('Image picker error: $pickerError');
         scaffoldMessenger.showSnackBar(
-          const SnackBar(content: Text('Invalid image file')),
+          SnackBar(
+            content: Text('Could not open gallery: $pickerError'),
+            backgroundColor: Colors.red,
+          ),
         );
         return;
       }
 
-      // Update state with image bytes
+      // User cancelled
+      if (picked == null) return;
+      if (!mounted) return;
+
+      // Show uploading state
+      setState(() => _isUploading = true);
+
+      // Read bytes with error handling
+      Uint8List bytes;
+      try {
+        bytes = await picked.readAsBytes();
+      } catch (readError) {
+        debugPrint('Error reading image bytes: $readError');
+        if (mounted) setState(() => _isUploading = false);
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Failed to read image file'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      if (bytes.isEmpty) {
+        if (mounted) setState(() => _isUploading = false);
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Invalid image file'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        return;
+      }
+
+      // Show image preview immediately
       if (mounted) {
         setState(() {
           _credentialImageBytes = bytes;
         });
       }
 
-      // Upload to Cloudinary
-      final url = await uploadToCloudinaryFromXFile(picked);
-      if (mounted) {
-        setState(() {
-          _uploadedCredentialUrl = url;
-          _isUploading = false;
-        });
-        if (url != null) {
-          scaffoldMessenger.showSnackBar(
-            const SnackBar(
-              content: Text('Certificate uploaded successfully!'),
-              backgroundColor: Colors.green,
+      // Upload to Cloudinary with timeout
+      String? url;
+      try {
+        url = await uploadToCloudinaryFromXFile(picked).timeout(
+          const Duration(seconds: 30),
+          onTimeout: () => null,
+        );
+      } catch (uploadError) {
+        debugPrint('Cloudinary upload error: $uploadError');
+        // Image is still shown locally even if upload fails
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _uploadedCredentialUrl = url;
+        _isUploading = false;
+      });
+
+      if (url != null) {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text('Certificate uploaded successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        scaffoldMessenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Upload failed — image saved locally. You can try again later.',
             ),
-          );
-        }
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
     } catch (e) {
       debugPrint('Image picker error: $e');
       if (mounted) {
         setState(() => _isUploading = false);
       }
-      scaffoldMessenger.showSnackBar(SnackBar(content: Text('Error: $e')));
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 
