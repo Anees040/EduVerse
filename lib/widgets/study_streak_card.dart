@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:eduverse/services/study_streak_service.dart';
 import 'package:eduverse/services/learning_stats_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/views/student/learning_stats_screen.dart';
 
 /// Compact card showing study streak (fire icon + count) and quick stats.
 /// Designed for the student home tab.
@@ -71,7 +72,14 @@ class _StudyStreakCardState extends State<StudyStreakCard>
     final videosWatched = _stats['videosWatched'] as int? ?? 0;
     final quizzesTaken = _stats['quizzesTaken'] as int? ?? 0;
 
-    return Container(
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LearningStatsScreen()),
+        );
+      },
+      child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard : Colors.white,
@@ -227,8 +235,30 @@ class _StudyStreakCardState extends State<StudyStreakCard>
               ),
             ],
           ),
+
+          // Tap hint
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.bar_chart,
+                size: 14,
+                color: AppTheme.getTextSecondary(context),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Tap for full stats',
+                style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 11,
+                ),
+              ),
+            ],
+          ),
         ],
       ),
+    ),
     );
   }
 
