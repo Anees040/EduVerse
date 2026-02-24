@@ -1031,7 +1031,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                 }
               });
             }
-          : null,
+          : () => _openModerationDetail(item, provider, isDark),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
@@ -1612,6 +1612,64 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
     } else {
       return DateFormat('MMM d').format(date);
     }
+  }
+
+  // ───────────────────────────────────────────────────────────────
+  // Moderation Detail View
+  // ───────────────────────────────────────────────────────────────
+
+  void _openModerationDetail(
+    Map<String, dynamic> item,
+    AdminProvider provider,
+    bool isDark,
+  ) {
+    final type = item['type'] ?? 'unknown';
+    final content =
+        item['content'] ?? item['text'] ?? item['comment'] ?? 'No content';
+    final reportReason = item['reportReason'] ?? 'Policy violation';
+    final reportedBy = item['reportedBy'];
+    final reportedUserId =
+        item['reportedUserId'] ?? item['userId'] ?? item['authorId'];
+    final contentId =
+        item['originalId'] ?? item['contentId'] ?? item['id'] ?? '';
+    final parentId = item['courseId'] ?? item['teacherId'];
+    final reportedAt = item['reportedAt'] ?? item['createdAt'];
+
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _ModerationDetailPage(
+          item: item,
+          type: type,
+          content: content.toString(),
+          reportReason: reportReason,
+          reportedBy: reportedBy,
+          reportedUserId: reportedUserId,
+          contentId: contentId,
+          parentId: parentId,
+          reportedAt: reportedAt,
+          isDark: isDark,
+          onKeep: () {
+            _keepContent(item, contentId, type, parentId, provider);
+          },
+          onDelete: () {
+            _deleteContent(item, contentId, type, parentId, provider);
+          },
+          onWarnAuthor: () {
+            _showWarnDialog(item, reportedUserId, 'Content Author', isDark);
+          },
+          onWarnReporter: () {
+            _showWarnDialog(item, reportedBy, 'Reporter', isDark);
+          },
+          onSuspendAuthor: () {
+            _showSuspendUserDialog(item, isDark);
+          },
+          onViewReporter: () => _viewUserProfile(reportedBy, isDark),
+          onViewAuthor: () => _viewUserProfile(reportedUserId, isDark),
+          resolveUserName: _resolveUserName,
+          resolveUserRole: _resolveUserRole,
+        ),
+      ),
+    );
   }
 
   // ───────────────────────────────────────────────────────────────
@@ -2374,5 +2432,610 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
         ],
       ),
     );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// Moderation Detail Page — Full-screen detail for a single item
+// ═══════════════════════════════════════════════════════════════
+
+class _ModerationDetailPage extends StatefulWidget {
+  final Map<String, dynamic> item;
+  final String type;
+  final String content;
+  final String reportReason;
+  final String? reportedBy;
+  final String? reportedUserId;
+  final String contentId;
+  final String? parentId;
+  final dynamic reportedAt;
+  final bool isDark;
+  final VoidCallback onKeep;
+  final VoidCallback onDelete;
+  final VoidCallback onWarnAuthor;
+  final VoidCallback onWarnReporter;
+  final VoidCallback onSuspendAuthor;
+  final VoidCallback onViewReporter;
+  final VoidCallback onViewAuthor;
+  final Future<String> Function(String?) resolveUserName;
+  final Future<String> Function(String?) resolveUserRole;
+
+  const _ModerationDetailPage({
+    required this.item,
+    required this.type,
+    required this.content,
+    required this.reportReason,
+    required this.reportedBy,
+    required this.reportedUserId,
+    required this.contentId,
+    required this.parentId,
+    required this.reportedAt,
+    required this.isDark,
+    required this.onKeep,
+    required this.onDelete,
+    required this.onWarnAuthor,
+    required this.onWarnReporter,
+    required this.onSuspendAuthor,
+    required this.onViewReporter,
+    required this.onViewAuthor,
+    required this.resolveUserName,
+    required this.resolveUserRole,
+  });
+
+  @override
+  State<_ModerationDetailPage> createState() => _ModerationDetailPageState();
+}
+
+class _ModerationDetailPageState extends State<_ModerationDetailPage> {
+  String _reporterName = 'Loading...';
+  String _authorName = 'Loading...';
+  String _authorRole = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNames();
+  }
+
+  Future<void> _loadNames() async {
+    final reporter = await widget.resolveUserName(widget.reportedBy);
+    final author = await widget.resolveUserName(widget.reportedUserId);
+    final role = await widget.resolveUserRole(widget.reportedUserId);
+    if (mounted) {
+      setState(() {
+        _reporterName = reporter;
+        _authorName = author;
+        _authorRole = role;
+      });
+    }
+  }
+
+  Color _getPriorityColor(String reason) {
+    final lr = reason.toLowerCase();
+    if (lr.contains('spam') || lr.contains('harassment')) return Colors.red;
+    if (lr.contains('inappropriate') || lr.contains('offensive')) {
+      return Colors.orange;
+    }
+    return Colors.amber.shade700;
+  }
+
+  String _getPriorityLabel(String reason) {
+    final lr = reason.toLowerCase();
+    if (lr.contains('spam') || lr.contains('harassment')) return 'HIGH';
+    if (lr.contains('inappropriate') || lr.contains('offensive')) {
+      return 'MEDIUM';
+    }
+    return 'LOW';
+  }
+
+  IconData _getTypeIcon(String type) {
+    switch (type.toLowerCase()) {
+      case 'qa':
+        return Icons.question_answer;
+      case 'review':
+      case 'course_review':
+        return Icons.star;
+      case 'comment':
+        return Icons.comment;
+      case 'video':
+        return Icons.video_library;
+      default:
+        return Icons.article;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = widget.isDark;
+    final priorityColor = _getPriorityColor(widget.reportReason);
+    final priorityLabel = _getPriorityLabel(widget.reportReason);
+
+    return Scaffold(
+      backgroundColor: AppTheme.getBackgroundColor(context),
+      appBar: AppBar(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: Icon(
+            Icons.arrow_back,
+            color: AppTheme.getTextPrimary(context),
+          ),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Row(
+          children: [
+            Icon(
+              _getTypeIcon(widget.type),
+              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              size: 22,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Moderation Detail',
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Priority & Type Badge
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: priorityColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: priorityColor.withOpacity(0.4)),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.priority_high, color: priorityColor, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        '$priorityLabel PRIORITY',
+                        style: TextStyle(
+                          color: priorityColor,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                        .withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    widget.type.toUpperCase(),
+                    style: TextStyle(
+                      color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (widget.reportedAt != null && widget.reportedAt is int)
+                  Text(
+                    _formatFullDate(widget.reportedAt),
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            // Report Reason
+            _buildSection(
+              title: 'Report Reason',
+              icon: Icons.report_problem,
+              iconColor: priorityColor,
+              isDark: isDark,
+              child: Text(
+                widget.reportReason,
+                style: TextStyle(
+                  color: priorityColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 15,
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Reported Content
+            _buildSection(
+              title: 'Reported Content',
+              icon: Icons.article_outlined,
+              iconColor: Colors.blue,
+              isDark: isDark,
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? AppTheme.darkBackground.withOpacity(0.5)
+                      : Colors.grey.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+                  ),
+                ),
+                child: SelectableText(
+                  widget.content,
+                  style: TextStyle(
+                    color: AppTheme.getTextPrimary(context),
+                    fontSize: 14,
+                    height: 1.6,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Reporter & Author Info
+            Row(
+              children: [
+                Expanded(
+                  child: _buildUserCard(
+                    label: 'Reported By',
+                    name: _reporterName,
+                    icon: Icons.flag_outlined,
+                    color: Colors.orange,
+                    isDark: isDark,
+                    onTap: widget.onViewReporter,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildUserCard(
+                    label: 'Content Author',
+                    name: _authorName,
+                    subtitle: _authorRole.isNotEmpty ? _authorRole.toUpperCase() : null,
+                    icon: Icons.person_outline,
+                    color: Colors.blue,
+                    isDark: isDark,
+                    onTap: widget.onViewAuthor,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // Meta Info
+            if (widget.item['courseId'] != null ||
+                widget.item['teacherId'] != null)
+              _buildSection(
+                title: 'Context',
+                icon: Icons.info_outline,
+                iconColor: Colors.grey,
+                isDark: isDark,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.item['courseId'] != null)
+                      _buildMetaRow(
+                        'Course ID',
+                        widget.item['courseId'].toString(),
+                        isDark,
+                      ),
+                    if (widget.item['teacherId'] != null)
+                      _buildMetaRow(
+                        'Teacher ID',
+                        widget.item['teacherId'].toString(),
+                        isDark,
+                      ),
+                    _buildMetaRow('Content ID', widget.contentId, isDark),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 32),
+
+            // Action Buttons
+            _buildSection(
+              title: 'Take Action',
+              icon: Icons.gavel,
+              iconColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              isDark: isDark,
+              child: Column(
+                children: [
+                  // Keep & Dismiss
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () {
+                        widget.onKeep();
+                        Navigator.pop(context);
+                      },
+                      icon: const Icon(Icons.check_circle, size: 20),
+                      label: const Text('Keep Content & Dismiss Report'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Warn buttons row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onWarnAuthor,
+                          icon: const Icon(Icons.warning_amber, size: 18),
+                          label: const Text(
+                            'Warn Author',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.orange,
+                            side: const BorderSide(color: Colors.orange),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: OutlinedButton.icon(
+                          onPressed: widget.onWarnReporter,
+                          icon: const Icon(
+                            Icons.report_gmailerrorred,
+                            size: 18,
+                          ),
+                          label: const Text(
+                            'Warn Reporter',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.deepOrange,
+                            side: const BorderSide(color: Colors.deepOrange),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Suspend & Delete row
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: widget.onSuspendAuthor,
+                          icon: const Icon(Icons.block, size: 18),
+                          label: const Text(
+                            'Suspend Author',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red.shade700,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            widget.onDelete();
+                            Navigator.pop(context);
+                          },
+                          icon: const Icon(Icons.delete_forever, size: 18),
+                          label: const Text(
+                            'Delete Content',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 40),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSection({
+    required String title,
+    required IconData icon,
+    required Color iconColor,
+    required bool isDark,
+    required Widget child,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: iconColor, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUserCard({
+    required String label,
+    required String name,
+    String? subtitle,
+    required IconData icon,
+    required Color color,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorder : Colors.grey.shade200,
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 16,
+                  backgroundColor: color.withOpacity(0.12),
+                  child: Icon(icon, color: color, size: 16),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Text(
+              name,
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            if (subtitle != null)
+              Text(
+                subtitle,
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            const SizedBox(height: 4),
+            Text(
+              'Tap to view profile →',
+              style: TextStyle(
+                color: color.withOpacity(0.7),
+                fontSize: 10,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMetaRow(String label, String value, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 90,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 12,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatFullDate(int timestamp) {
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    return DateFormat('MMM d, yyyy • h:mm a').format(date);
   }
 }
