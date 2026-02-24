@@ -1,5 +1,5 @@
 
-# 🎓 EduVerse - Complete Educational Learning Platform
+# 🎓 EduVerse — Complete Educational Learning Platform
 
 <div align="center">
 
@@ -7,410 +7,628 @@
 ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white)
 ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=for-the-badge&logo=firebase&logoColor=black)
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
+![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge)
 
-*A modern, cross-platform educational learning management system built with Flutter, featuring AI-powered assistance, comprehensive admin tools, and seamless user experience across all devices.*
+*A production-grade, cross-platform Learning Management System built with Flutter & Firebase. Features three distinct user roles (Student, Teacher, Admin), AI-powered study assistance, real-time analytics, content moderation, and 30+ integrated services — all running against Firebase Realtime Database with Cloudinary media management.*
 
-[🚀 Features](#-features) • [📱 Screenshots](#-screenshots) • [🛠️ Installation](#️-installation) • [🏗️ Architecture](#️-architecture) • [🤝 Contributing](#-contributing)
+[Features](#-features) · [Tech Stack](#-tech-stack) · [Architecture](#-architecture) · [Installation](#%EF%B8%8F-installation) · [Services](#-services-reference) · [Contributing](#-contributing)
 
 ---
 
 </div>
 
-## 📱 Screenshots
+## 🚀 Features
 
-### 🔐 Authentication System
-<table>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/signin_page.png" alt="Sign In" width="300"/>
-      <br><strong>Sign In Page</strong><br>
-      <sub>Role-based authentication with OAuth support</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/signup_page.png" alt="Sign Up" width="300"/>
-      <br><strong>Sign Up Page</strong><br>
-      <sub>Email verification with professional workflow</sub>
-    </td>
-  </tr>
-</table>
-
-### 👨‍💼 Admin Dashboard
-<table>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/admin_dashboard.png" alt="Admin Dashboard" width="300"/>
-      <br><strong>Admin Dashboard</strong><br>
-      <sub>Real-time KPIs and platform overview</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/admin_sidebar.png" alt="Admin Sidebar" width="300"/>
-      <br><strong>Admin Navigation</strong><br>
-      <sub>Comprehensive admin module access</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/admin_course_management.png" alt="Course Management" width="300"/>
-      <br><strong>Course Management</strong><br>
-      <sub>Full course lifecycle administration</sub>
-    </td>
-  </tr>
-</table>
-
-### 🎓 Student Experience
-<table>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/student_home.png" alt="Student Home" width="300"/>
-      <br><strong>Student Dashboard</strong><br>
-      <sub>Personalized learning journey</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/student_courses.png" alt="Course Catalog" width="300"/>
-      <br><strong>Course Catalog</strong><br>
-      <sub>Browse and enroll in courses</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/course_video_player.png" alt="Video Player" width="300"/>
-      <br><strong>Video Learning</strong><br>
-      <sub>Custom video player with progress tracking</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/student_profile.png" alt="Student Profile" width="300"/>
-      <br><strong>Student Profile</strong><br>
-      <sub>Progress tracking and achievements</sub>
-    </td>
-  </tr>
-</table>
-
-### 👨‍🏫 Teacher Portal
-<table>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/teacher_home.png" alt="Teacher Home" width="300"/>
-      <br><strong>Teacher Dashboard</strong><br>
-      <sub>Course management and student tracking</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/teacher_courses.png" alt="Teacher Courses" width="300"/>
-      <br><strong>Course Portfolio</strong><br>
-      <sub>Manage your teaching portfolio</sub>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/teacher_profile.png" alt="Teacher Profile" width="300"/>
-      <br><strong>Teacher Profile</strong><br>
-      <sub>Professional credentials and ratings</sub>
-    </td>
-    <td align="center">
-      <img src="docs/screenshots/teacher_insights.png" alt="Teaching Insights" width="300"/>
-      <br><strong>Teaching Analytics</strong><br>
-      <sub>Performance metrics and insights</sub>
-    </td>
-  </tr>
-</table>
-
-### 🎯 Course Creation
-<table>
-  <tr>
-    <td align="center">
-      <img src="docs/screenshots/create_course.png" alt="Create Course" width="300"/>
-      <br><strong>Course Creation Wizard</strong><br>
-      <sub>Professional course setup with guided steps</sub>
-    </td>
-  </tr>
-</table>
+### 🔐 Authentication & Security
+| Feature | Description |
+|---------|-------------|
+| **Multi-Role Auth** | Three distinct roles — Student, Teacher, Admin — each with dedicated dashboards and permissions |
+| **Google OAuth** | One-tap Google Sign-In for all roles via `google_sign_in` |
+| **Email Verification** | 6-digit code verification with professional HTML email templates sent via Node.js email server |
+| **Secure Password Reset** | Multi-step flow with rate limiting and verification codes |
+| **Account Suspension** | Admin can suspend/unsuspend users with reason tracking; suspended users see a block notice |
+| **Firebase Security Rules** | Granular read/write rules in `database.rules.json` covering every database node |
 
 ---
 
-## 🚀 Features
+### 👨‍🎓 Student Features
 
-### 🔐 **Authentication & Security**
-- **Multi-Role Authentication**: Students, Teachers, and Admins with role-based access control
-- **OAuth Integration**: Google Sign-In for all users, GitHub for students
-- **Email Verification**: 6-digit code verification with professional HTML emails
-- **Secure Password Reset**: Multi-step verification process with rate limiting
-- **Account Security**: Suspension/ban system with detailed tracking
+#### Core Learning
+| Feature | Description |
+|---------|-------------|
+| **Personalized Home** | Welcome card, enrolled courses carousel with page indicators, AI quick actions, and announcements |
+| **Course Discovery** | Full catalog with search, category filters, and enrollment with payment integration |
+| **Course Detail View** | Course info, video list, reviews, Q&A section, bookmark toggle, and teacher profile |
+| **Advanced Video Player** | Custom player with playback speed control (0.5x–2x), fullscreen, progress persistence, and resume-from-last-position |
+| **Interactive Q&A** | Per-course discussion forum with voting, replies, and real-time updates |
+| **Bookmarks** | Save/unsave courses for quick access from profile |
+| **Certificates** | Auto-generated completion certificates viewable in a dedicated screen |
 
-### 👨‍🎓 **Student Features**
-- **Personalized Dashboard**: Learning progress, course recommendations, and achievements
-- **Course Discovery**: Advanced search, filtering, and categorization
-- **Video Learning**: Custom video player with progress tracking and playback speed control
-- **Interactive Q&A**: Course-specific discussion forums with voting system
-- **Bookmarks System**: Save important lessons and resources for quick access
-- **Progress Tracking**: Detailed analytics on learning journey and completion rates
-- **AI Study Assistant**: Homework help, study guidance, and personalized recommendations
-- **Mobile-First Design**: Optimized learning experience across all devices
+#### Assignments & Quizzes
+| Feature | Description |
+|---------|-------------|
+| **Assignments** | Browse assignments per course, submit work, and view grades |
+| **Quizzes** | Timed quiz taking with multiple question types, instant score reveal, and result history |
 
-### 👨‍🏫 **Teacher Features**
-- **Professional Onboarding**: Multi-step wizard with credential verification
-- **Course Creation Studio**: Comprehensive course builder with media upload
-- **Student Management**: Track enrollments, progress, and engagement
-- **Credential Portfolio**: Showcase certificates, degrees, and achievements
-- **Teaching Analytics**: Detailed insights on course performance and student feedback
-- **Revenue Dashboard**: Earnings tracking and payment management
-- **Professional Profile**: Public profile with ratings, reviews, and expertise showcase
-- **Content Moderation**: Review and manage student submissions and discussions
+#### AI-Powered Tools
+| Feature | Description |
+|---------|-------------|
+| **AI Chat Assistant** | Full conversational study assistant powered by Gemini & OpenRouter APIs with chat history persistence |
+| **AI Camera** | Point camera at homework/textbook; AI analyzes the image and provides explanations |
+| **Course Recommendations** | `CourseRecommendationService` suggests courses based on enrollment history, category affinity, and rating |
 
-### 👨‍💼 **Admin Dashboard**
-- **Real-time KPI Monitoring**: User growth, revenue, course metrics, and platform health
-- **User Management**: Comprehensive user administration with suspend/verify actions
-- **Teacher Verification Queue**: Review and approve teacher applications with document verification
-- **Content Moderation**: AI-powered content filtering with manual review capabilities
-- **Advanced Analytics**: User growth charts, revenue analytics, and engagement metrics
-- **Data Export**: Export user data, course analytics, and platform reports
-- **Support Ticket System**: Integrated help desk with priority management
-- **Email Automation**: Professional email notifications for all administrative actions
+#### Progress & Gamification
+| Feature | Description |
+|---------|-------------|
+| **Study Streak Tracking** | `StudyStreakService` tracks daily activity; streak card on home tab shows current/longest streak with fire animation |
+| **Learning Stats Dashboard** | Full-screen dashboard with weekly activity bar chart, 6-stat grid (hours, sessions, videos, quizzes, assignments), and activity breakdown progress bars |
+| **Course Notes** | `CourseNotesService` + `CourseNotesSheet` for per-course note-taking with timestamps |
+| **Progress Tracking** | Video completion percentage, quiz scores, assignment status — all aggregated per course |
 
-### 🤖 **AI-Powered Features**
-- **Smart Study Assistant**: Personalized homework help and study guidance
-- **Content Recommendations**: AI-driven course and resource suggestions
-- **Automated Content Moderation**: Real-time profanity and abuse detection
-- **Learning Path Optimization**: AI-suggested learning sequences based on progress
-- **Intelligent Search**: Enhanced course discovery with semantic search
+#### Profile & Settings
+| Feature | Description |
+|---------|-------------|
+| **Editable Profile** | Update display name, avatar, bio |
+| **Dark / Light Mode** | System-wide theme toggle persisted via `ThemeService` + `SharedPreferences` |
+| **Notifications** | Real-time notification feed from announcements, course updates, and admin messages |
 
-### 🎨 **User Experience**
-- **Responsive Design**: Perfect experience across desktop, tablet, and mobile
-- **Dark/Light Mode**: System-wide theme toggle with user preferences
-- **Offline Caching**: Course content available offline for uninterrupted learning
-- **Progressive Loading**: Optimized performance with lazy loading and caching
-- **Accessibility**: WCAG compliant with screen reader support
-- **Internationalization**: Multi-language support with RTL text support
+---
 
-### 🔧 **Technical Excellence**
-- **Real-time Updates**: Firebase real-time synchronization across all features
-- **Scalable Architecture**: Provider-based state management with clean separation
-- **Background Processing**: Async operations for file uploads and data processing
-- **Push Notifications**: Course updates, assignments, and administrative alerts
-- **Analytics Integration**: Detailed user behavior and learning analytics
-- **Error Handling**: Comprehensive error tracking with user-friendly messages
+### 👨‍🏫 Teacher Features
+
+#### Onboarding & Profile
+| Feature | Description |
+|---------|-------------|
+| **Multi-Step Onboarding Wizard** | 3-step guided setup: Bio → Credentials (with image upload to Cloudinary) → Profile Picture |
+| **Professional Profile** | Public-facing profile widget with ratings, reviews, course count, and credential showcase |
+| **Credential Management** | Upload and display certificates, degrees, and professional documents |
+
+#### Course Creation & Management
+| Feature | Description |
+|---------|-------------|
+| **Course Creation Wizard** | Step-by-step course builder: title, description, category, thumbnail, pricing, and content outline |
+| **Video Upload** | Background upload to Cloudinary with progress indicator and thumbnail generation |
+| **Quiz Builder** | Create MCQ quizzes with correct answers, point values, time limits |
+| **Assignment Builder** | Create assignments with descriptions, due dates, and grading |
+| **Course Management** | Edit, publish/unpublish, reorder videos, manage Q&A, and view enrollments |
+| **Course Duplication** | Clone an entire course (structure, videos, quizzes) into a new draft via `TeacherFeatureService.duplicateCourse()` |
+
+#### Analytics & Insights
+| Feature | Description |
+|---------|-------------|
+| **Teaching Analytics** | Multi-tab analytics dashboard (3,100+ lines) — overview, students, courses, engagement |
+| **Course Engagement** | Per-course metrics: enrolled count, avg rating, videos, Q&A, reviews |
+| **Student Progress Reports** | Per-student drill-down: video completion %, quiz scores, assignment status |
+| **Revenue Dashboard** | Total earnings with growth %, monthly trend bar chart, per-course revenue breakdown |
+
+#### Communication
+| Feature | Description |
+|---------|-------------|
+| **Course Announcements** | Compose announcements (General/Update/Assignment types), auto-send notifications to all enrolled students |
+| **Home Tab Announcements** | Teachers see and create announcements directly from home tab |
+
+#### Home Tab Tools
+| Feature | Description |
+|---------|-------------|
+| **Quick Stats** | Clickable stat cards (courses, students, revenue) on teacher home |
+| **AI Assistant** | Same AI chat available to teachers for content creation help |
+| **Teaching Tools** | Quick-access cards for Course Engagement and Revenue Dashboard |
+
+---
+
+### 👨‍💼 Admin Dashboard
+
+The admin panel features a **responsive sidebar/drawer navigation** (desktop expanded sidebar, tablet navigation rail, mobile hamburger drawer) via `AdminScaffold` with **13 modules**:
+
+#### Core Administration
+| # | Module | Description |
+|---|--------|-------------|
+| 0 | **Dashboard** | Real-time KPI cards (users, teachers, courses, revenue), quick action buttons, live activity stream via `StreamBuilder` |
+| 1 | **Users** | Paginated user list, search, role filter, suspend/unsuspend with reason, view profiles |
+| 2 | **Verification** | Teacher application queue — review credentials, approve/reject with email notification |
+| 3 | **Moderation** | Reported content queue (Pending/Resolved tabs), full detail view with keep/warn/suspend/delete actions, priority badges |
+| 4 | **Analytics** | User growth charts, revenue analytics, engagement metrics with date filters |
+| 5 | **Data** | Export users, courses, analytics as CSV/reports |
+| 6 | **Support** | Ticket management with priority, status tracking, and response system |
+| 7 | **Courses** | Browse all platform courses, view details, delete courses |
+
+#### Extended Admin Features
+| # | Module | Description |
+|---|--------|-------------|
+| 8 | **Announcements** | Broadcast platform-wide announcements with priority levels (Normal/Important/Urgent), target audience (All/Students/Teachers), activate/deactivate/delete |
+| 9 | **Audit Log** | Chronological timeline of all admin actions with icon-coded entries, action type filters, admin UID tracking |
+| 10 | **Settings** | Maintenance mode toggle, registration on/off, email verification requirement, max upload size slider, max courses per teacher, platform name & support email |
+| 11 | **Bulk Actions** | Multi-select users with search & role filter, batch suspend/unsuspend with reason, select all/clear all |
+| 12 | **Content Insights** | 6-stat grid (courses, published, drafts, videos, quizzes, avg rating), publication status bar, category breakdown with progress bars, top courses by enrollment |
+
+#### Admin Infrastructure
+- **AdminProvider** (`ChangeNotifierProvider`) — centralized state: KPI stats, paginated users, reported content, growth/revenue data, with optimistic UI updates
+- **AdminService** (1,050+ lines) — Firebase operations: CRUD, analytics aggregation, email automation, data export
+- **AdminFeatureService** — backend for announcements, audit log, settings, bulk actions, content insights
+- **ModernKPICard** widget — animated stat cards with icon, value, label, and tap-to-navigate
+
+---
+
+### 🤖 AI Integration
+| Service | Provider | Purpose |
+|---------|----------|---------|
+| `GeminiApiService` | Google Gemini | Primary AI for chat, homework help, image analysis |
+| `OpenRouterAiService` | OpenRouter | Fallback/alternative AI provider |
+| `AIChatScreen` | — | Full chat UI with history persistence via `ChatHistoryService` + `ChatRepository` |
+| `AICameraScreen` | — | Camera capture → AI analysis for homework problems |
+| `ContentFilterService` | — | Real-time profanity and abuse detection for user-generated content |
+| `CourseRecommendationService` | — | Algorithmic course suggestions based on user behavior |
+
+---
+
+### 🎨 UI/UX Design System
+| Feature | Implementation |
+|---------|---------------|
+| **Dark Mode** | Full dark theme via `AppTheme` utility — `isDarkMode()`, `getCardColor()`, `getTextPrimary()`, `getBackgroundColor()`, etc. |
+| **Animated Background** | `AnimatedDarkBackground` widget: mesh gradients, floating particles, subtle grid, and glow effects |
+| **Route Transitions** | `SlideAndFadeRoute` custom page transitions |
+| **Loading States** | `EngagingLoadingIndicator` with animated shimmer, `QuickLoadingWidget` for inline loading |
+| **Responsive Layout** | Adaptive layouts: mobile (<768px), tablet (768–1199px), desktop (≥1200px) |
+| **Cached Images** | `CachedNetworkImage` throughout for network image caching with placeholder/error widgets |
+| **Video Thumbnails** | `VideoThumbnailWidget` with Cloudinary URL optimization |
+| **Upload Progress** | `UploadProgressWidget` for visual file upload tracking |
 
 ---
 
 ## 🛠️ Tech Stack
 
-### **Frontend**
-- ![Flutter](https://img.shields.io/badge/Flutter-02569B?style=flat-square&logo=flutter&logoColor=white) **Flutter** - Cross-platform UI framework
-- ![Dart](https://img.shields.io/badge/Dart-0175C2?style=flat-square&logo=dart&logoColor=white) **Dart** - Programming language
-- ![Provider](https://img.shields.io/badge/Provider-State%20Management-purple?style=flat-square) **Provider** - State management solution
+### Frontend
+| Technology | Purpose |
+|-----------|---------|
+| **Flutter 3.10+** | Cross-platform UI framework (Android, iOS, Web, Windows, macOS, Linux) |
+| **Dart 3.10+** | Programming language |
+| **Provider** | State management (`AdminProvider`, `ThemeService`) |
 
-### **Backend & Database**
-- ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) **Firebase Authentication** - User authentication and authorization
-- ![Firebase](https://img.shields.io/badge/Firebase-FFCA28?style=flat-square&logo=firebase&logoColor=black) **Firebase Realtime Database** - Real-time data synchronization
-- ![Firestore](https://img.shields.io/badge/Firestore-FFCA28?style=flat-square&logo=firebase&logoColor=black) **Cloud Firestore** - Document database for complex queries
-- ![Functions](https://img.shields.io/badge/Cloud%20Functions-4285F4?style=flat-square&logo=google-cloud&logoColor=white) **Firebase Cloud Functions** - Serverless backend logic
+### Backend & Database
+| Technology | Purpose |
+|-----------|---------|
+| **Firebase Auth** | Authentication with email/password + Google OAuth |
+| **Firebase Realtime Database** | Primary data store — real-time sync for all entities |
+| **Firebase Cloud Functions** | Serverless email sending via `utils/sendEmail.js` |
+| **Firebase Security Rules** | Node-level read/write permissions |
 
-### **Services & Integrations**
-- ![Cloudinary](https://img.shields.io/badge/Cloudinary-3448C5?style=flat-square&logo=cloudinary&logoColor=white) **Cloudinary** - Media management and optimization
-- ![Node.js](https://img.shields.io/badge/Node.js-339933?style=flat-square&logo=nodedotjs&logoColor=white) **Node.js Email Server** - Administrative email notifications
-- ![AI](https://img.shields.io/badge/AI%20Services-Gemini%20%7C%20OpenRouter-orange?style=flat-square) **AI Integration** - Multiple AI providers for enhanced features
+### Media & Storage
+| Technology | Purpose |
+|-----------|---------|
+| **Cloudinary** | Video & image hosting via `uploadToCloudinary.dart` — supports `XFile` uploads with 30s timeout |
+| **Image Picker** | Camera and gallery selection for profile pics, credentials, course thumbnails |
+| **Video Player** | `video_player` package wrapped in `AdvancedVideoPlayer` widget |
 
-### **Development Tools**
-- ![Git](https://img.shields.io/badge/Git-F05032?style=flat-square&logo=git&logoColor=white) **Git** - Version control
-- ![VS Code](https://img.shields.io/badge/VS%20Code-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white) **VS Code** - Development environment
-- ![Android Studio](https://img.shields.io/badge/Android%20Studio-3DDC84?style=flat-square&logo=androidstudio&logoColor=white) **Android Studio** - Android development
+### External Services
+| Technology | Purpose |
+|-----------|---------|
+| **Node.js Email Server** | Sends verification codes, admin notifications |
+| **Google Gemini API** | AI chat and image analysis |
+| **OpenRouter API** | Alternative AI provider |
+
+### Key Dependencies
+```yaml
+firebase_core: ^4.2.1
+firebase_database: ^12.1.0
+firebase_auth: ^6.1.2
+provider: ^6.1.2
+google_sign_in: ^6.2.2
+cached_network_image: ^3.3.1
+video_player: ^2.6.0
+image_picker: ^1.2.1
+fl_chart: ^1.1.1
+flutter_markdown: ^0.6.18+2
+intl: ^0.18.1
+shared_preferences: ^2.3.3
+http: ^1.2.0
+crypto: ^3.0.6
+flutter_dotenv: ^6.0.0
+path_provider: ^2.1.2
+file_picker: ^8.0.0+1
+font_awesome_flutter: ^10.7.0
+flutter_svg: ^2.0.10+1
+video_thumbnail: ^0.5.3
+mailer: ^6.1.2
+```
 
 ---
 
 ## 🏗️ Architecture
 
-### **Project Structure**
+### Project Structure
 ```
 lib/
-├── features/               # Feature-based modules
-│   ├── admin/             # Admin dashboard & management
-│   └── teacher/           # Teacher-specific features
-├── models/                # Data models and DTOs
-├── services/              # Business logic and API services
-├── utils/                 # Utilities and helpers
-├── views/                 # UI screens and widgets
-└── widgets/               # Reusable UI components
+├── main.dart                        # App entry, Firebase init, Provider setup
+├── firebase_options.dart            # Firebase config (auto-generated)
+│
+├── features/
+│   └── admin/
+│       ├── providers/
+│       │   └── admin_provider.dart          # Centralized admin state
+│       ├── services/
+│       │   ├── admin_service.dart           # 1,050+ lines — Firebase admin ops
+│       │   └── admin_feature_service.dart   # Announcements, audit, settings, bulk, insights
+│       ├── screens/                         # 14 admin screens
+│       │   ├── admin_dashboard_screen.dart
+│       │   ├── admin_users_screen.dart
+│       │   ├── admin_verification_queue_screen.dart
+│       │   ├── admin_moderation_screen.dart
+│       │   ├── admin_analytics_screen.dart
+│       │   ├── admin_data_screen.dart
+│       │   ├── admin_support_screen.dart
+│       │   ├── admin_all_courses_screen.dart
+│       │   ├── admin_course_detail_screen.dart
+│       │   ├── admin_announcements_screen.dart
+│       │   ├── admin_audit_log_screen.dart
+│       │   ├── admin_platform_settings_screen.dart
+│       │   ├── admin_bulk_actions_screen.dart
+│       │   └── admin_content_insights_screen.dart
+│       └── widgets/
+│           ├── admin_scaffold.dart          # Responsive sidebar/rail/drawer
+│           └── modern_kpi_card.dart         # Animated KPI card
+│
+├── models/
+│   ├── course_model.dart
+│   └── user_model.dart
+│
+├── services/                        # 33 service files
+│   ├── auth_service.dart
+│   ├── course_service.dart
+│   ├── user_service.dart
+│   ├── ai_service.dart
+│   ├── gemini_api_service.dart
+│   ├── openrouter_ai_service.dart
+│   ├── cache_service.dart
+│   ├── data_preloader_service.dart
+│   ├── analytics_service.dart
+│   ├── assignment_service.dart
+│   ├── quiz_service.dart
+│   ├── qa_service.dart
+│   ├── bookmark_service.dart
+│   ├── certificate_service.dart
+│   ├── chat_history_service.dart
+│   ├── chat_repository.dart
+│   ├── content_filter_service.dart
+│   ├── course_notes_service.dart
+│   ├── course_recommendation_service.dart
+│   ├── email_verification_service.dart
+│   ├── learning_stats_service.dart
+│   ├── moderation_service.dart
+│   ├── notification_service.dart
+│   ├── payment_service.dart
+│   ├── preferences_service.dart
+│   ├── study_streak_service.dart
+│   ├── support_service.dart
+│   ├── teacher_feature_service.dart
+│   ├── theme_service.dart
+│   ├── thumbnail_service.dart
+│   ├── background_upload_service.dart
+│   ├── uploadToCloudinary.dart
+│   └── video_player_widget.dart
+│
+├── utils/
+│   ├── app_theme.dart              # Theme colors, dark mode helpers
+│   ├── route_transitions.dart      # SlideAndFadeRoute
+│   └── analytics_mock_data.dart
+│
+├── views/
+│   ├── eduverse_app.dart           # MaterialApp config
+│   ├── splash_screen.dart          # Splash with role routing
+│   ├── signin_screen.dart
+│   ├── register_screen.dart
+│   ├── register_screen_with_verification.dart
+│   ├── notifications_screen.dart
+│   │
+│   ├── student/                    # 14 student screens
+│   │   ├── home_screen.dart
+│   │   ├── home_tab.dart
+│   │   ├── courses_screen.dart
+│   │   ├── student_course_detail_screen.dart
+│   │   ├── ai_chat_screen.dart
+│   │   ├── ai_camera_screen.dart
+│   │   ├── certificate_screen.dart
+│   │   ├── profile_screen.dart
+│   │   ├── student_edit_profile_screen.dart
+│   │   ├── student_quiz_list_screen.dart
+│   │   ├── student_quiz_screen.dart
+│   │   ├── student_assignment_list_screen.dart
+│   │   ├── student_assignment_screen.dart
+│   │   └── learning_stats_screen.dart
+│   │
+│   └── teacher/                    # 17 teacher screens
+│       ├── teacher_home_screen.dart
+│       ├── teacher_home_tab.dart
+│       ├── teacher_courses_screen.dart
+│       ├── teacher_course_manage_screen.dart
+│       ├── create_course_wizard.dart
+│       ├── add_course_screen.dart
+│       ├── course_detail_screen.dart
+│       ├── teacher_analytics_screen.dart
+│       ├── teacher_students_screen.dart
+│       ├── teacher_profile_screen.dart
+│       ├── teacher_onboarding_wizard.dart
+│       ├── teacher_quiz_manage_screen.dart
+│       ├── teacher_assignment_manage_screen.dart
+│       ├── teacher_announcements_screen.dart
+│       ├── teacher_revenue_dashboard.dart
+│       ├── teacher_course_engagement_screen.dart
+│       └── student_progress_report_screen.dart
+│
+└── widgets/                        # 12 reusable widgets
+    ├── advanced_video_player.dart
+    ├── animated_dark_background.dart
+    ├── course_card.dart
+    ├── course_notes_sheet.dart
+    ├── engaging_loading_indicator.dart
+    ├── qa_section_widget.dart
+    ├── quick_loading_widget.dart
+    ├── study_streak_card.dart
+    ├── teacher_public_profile_widget.dart
+    ├── upload_progress_widget.dart
+    ├── video_thumbnail_widget.dart
+    └── analytics/
 ```
 
-### **Key Services**
-- **AuthService**: Authentication and user management
-- **CourseService**: Course CRUD operations and enrollment
-- **AdminService**: Administrative functions and analytics
-- **AIService**: AI integration and intelligent features
-- **CacheService**: Offline caching and performance optimization
-- **ContentFilterService**: AI-powered content moderation
+### State Management
+- **Provider** — global providers registered in `main.dart`:
+  - `AdminProvider` — admin KPIs, user list, reported content, analytics data
+  - `ThemeService` — dark/light mode toggle
+- **StatefulWidget** — local state for individual screens with `setState()`
+- **Static caches** — cross-rebuild data persistence in analytics and home screens
+
+### Data Flow
+```
+User Action → Screen Widget → Service Layer → Firebase RTDB
+                                    ↓
+                            Cache Service (optional)
+                                    ↓
+                            setState() / Provider.notifyListeners()
+                                    ↓
+                              UI Rebuild
+```
+
+### Firebase Database Structure
+```
+├── student/{uid}/          # Student profiles, enrollments, progress
+├── teacher/{uid}/          # Teacher profiles, courses, credentials
+├── admin/{uid}/            # Admin profiles
+├── courses/{courseId}/     # Course data, videos, quizzes, reviews
+├── payments/{id}/          # Payment transactions
+├── notifications/{uid}/    # Per-user notifications
+├── support_tickets/{id}/   # Support ticket data
+├── reported_content/{id}/  # Moderation queue
+├── quiz_results/{uid}/     # Quiz attempt results
+├── assignment_submissions/ # Student assignment submissions
+├── courseProgress/{uid}/   # Video completion tracking
+├── course_announcements/   # Teacher course announcements
+├── platform_announcements/ # Admin platform-wide announcements
+├── admin_audit_log/        # Admin action audit trail
+├── platform_settings/      # Platform config (maintenance, limits)
+├── registered_emails/      # Email uniqueness enforcement
+└── chat_history/{uid}/     # AI chat conversation history
+```
 
 ---
 
 ## ⚙️ Installation
 
-### **Prerequisites**
-- Flutter SDK (3.0+) - [Installation Guide](https://flutter.dev/docs/get-started/install)
-- Dart SDK (3.0+)
-- Android Studio / Xcode for mobile development
-- Firebase CLI - [Setup Guide](https://firebase.google.com/docs/cli)
+### Prerequisites
+- **Flutter SDK** 3.10+ — [Install Flutter](https://flutter.dev/docs/get-started/install)
+- **Dart SDK** 3.10+ (bundled with Flutter)
+- **Node.js** 18+ (for email server and Cloud Functions)
+- **Firebase CLI** — `npm install -g firebase-tools`
+- **Android Studio** / **Xcode** for mobile builds
 
-### **Setup Instructions**
+### Setup
 
-1. **Clone the Repository**
-   ```bash
-   git clone <your-repo-url>
-   cd EduVerse
-   ```
+#### 1. Clone & Install
+```bash
+git clone https://github.com/Anees040/EduVerse.git
+cd EduVerse
+flutter pub get
+```
 
-2. **Install Dependencies**
-   ```bash
-   flutter pub get
-   ```
+#### 2. Firebase Configuration
+```bash
+firebase login
+flutterfire configure       # Generates firebase_options.dart
+firebase deploy --only database  # Deploy security rules
+```
 
-3. **Firebase Configuration**
-   ```bash
-   # Install Firebase CLI
-   npm install -g firebase-tools
-   
-   # Login to Firebase
-   firebase login
-   
-   # Configure project (ensure firebase_options.dart is generated)
-   flutterfire configure
-   ```
+#### 3. Environment Variables
+Create a `.env` file in the project root:
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+OPENROUTER_API_KEY=your_openrouter_api_key_here
+```
 
-4. **Environment Setup**
-   - Create `.env` file in project root:
-   ```env
-   GEMINI_API_KEY=your_gemini_api_key
-   OPENROUTER_API_KEY=your_openrouter_api_key
-   ```
+#### 4. Email Server (Optional)
+```bash
+cd email-server
+npm install
+# Add your serviceAccountKey.json
+node server.js
+```
 
-5. **Email Server Setup (Optional)**
-   ```bash
-   cd email-server
-   npm install
-   npm start
-   ```
+#### 5. Cloud Functions (Optional)
+```bash
+cd functions
+npm install
+firebase deploy --only functions
+```
 
-6. **Run the Application**
-   ```bash
-   # Development
-   flutter run
-
-   # Release builds
-   flutter build apk --release        # Android
-   flutter build ios --release        # iOS
-   flutter build web --release        # Web
-   ```
-
-### **Admin Account Setup**
+#### 6. Admin Account Setup
 ```bash
 cd scripts
+npm install
 node setup_admin.js
 ```
 
----
-
-## 🧪 Testing
-
-### **Run Tests**
+#### 7. Run the App
 ```bash
-# Unit tests
-flutter test
+# Debug
+flutter run
 
-# Integration tests
-flutter test integration_test/
+# Specific platform
+flutter run -d chrome
+flutter run -d windows
+flutter run -d android
 
-# Widget tests
-flutter test test/widget/
+# Release builds
+flutter build apk --release
+flutter build web --release
+flutter build windows --release
 ```
 
-### **Code Quality**
+---
+
+## 📊 Services Reference
+
+| # | Service | Responsibility |
+|---|---------|----------------|
+| 1 | `auth_service` | Sign in/up, password reset, role routing |
+| 2 | `course_service` | Course CRUD, enrollment, search |
+| 3 | `user_service` | Profile read/update, avatar |
+| 4 | `ai_service` | AI abstraction — routes to Gemini or OpenRouter |
+| 5 | `gemini_api_service` | Google Gemini API calls |
+| 6 | `openrouter_ai_service` | OpenRouter API calls |
+| 7 | `cache_service` | In-memory + SharedPreferences caching |
+| 8 | `data_preloader_service` | Preload critical data on app start |
+| 9 | `analytics_service` | Learning analytics aggregation |
+| 10 | `assignment_service` | Assignment CRUD, submissions, grading |
+| 11 | `quiz_service` | Quiz CRUD, attempt tracking, results |
+| 12 | `qa_service` | Discussion forum CRUD, voting, replies |
+| 13 | `bookmark_service` | Course bookmark toggle |
+| 14 | `certificate_service` | Certificate generation on completion |
+| 15 | `chat_history_service` | AI chat conversation persistence |
+| 16 | `chat_repository` | Chat data layer |
+| 17 | `content_filter_service` | Profanity detection for UGC |
+| 18 | `course_notes_service` | Per-course note-taking |
+| 19 | `course_recommendation_service` | Algorithmic course suggestions |
+| 20 | `email_verification_service` | 6-digit verification code flow |
+| 21 | `learning_stats_service` | Weekly/daily activity metrics |
+| 22 | `moderation_service` | Content reporting and flagging |
+| 23 | `notification_service` | In-app notification management |
+| 24 | `payment_service` | Payment processing & records |
+| 25 | `preferences_service` | User preference persistence |
+| 26 | `study_streak_service` | Daily streak tracking & calculation |
+| 27 | `support_service` | Support ticket CRUD |
+| 28 | `teacher_feature_service` | Announcements, revenue, duplication, progress, engagement |
+| 29 | `theme_service` | Dark/light mode toggle & persistence |
+| 30 | `thumbnail_service` | Video thumbnail generation |
+| 31 | `background_upload_service` | Async file upload management |
+| 32 | `uploadToCloudinary` | Cloudinary upload with XFile support & timeout |
+| 33 | `admin_service` | Admin Firebase operations (1,050+ lines) |
+| 34 | `admin_feature_service` | Announcements, audit log, settings, bulk actions, insights |
+
+---
+
+## 🧪 Testing & Quality
+
 ```bash
-# Static analysis
+# Run all tests
+flutter test
+
+# Static analysis (0 issues)
 flutter analyze
 
-# Code formatting
+# Format code
 dart format .
 ```
 
+### Code Quality Standards
+- **Zero lint errors** enforced via `analysis_options.yaml`
+- All async operations use proper `mounted` checks
+- Cloudinary uploads have 30-second timeouts
+- Firebase queries use `limitToLast()` for pagination
+- Optimistic UI updates in admin provider actions
+
 ---
 
-## 📊 Project Statistics
+## 📋 Database Security
 
-- **Total Files**: 200+ Dart files
-- **Lines of Code**: 50,000+ lines
-- **Features**: 100+ implemented features
-- **Supported Platforms**: Android, iOS, Web, Desktop
-- **Database Rules**: Comprehensive security rules for Firebase
-- **AI Integrations**: Multiple AI service providers
-- **Admin Tools**: 8 comprehensive admin modules
+Firebase security rules are defined in `database.rules.json`:
+- **Role-based access**: Students read/write their own data; teachers manage their courses; admins have full access
+- **Email uniqueness**: `registered_emails` node prevents duplicate registrations
+- **Content protection**: Course data readable by enrolled students only
+- **Admin verification**: Admin actions validated against `admin/{uid}` node
+
+```bash
+firebase deploy --only database
+```
+
+---
+
+## 📂 Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/setup_admin.js` | Create initial admin account in Firebase |
+| `scripts/populate_registered_emails.js` | Migrate existing users to `registered_emails` node |
+| `scripts/migrate_chat_history.js` | Migrate AI chat data to new schema |
+
+---
+
+## 🗺️ Roadmap
+
+- [x] Multi-role authentication (Student, Teacher, Admin)
+- [x] Course creation, enrollment, and video learning
+- [x] AI-powered study assistant with chat history
+- [x] Teacher analytics and revenue dashboard
+- [x] Admin content moderation with full detail view
+- [x] Platform announcements and audit log
+- [x] Study streak tracking and learning stats
+- [x] Course recommendations engine
+- [x] Bulk user management
+- [x] Platform settings (maintenance mode, limits)
+- [x] Content insights dashboard
+- [x] Course duplication for teachers
+- [x] Student progress reports
+- [ ] Real-time collaborative study rooms
+- [ ] Push notifications via FCM
+- [ ] Advanced assessment rubrics
+- [ ] Multi-language / RTL support
+- [ ] Blockchain-based certificates
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please follow these guidelines:
+1. **Fork** the repository
+2. **Create** a feature branch: `git checkout -b feature/your-feature`
+3. **Commit** changes: `git commit -m "feat: add your feature"`
+4. **Push**: `git push origin feature/your-feature`
+5. **Open** a Pull Request
 
-1. **Fork the Repository**
-2. **Create a Feature Branch**
-   ```bash
-   git checkout -b feature/amazing-feature
-   ```
-3. **Commit Your Changes**
-   ```bash
-   git commit -m 'Add amazing feature'
-   ```
-4. **Push to Branch**
-   ```bash
-   git push origin feature/amazing-feature
-   ```
-5. **Open a Pull Request**
-
-### **Development Guidelines**
-- Follow Flutter/Dart style guidelines
-- Add tests for new features
-- Update documentation as needed
-- Ensure responsive design compliance
+### Guidelines
+- Follow Dart/Flutter style conventions
+- Run `flutter analyze` before submitting (0 issues required)
+- Use `AppTheme` utilities for all colors/themes
+- Support both dark and light mode in new screens
+- Add `mounted` checks after every `await` in `StatefulWidget`
 
 ---
 
-## 📋 Roadmap
+## 👤 Author
 
-### **Upcoming Features**
-- [ ] Advanced video analytics
-- [ ] Real-time collaborative learning
-- [ ] Mobile app notifications
-- [ ] Advanced reporting system
-- [ ] Multi-language support
-- [ ] Integration with external LMS platforms
-
-### **Long-term Goals**
-- [ ] Machine learning-powered personalization
-- [ ] Virtual classroom integration
-- [ ] Advanced assessment tools
-- [ ] Blockchain-based certificates
-
----
-
-## 📞 Contact & Support
-
-<div align="center">
-
-**Project Maintainer**: Muhammad Anees  
-**Email**: sp23-bse-030@isbstudent.comsats.ed.pk  
-**University**: COMSATS University Islamabad  
-
-[![GitHub Issues](https://img.shields.io/badge/GitHub-Issues-red?style=for-the-badge&logo=github&logoColor=white)](https://github.com/your-repo/issues)
-[![Email](https://img.shields.io/badge/Email-Contact-blue?style=for-the-badge&logo=gmail&logoColor=white)](mailto:sp23-bse-030@isbstudent.comsats.ed.pk)
-
-</div>
+**Muhammad Anees**
+- **University**: COMSATS University Islamabad
+- **Roll Number**: SP23-BSE-030
+- **Email**: sp23-bse-030@isbstudent.comsats.ed.pk
+- **GitHub**: [@Anees040](https://github.com/Anees040)
 
 ---
 
 ## 📄 License
 
-This project is currently **not licensed**. Please contact the repository owner for usage permissions and licensing information.
+This project is developed as part of an academic program at COMSATS University Islamabad. Contact the author for usage permissions.
 
 ---
 
 <div align="center">
 
-**⭐ If you found this project helpful, please consider giving it a star!**
+**⭐ Star this repo if you find it useful!**
 
-*Built with ❤️ using Flutter and Firebase*
+*Built with Flutter & Firebase*
 
 </div>
