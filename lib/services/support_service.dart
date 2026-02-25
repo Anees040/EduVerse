@@ -259,9 +259,11 @@ class SupportService {
   /// Get a single ticket with all messages
   Future<Map<String, dynamic>?> getTicket(String ticketId) async {
     try {
+      debugPrint('Loading ticket: $ticketId');
       final snapshot = await _db.child('support_tickets/$ticketId').get();
 
       if (!snapshot.exists || snapshot.value == null) {
+        debugPrint('Ticket not found: $ticketId');
         return null;
       }
 
@@ -269,27 +271,34 @@ class SupportService {
       ticket['id'] = ticketId;
 
       // Convert messages to list and sort
-      if (ticket['messages'] != null) {
+      if (ticket['messages'] != null && ticket['messages'] is Map) {
         final messagesMap = Map<String, dynamic>.from(
           ticket['messages'] as Map,
         );
-        final messagesList = messagesMap.entries.map((e) {
-          final msg = Map<String, dynamic>.from(e.value as Map);
-          msg['id'] = e.key;
-          return msg;
-        }).toList();
+        final messagesList = <Map<String, dynamic>>[];
+        
+        messagesMap.forEach((key, value) {
+          if (value is Map) {
+            final msg = Map<String, dynamic>.from(value);
+            msg['id'] = key;
+            messagesList.add(msg);
+          }
+        });
 
         messagesList.sort((a, b) {
-          final aTime = a['timestamp'] ?? 0;
-          final bTime = b['timestamp'] ?? 0;
+          final aTime = (a['timestamp'] as num?)?.toInt() ?? 0;
+          final bTime = (b['timestamp'] as num?)?.toInt() ?? 0;
           return aTime.compareTo(bTime);
         });
 
         ticket['messagesList'] = messagesList;
+      } else {
+        ticket['messagesList'] = <Map<String, dynamic>>[];
       }
 
       return ticket;
     } catch (e) {
+      debugPrint('Error loading ticket $ticketId: $e');
       return null;
     }
   }
