@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import '../services/admin_feature_service.dart';
 
 /// Admin Analytics Screen - Professional Platform Analytics with Real Data
 /// Features: User Growth & Revenue Charts with Functional Filters
@@ -15,6 +16,7 @@ class AdminAnalyticsScreen extends StatefulWidget {
 
 class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
+  final AdminFeatureService _insightsService = AdminFeatureService();
 
   // User Growth State
   String _userGrowthFilter = '12months';
@@ -28,11 +30,27 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
   bool _isLoadingRevenue = true;
   double _platformCommission = 0.0;
 
+  // Content Insights State
+  Map<String, dynamic> _insightsData = {};
+  bool _isLoadingInsights = true;
+
   @override
   void initState() {
     super.initState();
     _loadUserGrowthData();
     _loadRevenueData();
+    _loadContentInsights();
+  }
+
+  Future<void> _loadContentInsights() async {
+    setState(() => _isLoadingInsights = true);
+    final data = await _insightsService.getContentInsights();
+    if (mounted) {
+      setState(() {
+        _insightsData = data;
+        _isLoadingInsights = false;
+      });
+    }
   }
 
   /// Load user growth data based on filter
@@ -356,6 +374,7 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
       onRefresh: () async {
         await _loadUserGrowthData();
         await _loadRevenueData();
+        await _loadContentInsights();
       },
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -394,6 +413,11 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
               const SizedBox(height: 20),
               _buildRevenueChart(isDark),
             ],
+
+            const SizedBox(height: 24),
+
+            // ── Content Insights Section ──
+            _buildContentInsightsSection(isDark, isWide),
           ],
         ),
       ),
@@ -1098,6 +1122,317 @@ class _AdminAnalyticsScreenState extends State<AdminAnalyticsScreen> {
             'No data available for this period',
             style: TextStyle(color: AppTheme.getTextSecondary(context)),
           ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────────────────── Content Insights Section ────────────────────────
+
+  Widget _buildContentInsightsSection(bool isDark, bool isWide) {
+    final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+
+    if (_isLoadingInsights) {
+      return _buildLoadingState(isDark);
+    }
+
+    final totalCourses = (_insightsData['totalCourses'] as num?)?.toInt() ?? 0;
+    final published = (_insightsData['publishedCourses'] as num?)?.toInt() ?? 0;
+    final drafts = (_insightsData['draftCourses'] as num?)?.toInt() ?? 0;
+    final totalVideos = (_insightsData['totalVideos'] as num?)?.toInt() ?? 0;
+    final totalQuizzes = (_insightsData['totalQuizzes'] as num?)?.toInt() ?? 0;
+    final avgRating = _insightsData['averageRating'] as String? ?? '0.0';
+    final categories = _insightsData['categoryBreakdown'] as Map<String, dynamic>? ?? {};
+    final topCourses = _insightsData['topCourses'] as List<dynamic>? ?? [];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header
+        Row(
+          children: [
+            Icon(Icons.insights_rounded, color: accentColor, size: 24),
+            const SizedBox(width: 10),
+            Text(
+              'Content Insights',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+            const Spacer(),
+            IconButton(
+              onPressed: _loadContentInsights,
+              icon: Icon(Icons.refresh_rounded, color: AppTheme.getTextSecondary(context), size: 20),
+              tooltip: 'Refresh insights',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Stats grid - responsive
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final crossAxisCount = constraints.maxWidth >= 600 ? 6 : 3;
+            final aspectRatio = constraints.maxWidth >= 600 ? 1.5 : 1.1;
+            return GridView.count(
+              crossAxisCount: crossAxisCount,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              mainAxisSpacing: 10,
+              crossAxisSpacing: 10,
+              childAspectRatio: aspectRatio,
+              children: [
+                _buildInsightStatCard('Courses', '$totalCourses', Icons.library_books, Colors.blue, isDark),
+                _buildInsightStatCard('Published', '$published', Icons.check_circle, Colors.green, isDark),
+                _buildInsightStatCard('Drafts', '$drafts', Icons.edit_note, Colors.orange, isDark),
+                _buildInsightStatCard('Videos', '$totalVideos', Icons.play_circle, Colors.red, isDark),
+                _buildInsightStatCard('Quizzes', '$totalQuizzes', Icons.quiz, Colors.purple, isDark),
+                _buildInsightStatCard('Rating', avgRating, Icons.star, Colors.amber, isDark),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+
+        // Publication status bar
+        if (totalCourses > 0) ...[
+          _buildInsightPublicationBar(published, drafts, isDark),
+          const SizedBox(height: 20),
+        ],
+
+        // Categories + Top Courses side by side on wide, stacked on narrow
+        if (isWide)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (categories.isNotEmpty)
+                Expanded(child: _buildCategorySection(categories, totalCourses, isDark)),
+              if (categories.isNotEmpty && topCourses.isNotEmpty)
+                const SizedBox(width: 20),
+              if (topCourses.isNotEmpty)
+                Expanded(child: _buildTopCoursesSection(topCourses, isDark, accentColor)),
+            ],
+          )
+        else ...[
+          if (categories.isNotEmpty)
+            _buildCategorySection(categories, totalCourses, isDark),
+          if (categories.isNotEmpty) const SizedBox(height: 20),
+          if (topCourses.isNotEmpty)
+            _buildTopCoursesSection(topCourses, isDark, accentColor),
+        ],
+        const SizedBox(height: 30),
+      ],
+    );
+  }
+
+  Widget _buildInsightStatCard(String label, String value, IconData icon, Color color, bool isDark) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(height: 4),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              value,
+              style: TextStyle(
+                color: AppTheme.getTextPrimary(context),
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+          ),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 10,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightPublicationBar(int published, int drafts, bool isDark) {
+    final total = published + drafts;
+    if (total == 0) return const SizedBox.shrink();
+    final publishedPct = published / total;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Publication Status', style: TextStyle(color: AppTheme.getTextPrimary(context), fontWeight: FontWeight.bold, fontSize: 14)),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: SizedBox(
+              height: 18,
+              child: Row(
+                children: [
+                  Expanded(flex: (publishedPct * 100).round().clamp(1, 100), child: Container(color: Colors.green)),
+                  if ((1 - publishedPct) > 0)
+                    Expanded(flex: ((1 - publishedPct) * 100).round().clamp(1, 100), child: Container(color: Colors.orange.shade300)),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              _buildInsightLegend(Colors.green, 'Published ($published)'),
+              const SizedBox(width: 16),
+              _buildInsightLegend(Colors.orange.shade300, 'Drafts ($drafts)'),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInsightLegend(Color color, String label) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(width: 10, height: 10, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+        const SizedBox(width: 6),
+        Text(label, style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
+      ],
+    );
+  }
+
+  Widget _buildCategorySection(Map<String, dynamic> categories, int total, bool isDark) {
+    final colors = [Colors.blue, Colors.red, Colors.green, Colors.purple, Colors.orange, Colors.teal, Colors.indigo, Colors.pink];
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Categories', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+          const SizedBox(height: 12),
+          ...categories.entries.map((e) {
+            final count = (e.value as num).toInt();
+            final pct = total > 0 ? count / total : 0.0;
+            final color = colors[e.key.hashCode.abs() % colors.length];
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 100,
+                    child: Text(e.key, style: TextStyle(color: AppTheme.getTextPrimary(context), fontSize: 12, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(value: pct, backgroundColor: isDark ? Colors.white.withOpacity(0.05) : Colors.grey.shade100, valueColor: AlwaysStoppedAnimation(color), minHeight: 10),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text('$count', style: TextStyle(color: AppTheme.getTextPrimary(context), fontWeight: FontWeight.bold, fontSize: 12)),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTopCoursesSection(List<dynamic> topCourses, bool isDark, Color accentColor) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? AppTheme.darkBorder : Colors.grey.shade200),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Top Courses by Enrollment', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.getTextPrimary(context))),
+          const SizedBox(height: 12),
+          ...topCourses.take(8).toList().asMap().entries.map((entry) {
+            final rank = entry.key + 1;
+            final course = entry.value as Map<String, dynamic>;
+            final title = course['title'] as String? ?? 'Untitled';
+            final enrolled = (course['enrolled'] as num?)?.toInt() ?? 0;
+            final rating = (course['rating'] as num?)?.toDouble() ?? 0;
+            final category = course['category'] as String? ?? '';
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 6),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkElevated : Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: rank <= 3 ? (rank == 1 ? Colors.amber : rank == 2 ? Colors.grey.shade400 : Colors.brown.shade300).withOpacity(0.15) : accentColor.withOpacity(0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(child: Text('#$rank', style: TextStyle(color: rank <= 3 ? (rank == 1 ? Colors.amber.shade700 : rank == 2 ? Colors.grey.shade600 : Colors.brown) : accentColor, fontWeight: FontWeight.bold, fontSize: 10))),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(title, style: TextStyle(color: AppTheme.getTextPrimary(context), fontWeight: FontWeight.w600, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                        Text(category, style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 10)),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.people, size: 12, color: Colors.blue.shade400),
+                        const SizedBox(width: 3),
+                        Text('$enrolled', style: TextStyle(color: AppTheme.getTextPrimary(context), fontWeight: FontWeight.bold, fontSize: 12)),
+                      ]),
+                      Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.star, size: 10, color: Colors.amber.shade600),
+                        const SizedBox(width: 2),
+                        Text(rating.toStringAsFixed(1), style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 10)),
+                      ]),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
