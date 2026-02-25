@@ -17,7 +17,6 @@ import 'admin_all_courses_screen.dart';
 import 'admin_announcements_screen.dart';
 import 'admin_audit_log_screen.dart';
 import 'admin_platform_settings_screen.dart';
-import 'admin_bulk_actions_screen.dart';
 import 'admin_content_insights_screen.dart';
 
 /// Main Admin Dashboard Screen
@@ -45,7 +44,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     const AdminAnnouncementsScreen(),
     const AdminAuditLogScreen(),
     const AdminPlatformSettingsScreen(),
-    const AdminBulkActionsScreen(),
     const AdminContentInsightsScreen(),
   ];
 
@@ -146,12 +144,10 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
       case 8:
         return 'Announcements';
       case 9:
-        return 'Audit Log';
+        return 'Activity';
       case 10:
         return 'Settings';
       case 11:
-        return 'Bulk Actions';
-      case 12:
         return 'Content Insights';
       default:
         return 'Dashboard';
