@@ -207,6 +207,26 @@
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
     },
+    "platform_settings": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+    },
+    "platform_announcements": {
+      ".read": "auth != null",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      "$announcementId": {
+        ".read": "auth != null",
+        ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
+    "admin_audit_log": {
+      ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      "$logId": {
+        ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+      }
+    },
     "deleted_courses": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
