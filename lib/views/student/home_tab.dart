@@ -12,6 +12,7 @@ import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/study_streak_card.dart';
 import 'package:eduverse/services/course_recommendation_service.dart';
+import 'package:eduverse/features/admin/services/admin_feature_service.dart';
 
 class HomeTab extends StatefulWidget {
   final String uid;
@@ -61,6 +62,10 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   final _recommendationService = CourseRecommendationService();
   List<Map<String, dynamic>> _recommendedCourses = [];
   bool _isLoadingRecommendations = false;
+
+  // Announcements
+  final _announcementService = AdminFeatureService();
+  List<Map<String, dynamic>> _announcements = [];
 
   // Auto-scroll carousel
   late PageController _pageController;
@@ -146,6 +151,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         });
         _startAutoScroll();
         _loadRecommendations();
+        _loadAnnouncements();
       }
       return;
     }
@@ -222,6 +228,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         });
         _startAutoScroll();
         _loadRecommendations();
+        _loadAnnouncements();
       }
     } catch (e) {
       if (mounted) {
@@ -291,6 +298,112 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       debugPrint('Error loading recommendations: $e');
       if (mounted) setState(() => _isLoadingRecommendations = false);
     }
+  }
+
+  /// Load platform announcements for students
+  Future<void> _loadAnnouncements() async {
+    try {
+      final announcements = await _announcementService.getActiveAnnouncementsForUser('student');
+      if (mounted) {
+        setState(() => _announcements = announcements);
+      }
+    } catch (e) {
+      debugPrint('Error loading announcements: $e');
+    }
+  }
+
+  Widget _buildAnnouncementsSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.campaign_rounded,
+              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              size: 20,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Announcements',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ..._announcements.map((announcement) => _buildAnnouncementCard(announcement, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildAnnouncementCard(Map<String, dynamic> announcement, bool isDark) {
+    final priority = announcement['priority'] as String? ?? 'normal';
+    final title = announcement['title'] as String? ?? '';
+    final message = announcement['message'] as String? ?? '';
+    
+    Color priorityColor;
+    IconData priorityIcon;
+    switch (priority) {
+      case 'urgent':
+        priorityColor = Colors.red;
+        priorityIcon = Icons.priority_high;
+        break;
+      case 'important':
+        priorityColor = Colors.orange;
+        priorityIcon = Icons.warning_amber_rounded;
+        break;
+      default:
+        priorityColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+        priorityIcon = Icons.info_outline;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: priorityColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: priorityColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(priorityIcon, color: priorityColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppTheme.getTextPrimary(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                if (message.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 13,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   List<Map<String, dynamic>> get filteredCourses {
@@ -379,6 +492,12 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Platform Announcements
+            if (_announcements.isNotEmpty) ...[
+              _buildAnnouncementsSection(isDark),
+              const SizedBox(height: 16),
+            ],
 
             // Study Streak & Stats
             const StudyStreakCard(),
