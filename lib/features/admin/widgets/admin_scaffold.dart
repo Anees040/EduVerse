@@ -42,9 +42,8 @@ class _AdminScaffoldState extends State<AdminScaffold> {
     _NavItem(Icons.support_agent_rounded, 'Support', 'Ticket Management'),
     _NavItem(Icons.school_rounded, 'Courses', 'Course Management'),
     _NavItem(Icons.campaign_rounded, 'Announcements', 'Platform Broadcasts'),
-    _NavItem(Icons.history_rounded, 'Audit Log', 'Admin Activity'),
+    _NavItem(Icons.history_rounded, 'Activity', 'Admin Actions'),
     _NavItem(Icons.settings_rounded, 'Settings', 'Platform Config'),
-    _NavItem(Icons.groups_rounded, 'Bulk Actions', 'Batch Operations'),
     _NavItem(Icons.insights_rounded, 'Insights', 'Content Analytics'),
   ];
 
