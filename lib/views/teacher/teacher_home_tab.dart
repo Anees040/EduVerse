@@ -14,6 +14,7 @@ import 'package:eduverse/views/teacher/teacher_revenue_dashboard.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/utils/route_transitions.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
+import 'package:eduverse/features/admin/services/admin_feature_service.dart';
 
 class TeacherHomeTab extends StatefulWidget {
   final String uid;
@@ -58,6 +59,8 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
 
   List<Map<String, dynamic>> recentSubmissions = [];
   List<Map<String, dynamic>> announcements = [];
+  List<Map<String, dynamic>> platformAnnouncements = [];
+  final _announcementService = AdminFeatureService();
   bool _isInitialLoading = true;
   String userName = "...";
   List<Map<String, dynamic>> courses = [];
@@ -252,6 +255,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           _isInitialLoading = false;
         });
         _startAutoScroll();
+        _loadPlatformAnnouncements();
       }
     } catch (e) {
       if (mounted) {
@@ -321,9 +325,22 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           announcements = fetchedAnnouncements;
         });
         _startAutoScroll();
+        _loadPlatformAnnouncements();
       }
     } catch (_) {
       // Silent fail for background refresh
+    }
+  }
+
+  /// Load platform-wide announcements for teachers
+  Future<void> _loadPlatformAnnouncements() async {
+    try {
+      final announcements = await _announcementService.getActiveAnnouncementsForUser('teacher');
+      if (mounted) {
+        setState(() => platformAnnouncements = announcements);
+      }
+    } catch (e) {
+      debugPrint('Error loading platform announcements: $e');
     }
   }
 
@@ -435,6 +452,12 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
               ),
             ),
             const SizedBox(height: 24),
+
+            // Platform Announcements (from admin)
+            if (platformAnnouncements.isNotEmpty) ...[
+              _buildPlatformAnnouncementsSection(isDark),
+              const SizedBox(height: 24),
+            ],
 
             // Quick Stats
             Row(
@@ -2376,6 +2399,100 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildPlatformAnnouncementsSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.campaign_rounded,
+              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              size: 20,
+            ),
+            const SizedBox(width: 6),
+            Text(
+              'Platform Announcements',
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ...platformAnnouncements.map((announcement) => _buildPlatformAnnouncementCard(announcement, isDark)),
+      ],
+    );
+  }
+
+  Widget _buildPlatformAnnouncementCard(Map<String, dynamic> announcement, bool isDark) {
+    final priority = announcement['priority'] as String? ?? 'normal';
+    final title = announcement['title'] as String? ?? '';
+    final message = announcement['message'] as String? ?? '';
+    
+    Color priorityColor;
+    IconData priorityIcon;
+    switch (priority) {
+      case 'urgent':
+        priorityColor = Colors.red;
+        priorityIcon = Icons.priority_high;
+        break;
+      case 'important':
+        priorityColor = Colors.orange;
+        priorityIcon = Icons.warning_amber_rounded;
+        break;
+      default:
+        priorityColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+        priorityIcon = Icons.info_outline;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: priorityColor.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: priorityColor.withOpacity(0.3)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(priorityIcon, color: priorityColor, size: 20),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    color: AppTheme.getTextPrimary(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                ),
+                if (message.isNotEmpty) ...[
+                  const SizedBox(height: 4),
+                  Text(
+                    message,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 13,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
