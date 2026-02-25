@@ -1759,7 +1759,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               // Move to resolved
               await _moveToResolved(item, 'kept');
               // Approve in provider (clears flags, removes from pending)
-              provider.moderateContent(
+              await provider.moderateContent(
                 contentId: contentId,
                 contentType: type,
                 approve: true,
@@ -1767,6 +1767,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               );
               // Also clear from moderation queue
               await _removeFromModerationQueue(item['id']);
+              // Refresh the list
+              await provider.loadFlaggedContent(refresh: true);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1826,7 +1828,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               // Move to resolved
               await _moveToResolved(item, 'deleted');
               // Delete content via provider
-              provider.moderateContent(
+              await provider.moderateContent(
                 contentId: contentId,
                 contentType: type,
                 approve: false,
@@ -1834,6 +1836,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               );
               // Also clear from moderation queue
               await _removeFromModerationQueue(item['id']);
+              // Refresh the list
+              await provider.loadFlaggedContent(refresh: true);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1976,7 +1980,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   context,
                   listen: false,
                 );
-                provider.moderateContent(
+                await provider.moderateContent(
                   contentId:
                       item['originalId'] ??
                       item['contentId'] ??
@@ -1987,6 +1991,8 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   parentId: item['courseId'] ?? item['teacherId'],
                 );
                 await _removeFromModerationQueue(item['id']);
+                // Refresh the list
+                await provider.loadFlaggedContent(refresh: true);
               }
 
               if (mounted) {
