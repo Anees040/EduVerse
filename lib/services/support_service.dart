@@ -259,28 +259,37 @@ class SupportService {
   /// Get a single ticket with all messages
   Future<Map<String, dynamic>?> getTicket(String ticketId) async {
     try {
-      debugPrint('Loading ticket: $ticketId');
       final snapshot = await _db.child('support_tickets/$ticketId').get();
 
       if (!snapshot.exists || snapshot.value == null) {
-        debugPrint('Ticket not found: $ticketId');
+        debugPrint('Ticket $ticketId: snapshot does not exist');
         return null;
       }
 
-      final ticket = Map<String, dynamic>.from(snapshot.value as Map);
+      final rawValue = snapshot.value;
+      if (rawValue is! Map) {
+        debugPrint('Ticket $ticketId: unexpected type ${rawValue.runtimeType}');
+        return null;
+      }
+
+      final ticket = <String, dynamic>{};
+      rawValue.forEach((key, value) {
+        ticket[key.toString()] = value;
+      });
       ticket['id'] = ticketId;
 
       // Convert messages to list and sort
       if (ticket['messages'] != null && ticket['messages'] is Map) {
-        final messagesMap = Map<String, dynamic>.from(
-          ticket['messages'] as Map,
-        );
+        final messagesRaw = ticket['messages'] as Map;
         final messagesList = <Map<String, dynamic>>[];
-        
-        messagesMap.forEach((key, value) {
+
+        messagesRaw.forEach((key, value) {
           if (value is Map) {
-            final msg = Map<String, dynamic>.from(value);
-            msg['id'] = key;
+            final msg = <String, dynamic>{};
+            value.forEach((mk, mv) {
+              msg[mk.toString()] = mv;
+            });
+            msg['id'] = key.toString();
             messagesList.add(msg);
           }
         });
