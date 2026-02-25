@@ -1767,7 +1767,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               );
               // Also clear from moderation queue
               await _removeFromModerationQueue(item['id']);
-              // Refresh the list
+              // Refresh the list in real-time
               await provider.loadFlaggedContent(refresh: true);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1836,7 +1836,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               );
               // Also clear from moderation queue
               await _removeFromModerationQueue(item['id']);
-              // Refresh the list
+              // Refresh the list in real-time
               await provider.loadFlaggedContent(refresh: true);
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -1991,7 +1991,7 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                   parentId: item['courseId'] ?? item['teacherId'],
                 );
                 await _removeFromModerationQueue(item['id']);
-                // Refresh the list
+                // Refresh the list in real-time
                 await provider.loadFlaggedContent(refresh: true);
               }
 
