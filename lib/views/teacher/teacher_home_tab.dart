@@ -60,13 +60,15 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
   List<Map<String, dynamic>> recentSubmissions = [];
   List<Map<String, dynamic>> announcements = [];
   List<Map<String, dynamic>> platformAnnouncements = [];
-  final _announcementService = AdminFeatureService();
   bool _isInitialLoading = true;
   String userName = "...";
   List<Map<String, dynamic>> courses = [];
   int uniqueStudentCount = 0;
   String searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
+
+  // Platform announcements
+  final _announcementService = AdminFeatureService();
 
   // Auto-scroll carousel for teacher courses
   late PageController _pageController;
@@ -103,6 +105,7 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
     }
 
     _loadAllData();
+    _loadPlatformAnnouncements();
   }
 
   @override
@@ -255,7 +258,6 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           _isInitialLoading = false;
         });
         _startAutoScroll();
-        _loadPlatformAnnouncements();
       }
     } catch (e) {
       if (mounted) {
@@ -325,22 +327,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           announcements = fetchedAnnouncements;
         });
         _startAutoScroll();
-        _loadPlatformAnnouncements();
       }
     } catch (_) {
       // Silent fail for background refresh
-    }
-  }
-
-  /// Load platform-wide announcements for teachers
-  Future<void> _loadPlatformAnnouncements() async {
-    try {
-      final announcements = await _announcementService.getActiveAnnouncementsForUser('teacher');
-      if (mounted) {
-        setState(() => platformAnnouncements = announcements);
-      }
-    } catch (e) {
-      debugPrint('Error loading platform announcements: $e');
     }
   }
 
@@ -360,6 +349,18 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       _cacheService.clearPrefix('teacher_');
       _loadAllData();
     });
+  }
+
+  /// Load platform announcements for teachers
+  Future<void> _loadPlatformAnnouncements() async {
+    try {
+      final items = await _announcementService.getActiveAnnouncementsForUser('teacher');
+      if (mounted) {
+        setState(() => platformAnnouncements = items);
+      }
+    } catch (e) {
+      debugPrint('Error loading platform announcements: $e');
+    }
   }
 
   List<Map<String, dynamic>> get filteredCourses {
@@ -453,11 +454,9 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             ),
             const SizedBox(height: 24),
 
-            // Platform Announcements (from admin)
-            if (platformAnnouncements.isNotEmpty) ...[
+            // Platform Announcements
+            if (platformAnnouncements.isNotEmpty)
               _buildPlatformAnnouncementsSection(isDark),
-              const SizedBox(height: 24),
-            ],
 
             // Quick Stats
             Row(
@@ -2409,16 +2408,14 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
       children: [
         Row(
           children: [
-            Icon(
-              Icons.campaign_rounded,
-              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-              size: 20,
-            ),
+            Icon(Icons.campaign_rounded,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                size: 20),
             const SizedBox(width: 6),
             Text(
               'Platform Announcements',
               style: TextStyle(
-                fontSize: 16,
+                fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.getTextPrimary(context),
               ),
@@ -2426,71 +2423,72 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
           ],
         ),
         const SizedBox(height: 10),
-        ...platformAnnouncements.map((announcement) => _buildPlatformAnnouncementCard(announcement, isDark)),
+        ...platformAnnouncements.take(3).map((a) => _buildPlatformAnnouncementCard(a, isDark)),
+        const SizedBox(height: 12),
       ],
     );
   }
 
   Widget _buildPlatformAnnouncementCard(Map<String, dynamic> announcement, bool isDark) {
     final priority = announcement['priority'] as String? ?? 'normal';
-    final title = announcement['title'] as String? ?? '';
-    final message = announcement['message'] as String? ?? '';
-    
-    Color priorityColor;
-    IconData priorityIcon;
+    final Color borderColor;
     switch (priority) {
       case 'urgent':
-        priorityColor = Colors.red;
-        priorityIcon = Icons.priority_high;
+        borderColor = Colors.red;
         break;
       case 'important':
-        priorityColor = Colors.orange;
-        priorityIcon = Icons.warning_amber_rounded;
+        borderColor = Colors.orange;
         break;
       default:
-        priorityColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
-        priorityIcon = Icons.info_outline;
+        borderColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
     }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: priorityColor.withOpacity(0.08),
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: priorityColor.withOpacity(0.3)),
+        border: Border.all(color: borderColor.withOpacity(0.4)),
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(priorityIcon, color: priorityColor, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
+          Row(
+            children: [
+              if (priority != 'normal')
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: borderColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    priority.toUpperCase(),
+                    style: TextStyle(color: borderColor, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  announcement['title'] as String? ?? '',
                   style: TextStyle(
                     color: AppTheme.getTextPrimary(context),
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                if (message.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: TextStyle(
-                      color: AppTheme.getTextSecondary(context),
-                      fontSize: 13,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            announcement['message'] as String? ?? '',
+            style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
