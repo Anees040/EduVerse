@@ -63,7 +63,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   List<Map<String, dynamic>> _recommendedCourses = [];
   bool _isLoadingRecommendations = false;
 
-  // Announcements
+  // Platform Announcements
   final _announcementService = AdminFeatureService();
   List<Map<String, dynamic>> _announcements = [];
 
@@ -97,6 +97,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     }
 
     _loadAllData();
+    _loadAnnouncements();
   }
 
   @override
@@ -151,7 +152,6 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         });
         _startAutoScroll();
         _loadRecommendations();
-        _loadAnnouncements();
       }
       return;
     }
@@ -228,7 +228,6 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         });
         _startAutoScroll();
         _loadRecommendations();
-        _loadAnnouncements();
       }
     } catch (e) {
       if (mounted) {
@@ -303,107 +302,13 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
   /// Load platform announcements for students
   Future<void> _loadAnnouncements() async {
     try {
-      final announcements = await _announcementService.getActiveAnnouncementsForUser('student');
+      final items = await _announcementService.getActiveAnnouncementsForUser('student');
       if (mounted) {
-        setState(() => _announcements = announcements);
+        setState(() => _announcements = items);
       }
     } catch (e) {
       debugPrint('Error loading announcements: $e');
     }
-  }
-
-  Widget _buildAnnouncementsSection(bool isDark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(
-              Icons.campaign_rounded,
-              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-              size: 20,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              'Announcements',
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: AppTheme.getTextPrimary(context),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        ..._announcements.map((announcement) => _buildAnnouncementCard(announcement, isDark)),
-      ],
-    );
-  }
-
-  Widget _buildAnnouncementCard(Map<String, dynamic> announcement, bool isDark) {
-    final priority = announcement['priority'] as String? ?? 'normal';
-    final title = announcement['title'] as String? ?? '';
-    final message = announcement['message'] as String? ?? '';
-    
-    Color priorityColor;
-    IconData priorityIcon;
-    switch (priority) {
-      case 'urgent':
-        priorityColor = Colors.red;
-        priorityIcon = Icons.priority_high;
-        break;
-      case 'important':
-        priorityColor = Colors.orange;
-        priorityIcon = Icons.warning_amber_rounded;
-        break;
-      default:
-        priorityColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
-        priorityIcon = Icons.info_outline;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: priorityColor.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: priorityColor.withOpacity(0.3)),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(priorityIcon, color: priorityColor, size: 20),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    color: AppTheme.getTextPrimary(context),
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                  ),
-                ),
-                if (message.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    message,
-                    style: TextStyle(
-                      color: AppTheme.getTextSecondary(context),
-                      fontSize: 13,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   List<Map<String, dynamic>> get filteredCourses {
@@ -494,10 +399,8 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
             const SizedBox(height: 16),
 
             // Platform Announcements
-            if (_announcements.isNotEmpty) ...[
+            if (_announcements.isNotEmpty)
               _buildAnnouncementsSection(isDark),
-              const SizedBox(height: 16),
-            ],
 
             // Study Streak & Stats
             const StudyStreakCard(),
@@ -1442,6 +1345,99 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAnnouncementsSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(Icons.campaign_rounded,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                size: 20),
+            const SizedBox(width: 6),
+            Text(
+              'Announcements',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.getTextPrimary(context),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        ..._announcements.take(3).map((a) => _buildAnnouncementCard(a, isDark)),
+        const SizedBox(height: 8),
+      ],
+    );
+  }
+
+  Widget _buildAnnouncementCard(Map<String, dynamic> announcement, bool isDark) {
+    final priority = announcement['priority'] as String? ?? 'normal';
+    final Color borderColor;
+    switch (priority) {
+      case 'urgent':
+        borderColor = Colors.red;
+        break;
+      case 'important':
+        borderColor = Colors.orange;
+        break;
+      default:
+        borderColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: isDark ? AppTheme.darkCard : Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: borderColor.withOpacity(0.4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              if (priority != 'normal')
+                Container(
+                  margin: const EdgeInsets.only(right: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: borderColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Text(
+                    priority.toUpperCase(),
+                    style: TextStyle(color: borderColor, fontSize: 10, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              Expanded(
+                child: Text(
+                  announcement['title'] as String? ?? '',
+                  style: TextStyle(
+                    color: AppTheme.getTextPrimary(context),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            announcement['message'] as String? ?? '',
+            style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 13),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ),
     );
   }
