@@ -79,44 +79,6 @@ class AdminFeatureService {
     }
   }
 
-  /// Get active announcements for a specific user role (student/teacher).
-  /// Returns only active announcements targeting 'all' or the specified role.
-  Future<List<Map<String, dynamic>>> getActiveAnnouncementsForUser(String role) async {
-    try {
-      final snap = await _db
-          .child('platform_announcements')
-          .orderByChild('sentAt')
-          .limitToLast(20)
-          .get();
-
-      if (!snap.exists) return [];
-
-      final list = <Map<String, dynamic>>[];
-      final raw = snap.value;
-      if (raw is Map) {
-        raw.forEach((key, value) {
-          if (value is Map) {
-            final announcement = {...Map<String, dynamic>.from(value), 'id': key};
-            final isActive = announcement['isActive'] == true;
-            final audience = announcement['targetAudience'] as String? ?? 'all';
-            
-            // Only include active announcements for matching audience
-            if (isActive && (audience == 'all' || audience == role || audience == '${role}s')) {
-              list.add(announcement);
-            }
-          }
-        });
-      }
-
-      list.sort((a, b) =>
-          ((b['sentAt'] as num?) ?? 0).compareTo((a['sentAt'] as num?) ?? 0));
-      return list.take(5).toList(); // Return max 5 active announcements
-    } catch (e) {
-      debugPrint('Error loading announcements for user: $e');
-      return [];
-    }
-  }
-
   /// Toggle announcement active status.
   Future<bool> toggleAnnouncementActive(String id, bool isActive) async {
     try {
@@ -410,8 +372,8 @@ class AdminFeatureService {
                 (categoryCount[category] ?? 0) + 1;
 
             // Collect for top courses
-            int enrolled = 0;
             final enrolledData = value['enrolledStudents'];
+            int enrolled = 0;
             if (enrolledData is Map) {
               enrolled = enrolledData.length;
             } else if (enrolledData is num) {
@@ -447,6 +409,38 @@ class AdminFeatureService {
     } catch (e) {
       debugPrint('Error loading content insights: $e');
       return {};
+    }
+  }
+
+  // ──────────────────────── 6. Active Announcements for Users ────────────────────────
+
+  /// Get active announcements visible to a given role ('student' or 'teacher').
+  Future<List<Map<String, dynamic>>> getActiveAnnouncementsForUser(String role) async {
+    try {
+      final snap = await _db.child('platform_announcements').get();
+      if (!snap.exists) return [];
+
+      final list = <Map<String, dynamic>>[];
+      final raw = snap.value;
+      if (raw is Map) {
+        raw.forEach((key, value) {
+          if (value is Map) {
+            final item = {...Map<String, dynamic>.from(value), 'id': key};
+            final isActive = item['isActive'] == true;
+            final target = item['targetAudience'] as String? ?? 'all';
+            if (isActive && (target == 'all' || target == '${role}s')) {
+              list.add(item);
+            }
+          }
+        });
+      }
+
+      list.sort((a, b) =>
+          ((b['sentAt'] as num?) ?? 0).compareTo((a['sentAt'] as num?) ?? 0));
+      return list;
+    } catch (e) {
+      debugPrint('Error loading active announcements: $e');
+      return [];
     }
   }
 }
