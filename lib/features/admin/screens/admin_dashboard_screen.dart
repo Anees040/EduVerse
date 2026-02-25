@@ -17,7 +17,6 @@ import 'admin_all_courses_screen.dart';
 import 'admin_announcements_screen.dart';
 import 'admin_audit_log_screen.dart';
 import 'admin_platform_settings_screen.dart';
-import 'admin_content_insights_screen.dart';
 
 /// Main Admin Dashboard Screen
 /// Hub for all admin functionalities with KPI overview
@@ -44,7 +43,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
     const AdminAnnouncementsScreen(),
     const AdminAuditLogScreen(),
     const AdminPlatformSettingsScreen(),
-    const AdminContentInsightsScreen(),
   ];
 
   @override
@@ -147,8 +145,6 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         return 'Activity';
       case 10:
         return 'Settings';
-      case 11:
-        return 'Content Insights';
       default:
         return 'Dashboard';
     }
