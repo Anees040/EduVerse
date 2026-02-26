@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/notification_service.dart';
 import 'package:eduverse/services/data_preloader_service.dart';
+import 'package:eduverse/services/maintenance_service.dart';
 import 'package:eduverse/views/notifications_screen.dart';
 import 'package:eduverse/views/teacher/teacher_courses_screen.dart';
 import 'package:eduverse/views/teacher/teacher_home_tab.dart';
@@ -221,7 +222,14 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
         ),
       ),
       // Use IndexedStack to keep all screens alive and avoid reloading
-      body: IndexedStack(index: _selectedIndex, children: _screens),
+      body: Column(
+        children: [
+          MaintenanceService.instance.buildMaintenanceBanner(context),
+          Expanded(
+            child: IndexedStack(index: _selectedIndex, children: _screens),
+          ),
+        ],
+      ),
     );
   }
 }
