@@ -85,6 +85,14 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
               entry.key.toString(),
               rawMap,
             );
+
+            // Skip dummy/malformed courses (empty title or missing teacher)
+            if (course.title.trim().isEmpty ||
+                course.teacherUid.trim().isEmpty) {
+              debugPrint('Skipping malformed course ${entry.key}: empty title or teacherUid');
+              continue;
+            }
+
             courses.add(course);
 
             // Track unique enrolled students
@@ -1283,10 +1291,18 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
     final newStatus = !course.isPublished;
 
     try {
-      await _db.child('courses').child(course.courseUid).update({
+      final updates = <String, dynamic>{
         'isPublished': newStatus,
         'updatedAt': ServerValue.timestamp,
-      });
+      };
+
+      // Clear flag when re-publishing a flagged course
+      if (newStatus) {
+        updates['flaggedForReview'] = false;
+        updates['flagReason'] = null;
+      }
+
+      await _db.child('courses').child(course.courseUid).update(updates);
 
       // Also update in teacher's courses
       await _db
@@ -1297,7 +1313,14 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
           .update({
             'isPublished': newStatus,
             'updatedAt': ServerValue.timestamp,
+            if (newStatus) 'flaggedForReview': false,
+            if (newStatus) 'flagReason': null,
           });
+
+      // Remove from flagged_content when re-publishing
+      if (newStatus) {
+        await _db.child('flagged_content').child(course.courseUid).remove();
+      }
 
       // Log action
       await _logAdminAction(
@@ -1344,6 +1367,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
 
     if (reason != null && reason.isNotEmpty) {
       try {
+        // Flag the course in flagged_content
         await _db.child('flagged_content').child(course.courseUid).set({
           'type': 'course',
           'courseUid': course.courseUid,
@@ -1353,15 +1377,52 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
           'flaggedAt': ServerValue.timestamp,
         });
 
+        // Also unpublish the course (set to draft) when flagging
+        await _db.child('courses').child(course.courseUid).update({
+          'isPublished': false,
+          'flaggedForReview': true,
+          'flagReason': reason,
+          'flaggedAt': ServerValue.timestamp,
+        });
+
+        // Update teacher's course copy too
+        if (course.teacherUid.isNotEmpty) {
+          await _db
+              .child('teacher')
+              .child(course.teacherUid)
+              .child('courses')
+              .child(course.courseUid)
+              .update({
+            'isPublished': false,
+            'flaggedForReview': true,
+            'flagReason': reason,
+          });
+        }
+
+        // Send notification to teacher about the flagging
+        await _sendTeacherNotification(
+          teacherUid: course.teacherUid,
+          title: 'Course Flagged for Review',
+          message: 'Your course "${course.title}" has been flagged for review and set to draft. Reason: $reason',
+          type: 'course_flagged',
+          courseId: course.courseUid,
+        );
+
         await _logAdminAction(
           action: 'flag_course',
           targetId: course.courseUid,
-          details: 'Course "${course.title}" flagged: $reason',
+          details: 'Course "${course.title}" flagged and unpublished: $reason',
         );
+
+        // Refresh courses to reflect the change
+        await _loadCourses();
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Course flagged for review')),
+            const SnackBar(
+              content: Text('Course flagged and set to draft'),
+              backgroundColor: Colors.orange,
+            ),
           );
         }
       } catch (e) {
