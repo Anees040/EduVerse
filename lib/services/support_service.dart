@@ -143,7 +143,7 @@ class SupportService {
     }
   }
 
-  /// Update ticket status
+  /// Update ticket status and notify user
   Future<bool> updateTicketStatus({
     required String ticketId,
     required String status,
@@ -164,10 +164,45 @@ class SupportService {
       }
 
       await _db.child('support_tickets/$ticketId').update(updates);
+
+      // Send notification to user about status change
+      final ticketSnap = await _db.child('support_tickets/$ticketId').get();
+      if (ticketSnap.exists) {
+        final ticketData = Map<String, dynamic>.from(ticketSnap.value as Map);
+        final userId = ticketData['userId'];
+        if (userId != null) {
+          final statusLabel = status
+              .split('_')
+              .map((w) => w[0].toUpperCase() + w.substring(1))
+              .join(' ');
+          await _db.child('notifications/$userId').push().set({
+            'type': 'ticket_status',
+            'title': 'Ticket $statusLabel',
+            'message':
+                'Your support ticket "${ticketData['subject'] ?? ''}" has been marked as $statusLabel',
+            'ticketId': ticketId,
+            'timestamp': ServerValue.timestamp,
+            'read': false,
+          });
+        }
+      }
+
       return true;
     } catch (e) {
       debugPrint('Error updating ticket status: $e');
       return false;
+    }
+  }
+
+  /// Mark a ticket as read by admin
+  Future<void> markAdminRead(String ticketId) async {
+    try {
+      await _db.child('support_tickets/$ticketId').update({
+        'adminRead': true,
+        'adminReadAt': ServerValue.timestamp,
+      });
+    } catch (e) {
+      debugPrint('Error marking ticket read: $e');
     }
   }
 
