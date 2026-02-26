@@ -408,48 +408,109 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
             // Recommended For You
             if (_recommendedCourses.isNotEmpty) ...[
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.auto_awesome,
-                        color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 6),
-                      Text(
-                        "Recommended For You",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.getTextPrimary(context),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: isDark
+                        ? [
+                            AppTheme.darkAccent.withOpacity(0.08),
+                            AppTheme.darkCard.withOpacity(0.5),
+                          ]
+                        : [
+                            AppTheme.primaryColor.withOpacity(0.04),
+                            AppTheme.accentColor.withOpacity(0.04),
+                          ],
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: isDark
+                        ? AppTheme.darkBorderColor.withOpacity(0.5)
+                        : AppTheme.primaryColor.withOpacity(0.1),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                                    isDark ? AppTheme.darkAccent.withOpacity(0.7) : AppTheme.accentColor,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.auto_awesome,
+                                color: Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Recommended For You",
+                                  style: TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                    color: AppTheme.getTextPrimary(context),
+                                  ),
+                                ),
+                                Text(
+                                  "Personalized by AI",
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: AppTheme.getTextSecondary(context),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
-                  IconButton(
-                    icon: Icon(
-                      Icons.refresh,
-                      color: AppTheme.getTextSecondary(context),
-                      size: 20,
+                        IconButton(
+                          icon: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                                  .withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Icon(
+                              Icons.refresh,
+                              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                              size: 18,
+                            ),
+                          ),
+                          onPressed: _loadRecommendations,
+                          tooltip: 'Refresh recommendations',
+                        ),
+                      ],
                     ),
-                    onPressed: _loadRecommendations,
-                    tooltip: 'Refresh recommendations',
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 185,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _recommendedCourses.length,
-                  itemBuilder: (context, index) {
-                    final course = _recommendedCourses[index];
-                    return _buildRecommendationCard(course, isDark);
-                  },
+                    const SizedBox(height: 14),
+                    SizedBox(
+                      height: 220,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _recommendedCourses.length,
+                        itemBuilder: (context, index) {
+                          final course = _recommendedCourses[index];
+                          return _buildRecommendationCard(course, isDark);
+                        },
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 20),
@@ -670,12 +731,19 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
     );
   }
 
-  /// Recommendation card — compact horizontal card
+  /// Professional recommendation card with rich info
   Widget _buildRecommendationCard(Map<String, dynamic> course, bool isDark) {
     final title = (course['title'] as String? ?? 'Course').toString();
     final category = (course['category'] as String? ?? '').toString();
     final imageUrl = (course['imageUrl'] as String? ?? '').toString();
     final courseUid = course['courseUid'] as String?;
+    final price = course['price'];
+    final isFree = price == null || price == 0 || price == '0' || price == 'free';
+    final rating = course['rating'];
+    final ratingStr = rating != null ? (rating is num ? rating.toStringAsFixed(1) : rating.toString()) : null;
+    final enrolledCount = course['enrolledStudents'] is Map
+        ? (course['enrolledStudents'] as Map).length
+        : (course['enrolledCount'] is int ? course['enrolledCount'] as int : null);
     final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
 
     return GestureDetector(
@@ -696,7 +764,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         }
       },
       child: Container(
-        width: 200,
+        width: 180,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkCard : Colors.white,
@@ -706,7 +774,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
           ),
           boxShadow: [
             BoxShadow(
-              color: accentColor.withOpacity(isDark ? 0.15 : 0.08),
+              color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -715,7 +783,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image with gradient overlay
+            // Image with overlay badges
             Stack(
               children: [
                 ClipRRect(
@@ -725,12 +793,19 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                   child: imageUrl.isNotEmpty
                       ? CachedNetworkImage(
                           imageUrl: imageUrl,
-                          height: 95,
+                          height: 105,
                           width: double.infinity,
                           fit: BoxFit.cover,
                           placeholder: (context, url) => Container(
-                            height: 95,
-                            color: accentColor.withOpacity(0.1),
+                            height: 105,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  accentColor.withOpacity(0.15),
+                                  accentColor.withOpacity(0.05),
+                                ],
+                              ),
+                            ),
                             child: Center(
                               child: Icon(
                                 Icons.image,
@@ -739,86 +814,174 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                             ),
                           ),
                           errorWidget: (context, url, error) => Container(
-                            height: 95,
-                            color: accentColor.withOpacity(0.1),
+                            height: 105,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  accentColor.withOpacity(0.15),
+                                  accentColor.withOpacity(0.05),
+                                ],
+                              ),
+                            ),
                             child: Icon(Icons.school, color: accentColor),
                           ),
                         )
                       : Container(
-                          height: 95,
-                          color: accentColor.withOpacity(0.1),
+                          height: 105,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                accentColor.withOpacity(0.15),
+                                accentColor.withOpacity(0.05),
+                              ],
+                            ),
+                          ),
                           child: Center(
-                            child:
-                                Icon(Icons.school, color: accentColor, size: 30),
+                            child: Icon(Icons.school, color: accentColor, size: 30),
                           ),
                         ),
                 ),
-                // AI sparkle badge
+                // Bottom gradient over image
                 Positioned(
-                  top: 6,
-                  left: 6,
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
                   child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    height: 40,
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.auto_awesome, size: 10, color: Colors.amber),
-                        SizedBox(width: 3),
-                        Text(
-                          'For You',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.5),
+                        ],
+                      ),
                     ),
                   ),
                 ),
+                // Price badge
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isFree ? Colors.green : Colors.orange,
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: Text(
+                      isFree ? 'FREE' : '\$$price',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
+                // Rating badge (bottom left)
+                if (ratingStr != null)
+                  Positioned(
+                    bottom: 6,
+                    left: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.star, size: 12, color: Colors.amber),
+                          const SizedBox(width: 3),
+                          Text(
+                            ratingStr,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
-            // Title + category
+            // Title
             Padding(
-              padding: const EdgeInsets.fromLTRB(10, 8, 10, 4),
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
               child: Text(
                 title,
                 style: TextStyle(
                   color: AppTheme.getTextPrimary(context),
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   fontSize: 13,
+                  height: 1.2,
                 ),
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (category.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: accentColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    category,
-                    style: TextStyle(
-                      color: accentColor,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+            const Spacer(),
+            // Bottom row: category + students
+            Padding(
+              padding: const EdgeInsets.fromLTRB(10, 0, 10, 10),
+              child: Row(
+                children: [
+                  if (category.isNotEmpty)
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: accentColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          category,
+                          style: TextStyle(
+                            color: accentColor,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
+                  if (enrolledCount != null && enrolledCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.people_alt_outlined,
+                          size: 12,
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          '$enrolledCount',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
+            ),
           ],
         ),
       ),
