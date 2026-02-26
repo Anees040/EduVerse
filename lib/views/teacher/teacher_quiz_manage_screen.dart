@@ -516,6 +516,7 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
   bool _shuffleQuestions = false;
   bool _shuffleOptions = false;
   bool _showResults = true;
+  bool _publishImmediately = true;
   bool _isSaving = false;
 
   bool get _isEditing => widget.existingQuiz != null;
@@ -730,6 +731,26 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
                     : AppTheme.primaryColor,
                 contentPadding: EdgeInsets.zero,
               ),
+              if (!_isEditing)
+                SwitchListTile(
+                  title: Text(
+                    'Publish Immediately',
+                    style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                  ),
+                  subtitle: Text(
+                    'Make quiz visible to students right away',
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                  value: _publishImmediately,
+                  onChanged: (v) => setState(() => _publishImmediately = v),
+                  activeColor: isDark
+                      ? AppTheme.darkAccent
+                      : AppTheme.primaryColor,
+                  contentPadding: EdgeInsets.zero,
+                ),
             ], isDark),
             const SizedBox(height: 16),
 
@@ -1089,6 +1110,11 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
         showResults: _showResults,
       );
       success = quizId != null;
+
+      // Auto-publish if the toggle is on
+      if (quizId != null && _publishImmediately) {
+        await _quizService.toggleQuizPublished(quizId, true);
+      }
     }
 
     if (mounted) {
