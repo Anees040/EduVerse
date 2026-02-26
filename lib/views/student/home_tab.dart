@@ -442,7 +442,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
               ),
               const SizedBox(height: 10),
               SizedBox(
-                height: 160,
+                height: 185,
                 child: ListView.builder(
                   scrollDirection: Axis.horizontal,
                   itemCount: _recommendedCourses.length,
@@ -542,7 +542,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
             // Auto-sliding carousel
             SizedBox(
-              height: 220,
+              height: 260,
               child: filteredCourses.isEmpty
                   ? Center(
                       child: Column(
@@ -696,7 +696,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
         }
       },
       child: Container(
-        width: 220,
+        width: 200,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
           color: isDark ? AppTheme.darkCard : Colors.white,
@@ -706,49 +706,82 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(isDark ? 0.2 : 0.06),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
+              color: accentColor.withOpacity(isDark ? 0.15 : 0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image
-            ClipRRect(
-              borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(15),
-              ),
-              child: imageUrl.isNotEmpty
-                  ? CachedNetworkImage(
-                      imageUrl: imageUrl,
-                      height: 80,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      placeholder: (context, url) => Container(
-                        height: 80,
-                        color: accentColor.withOpacity(0.1),
-                        child: Center(
-                          child: Icon(
-                            Icons.image,
-                            color: accentColor.withOpacity(0.3),
+            // Image with gradient overlay
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(15),
+                  ),
+                  child: imageUrl.isNotEmpty
+                      ? CachedNetworkImage(
+                          imageUrl: imageUrl,
+                          height: 95,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            height: 95,
+                            color: accentColor.withOpacity(0.1),
+                            child: Center(
+                              child: Icon(
+                                Icons.image,
+                                color: accentColor.withOpacity(0.3),
+                              ),
+                            ),
+                          ),
+                          errorWidget: (context, url, error) => Container(
+                            height: 95,
+                            color: accentColor.withOpacity(0.1),
+                            child: Icon(Icons.school, color: accentColor),
+                          ),
+                        )
+                      : Container(
+                          height: 95,
+                          color: accentColor.withOpacity(0.1),
+                          child: Center(
+                            child:
+                                Icon(Icons.school, color: accentColor, size: 30),
                           ),
                         ),
-                      ),
-                      errorWidget: (context, url, error) => Container(
-                        height: 80,
-                        color: accentColor.withOpacity(0.1),
-                        child: Icon(Icons.school, color: accentColor),
-                      ),
-                    )
-                  : Container(
-                      height: 80,
-                      color: accentColor.withOpacity(0.1),
-                      child: Center(
-                        child: Icon(Icons.school, color: accentColor, size: 30),
-                      ),
+                ),
+                // AI sparkle badge
+                Positioned(
+                  top: 6,
+                  left: 6,
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(8),
                     ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.auto_awesome, size: 10, color: Colors.amber),
+                        SizedBox(width: 3),
+                        Text(
+                          'For You',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             // Title + category
             Padding(
@@ -767,15 +800,23 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
             if (category.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Text(
-                  category,
-                  style: TextStyle(
-                    color: accentColor,
-                    fontSize: 11,
-                    fontWeight: FontWeight.w500,
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: accentColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(6),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: Text(
+                    category,
+                    style: TextStyle(
+                      color: accentColor,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
               ),
           ],
@@ -868,7 +909,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
                       imageUrl.isNotEmpty
                           ? CachedNetworkImage(
                               imageUrl: imageUrl,
-                              height: 95,
+                              height: 120,
                               width: double.infinity,
                               fit: BoxFit.cover,
                               placeholder: (context, url) => const Center(
@@ -1137,7 +1178,7 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
   Widget _buildPlaceholderImage(bool isDark, Color accentColor) {
     return Container(
-      height: 95,
+      height: 120,
       width: double.infinity,
       decoration: BoxDecoration(
         gradient: LinearGradient(
