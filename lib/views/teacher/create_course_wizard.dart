@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/auth_service.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/uploadToCloudinary.dart';
@@ -164,6 +165,52 @@ class _CreateCourseWizardState extends State<CreateCourseWizard>
 
   Future<void> _createCourse() async {
     if (!_validateCurrentStep()) return;
+
+    // Check platform settings before creating course
+    try {
+      final settingsSnapshot = await FirebaseDatabase.instance
+          .ref('platform_settings')
+          .get();
+      if (settingsSnapshot.exists && settingsSnapshot.value != null) {
+        final settings = Map<String, dynamic>.from(settingsSnapshot.value as Map);
+
+        // Check if new courses are allowed
+        if (settings['allowNewCourses'] == false) {
+          if (mounted) {
+            _showErrorSnackBar(
+              'Course creation is currently disabled by the administrator. Please try again later.',
+            );
+          }
+          return;
+        }
+
+        // Check max courses per teacher limit
+        final maxCourses = settings['maxCoursesPerTeacher'] is int
+            ? settings['maxCoursesPerTeacher'] as int
+            : 50;
+        final teacherUid = _authService.currentUser?.uid;
+        if (teacherUid != null) {
+          final coursesSnapshot = await FirebaseDatabase.instance
+              .ref('teacher')
+              .child(teacherUid)
+              .child('courses')
+              .get();
+          if (coursesSnapshot.exists && coursesSnapshot.value != null) {
+            final existingCourses = (coursesSnapshot.value as Map).length;
+            if (existingCourses >= maxCourses) {
+              if (mounted) {
+                _showErrorSnackBar(
+                  'You have reached the maximum limit of $maxCourses courses. Please contact support.',
+                );
+              }
+              return;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking platform settings: $e');
+    }
 
     setState(() {
       _isLoading = true;
