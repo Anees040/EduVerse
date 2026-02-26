@@ -204,7 +204,12 @@ class _StudentAssignmentListScreenState
     final title = assignment['title'] ?? 'Untitled Assignment';
     final description = assignment['description'] ?? '';
     final totalPoints = assignment['totalPoints'] ?? 100;
-    final dueDate = DateTime.tryParse(assignment['dueDate'] ?? '');
+    final dueDateMs = assignment['dueDate'];
+    final dueDate = dueDateMs is int
+        ? DateTime.fromMillisecondsSinceEpoch(dueDateMs)
+        : dueDateMs is String
+            ? DateTime.tryParse(dueDateMs)
+            : null;
 
     final submission = _submissions[assignmentId];
     final status = submission?['status'];
