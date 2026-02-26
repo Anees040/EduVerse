@@ -53,9 +53,10 @@
     
     "courses": {
       ".read": "auth != null",
+      ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       "$courseId": {
         ".read": "auth != null",
-        ".write": "auth != null || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        ".write": "auth != null",
         "enrolledStudents": {
           ".read": "auth != null",
           "$studentUid": {
@@ -107,6 +108,7 @@
     "quizzes": {
       ".read": "auth != null",
       ".write": "auth != null",
+      ".indexOn": ["courseId", "teacherId"],
       "$quizId": {
         ".read": "auth != null",
         ".write": "auth != null"
@@ -116,6 +118,7 @@
     "quiz_attempts": {
       ".read": "auth != null",
       ".write": "auth != null",
+      ".indexOn": ["quizId", "studentId"],
       "$attemptId": {
         ".read": "auth != null",
         ".write": "auth != null"
@@ -125,6 +128,7 @@
     "assignments": {
       ".read": "auth != null",
       ".write": "auth != null",
+      ".indexOn": ["courseId", "teacherId"],
       "$assignmentId": {
         ".read": "auth != null",
         ".write": "auth != null"
@@ -134,6 +138,7 @@
     "assignment_submissions": {
       ".read": "auth != null",
       ".write": "auth != null",
+      ".indexOn": ["assignmentId", "studentId"],
       "$submissionId": {
         ".read": "auth != null",
         ".write": "auth != null"
