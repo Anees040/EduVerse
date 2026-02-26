@@ -25,6 +25,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   List<Course> _courses = [];
   List<Course> _filteredCourses = [];
   final Map<String, String> _teacherNames = {};
+  final Set<String> _uniqueEnrolledStudents = {};
   bool _isLoading = true;
   bool _isLoadingMore = false;
 
@@ -75,26 +76,43 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
       if (snapshot.exists && snapshot.value != null) {
         final data = snapshot.value as Map<dynamic, dynamic>;
         final courses = <Course>[];
+        final uniqueStudents = <String>{};
 
         for (var entry in data.entries) {
           try {
+            final rawMap = Map<dynamic, dynamic>.from(entry.value as Map);
             final course = Course.fromMap(
               entry.key.toString(),
-              Map<dynamic, dynamic>.from(entry.value as Map),
+              rawMap,
             );
             courses.add(course);
 
-            // Load teacher name if not cached
+            // Track unique enrolled students
+            if (rawMap['enrolledStudents'] != null && rawMap['enrolledStudents'] is Map) {
+              final enrolled = rawMap['enrolledStudents'] as Map;
+              for (var studentId in enrolled.keys) {
+                uniqueStudents.add(studentId.toString());
+              }
+            }
+
+            // Collect teacher UIDs for batch loading
             if (!_teacherNames.containsKey(course.teacherUid)) {
-              _loadTeacherName(course.teacherUid);
+              _teacherNames[course.teacherUid] = ''; // placeholder
             }
           } catch (e) {
             debugPrint('Error parsing course ${entry.key}: $e');
           }
         }
 
+        // Batch load all teacher names
+        final teacherUids = _teacherNames.keys.where((k) => _teacherNames[k]?.isEmpty ?? true).toList();
+        await Future.wait(teacherUids.map((uid) => _loadTeacherName(uid)));
+
         setState(() {
           _courses = courses;
+          _uniqueEnrolledStudents
+            ..clear()
+            ..addAll(uniqueStudents);
           _applyFilters();
           _isLoading = false;
         });
@@ -102,6 +120,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
         setState(() {
           _courses = [];
           _filteredCourses = [];
+          _uniqueEnrolledStudents.clear();
           _isLoading = false;
         });
       }
@@ -118,13 +137,14 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
           .child(teacherUid)
           .child('name')
           .get();
-      if (snapshot.exists) {
-        setState(() {
-          _teacherNames[teacherUid] = snapshot.value.toString();
-        });
+      if (snapshot.exists && snapshot.value != null) {
+        _teacherNames[teacherUid] = snapshot.value.toString();
+      } else {
+        _teacherNames[teacherUid] = 'Unknown';
       }
     } catch (e) {
       debugPrint('Error loading teacher name: $e');
+      _teacherNames[teacherUid] = 'Unknown';
     }
   }
 
@@ -286,72 +306,78 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   Widget _buildStatsHeader(bool isDark) {
     final totalCourses = _courses.length;
     final publishedCount = _courses.where((c) => c.isPublished).length;
+    final draftCount = _courses.where((c) => !c.isPublished).length;
     final freeCount = _courses.where((c) => c.isFree).length;
-    final totalEnrolled = _courses.fold<int>(
-      0,
-      (sum, c) => sum + c.enrolledCount,
-    );
+    final uniqueStudents = _uniqueEnrolledStudents.length;
 
     return Container(
       padding: const EdgeInsets.only(bottom: 16),
-      child: Row(
-        children: [
-          _buildStatChip(
-            'Total: $totalCourses',
-            Icons.library_books,
-            Colors.blue,
-            isDark,
-          ),
-          const SizedBox(width: 8),
-          _buildStatChip(
-            'Published: $publishedCount',
-            Icons.check_circle,
-            Colors.green,
-            isDark,
-          ),
-          const SizedBox(width: 8),
-          _buildStatChip(
-            'Free: $freeCount',
-            Icons.card_giftcard,
-            Colors.orange,
-            isDark,
-          ),
-          const SizedBox(width: 8),
-          _buildStatChip(
-            'Enrolled: $totalEnrolled',
-            Icons.people,
-            Colors.purple,
-            isDark,
-          ),
-        ],
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _buildStatChip(
+              'Total: $totalCourses',
+              Icons.library_books,
+              Colors.blue,
+              isDark,
+            ),
+            const SizedBox(width: 8),
+            _buildStatChip(
+              'Published: $publishedCount',
+              Icons.check_circle,
+              Colors.green,
+              isDark,
+            ),
+            const SizedBox(width: 8),
+            _buildStatChip(
+              'Draft: $draftCount',
+              Icons.edit_note,
+              Colors.orange,
+              isDark,
+            ),
+            const SizedBox(width: 8),
+            _buildStatChip(
+              'Free: $freeCount',
+              Icons.card_giftcard,
+              Colors.teal,
+              isDark,
+            ),
+            const SizedBox(width: 8),
+            _buildStatChip(
+              'Students: $uniqueStudents',
+              Icons.people,
+              Colors.purple,
+              isDark,
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildStatChip(String label, IconData icon, Color color, bool isDark) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color.withOpacity(isDark ? 0.15 : 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(isDark ? 0.15 : 0.1),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 20),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -553,7 +579,7 @@ class _AdminAllCoursesScreenState extends State<AdminAllCoursesScreen> {
   }
 
   Widget _buildCourseCard(Course course, bool isDark) {
-    final teacherName = _teacherNames[course.teacherUid] ?? 'Loading...';
+    final teacherName = _teacherNames[course.teacherUid] ?? 'Unknown Teacher';
     final createdDate = DateFormat(
       'MMM d, yyyy',
     ).format(DateTime.fromMillisecondsSinceEpoch(course.createdAt));
