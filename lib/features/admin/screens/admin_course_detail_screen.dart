@@ -311,7 +311,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
     return SliverAppBar(
       expandedHeight: 200,
       pinned: true,
-      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+      backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.primaryColor,
       foregroundColor: Colors.white,
       flexibleSpace: FlexibleSpaceBar(
         background: Stack(
@@ -331,7 +331,10 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [Colors.transparent, Colors.black.withOpacity(0.7)],
+                  colors: [
+                    Colors.black.withOpacity(0.4),
+                    Colors.black.withOpacity(0.7),
+                  ],
                 ),
               ),
             ),
@@ -2355,7 +2358,7 @@ class _AdminCourseDetailScreenState extends State<AdminCourseDetailScreen>
 
   /// Format duration in a human-readable way
   String _formatDuration(int seconds) {
-    if (seconds <= 0) return '0:00';
+    if (seconds <= 0) return 'N/A';
 
     final hours = seconds ~/ 3600;
     final minutes = (seconds % 3600) ~/ 60;
