@@ -125,7 +125,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
     final questions = quiz['questions'] as List? ?? [];
     final timeLimit = quiz['timeLimit'] as int? ?? 0;
     final passingScore = quiz['passingScore'] ?? 60;
-    final maxAttempts = quiz['maxAttempts'] as int? ?? 1;
+    final maxAttempts = quiz['maxAttempts'] as int? ?? 0;
     final startDate = DateTime.tryParse(quiz['startDate'] ?? '');
     final endDate = DateTime.tryParse(quiz['endDate'] ?? '');
 
@@ -141,7 +141,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
     final canAttempt =
         !isNotStarted &&
         !isExpired &&
-        (attemptCount < maxAttempts || maxAttempts == -1);
+        (maxAttempts <= 0 || attemptCount < maxAttempts);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -276,7 +276,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
                         ),
                         const Spacer(),
                         Text(
-                          '$attemptCount/${maxAttempts == -1 ? '∞' : maxAttempts} attempts',
+                          '$attemptCount/${maxAttempts <= 0 ? '∞' : maxAttempts} attempts',
                           style: TextStyle(
                             color: AppTheme.getTextSecondary(context),
                             fontSize: 12,
@@ -426,7 +426,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
       color = Colors.grey;
       text = 'Expired';
       icon = Icons.event_busy;
-    } else if (attemptCount >= maxAttempts && maxAttempts != -1) {
+    } else if (maxAttempts > 0 && attemptCount >= maxAttempts) {
       color = Colors.orange;
       text = 'Max Attempts';
       icon = Icons.block;
