@@ -878,6 +878,27 @@ class CourseService {
     required String courseUid,
   }) async {
     try {
+      // Check maxStudentsPerCourse setting
+      final settingsSnapshot = await _db.child('platform_settings').get();
+      if (settingsSnapshot.exists && settingsSnapshot.value != null) {
+        final settings = Map<String, dynamic>.from(settingsSnapshot.value as Map);
+        final maxStudents = settings['maxStudentsPerCourse'] is int
+            ? settings['maxStudentsPerCourse'] as int
+            : 500;
+
+        final enrolledSnapshot = await _db
+            .child('courses')
+            .child(courseUid)
+            .child('enrolledStudents')
+            .get();
+        if (enrolledSnapshot.exists && enrolledSnapshot.value != null) {
+          final currentCount = (enrolledSnapshot.value as Map).length;
+          if (currentCount >= maxStudents) {
+            throw Exception('This course has reached its maximum capacity of $maxStudents students.');
+          }
+        }
+      }
+
       // Get course details for notification
       final courseSnap = await _db.child("courses").child(courseUid).get();
 
