@@ -1812,6 +1812,26 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       return;
     }
 
+    // Check if student reviews are enabled
+    try {
+      final settingsSnapshot = await FirebaseDatabase.instance
+          .ref('platform_settings/enableStudentReviews')
+          .get();
+      if (settingsSnapshot.exists && settingsSnapshot.value == false) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Reviews are currently disabled by the administrator.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+    } catch (e) {
+      debugPrint('Error checking review settings: $e');
+    }
+
     try {
       // Get student name
       final studentSnap = await FirebaseDatabase.instance
