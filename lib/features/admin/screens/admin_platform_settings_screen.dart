@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:eduverse/utils/app_theme.dart';
 
 /// Admin platform settings with direct Firebase save.
@@ -21,6 +22,9 @@ class _AdminPlatformSettingsScreenState
 
   // Settings
   bool _maintenanceMode = false;
+  final String _maintenanceMessage = '';
+  DateTime? _maintenanceStartTime;
+  DateTime? _maintenanceEndTime;
   bool _registrationEnabled = true;
   bool _allowNewCourses = true;
   bool _requireEmailVerification = true;
@@ -37,6 +41,7 @@ class _AdminPlatformSettingsScreenState
   late TextEditingController _supportEmailController;
   late TextEditingController _welcomeMessageController;
   late TextEditingController _privacyPolicyUrlController;
+  late TextEditingController _maintenanceMessageController;
 
   @override
   void initState() {
@@ -45,6 +50,7 @@ class _AdminPlatformSettingsScreenState
     _supportEmailController = TextEditingController();
     _welcomeMessageController = TextEditingController();
     _privacyPolicyUrlController = TextEditingController();
+    _maintenanceMessageController = TextEditingController();
     _loadSettings();
   }
 
@@ -54,6 +60,7 @@ class _AdminPlatformSettingsScreenState
     _supportEmailController.dispose();
     _welcomeMessageController.dispose();
     _privacyPolicyUrlController.dispose();
+    _maintenanceMessageController.dispose();
     super.dispose();
   }
 
@@ -68,6 +75,14 @@ class _AdminPlatformSettingsScreenState
       if (mounted) {
         setState(() {
           _maintenanceMode = settings['maintenanceMode'] as bool? ?? false;
+          _maintenanceMessageController.text =
+              settings['maintenanceMessage'] as String? ?? 'The platform is currently under maintenance. We will be back shortly.';
+          if (settings['maintenanceStartTime'] is int) {
+            _maintenanceStartTime = DateTime.fromMillisecondsSinceEpoch(settings['maintenanceStartTime'] as int);
+          }
+          if (settings['maintenanceEndTime'] is int) {
+            _maintenanceEndTime = DateTime.fromMillisecondsSinceEpoch(settings['maintenanceEndTime'] as int);
+          }
           _registrationEnabled =
               settings['registrationEnabled'] as bool? ?? true;
           _allowNewCourses = settings['allowNewCourses'] as bool? ?? true;
@@ -114,6 +129,11 @@ class _AdminPlatformSettingsScreenState
     try {
       final settings = {
         'maintenanceMode': _maintenanceMode,
+        'maintenanceMessage': _maintenanceMessageController.text.trim().isNotEmpty
+            ? _maintenanceMessageController.text.trim()
+            : 'The platform is currently under maintenance.',
+        'maintenanceStartTime': _maintenanceStartTime?.millisecondsSinceEpoch,
+        'maintenanceEndTime': _maintenanceEndTime?.millisecondsSinceEpoch,
         'registrationEnabled': _registrationEnabled,
         'allowNewCourses': _allowNewCourses,
         'requireEmailVerification': _requireEmailVerification,
@@ -134,6 +154,11 @@ class _AdminPlatformSettingsScreenState
       };
 
       await _db.child('platform_settings').update(settings);
+
+      // Send notifications to all users when maintenance is toggled ON
+      if (_maintenanceMode) {
+        await _sendMaintenanceNotifications();
+      }
 
       // Log admin action
       final logRef = _db.child('admin_audit_log').push();
@@ -236,7 +261,7 @@ class _AdminPlatformSettingsScreenState
               const SizedBox(height: 8),
               _buildSwitchTile(
                 title: 'Maintenance Mode',
-                subtitle: 'When enabled, only admins can access the platform',
+                subtitle: 'Users can login but see maintenance banner & restricted features',
                 value: _maintenanceMode,
                 onChanged: (v) {
                   setState(() => _maintenanceMode = v);
@@ -246,6 +271,59 @@ class _AdminPlatformSettingsScreenState
                 icon: Icons.engineering,
                 isDark: isDark,
               ),
+
+              // Maintenance details (shown when maintenance is enabled)
+              if (_maintenanceMode) ...[
+                const SizedBox(height: 12),
+                _buildTextFieldTile(
+                  controller: _maintenanceMessageController,
+                  title: 'Maintenance Message',
+                  icon: Icons.message,
+                  iconColor: Colors.orange,
+                  maxLines: 2,
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 8),
+                _buildDateTimeTile(
+                  title: 'Start Time',
+                  value: _maintenanceStartTime,
+                  icon: Icons.play_circle_outline,
+                  onTap: () => _pickDateTime(isStart: true),
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 8),
+                _buildDateTimeTile(
+                  title: 'End Time',
+                  value: _maintenanceEndTime,
+                  icon: Icons.stop_circle_outlined,
+                  onTap: () => _pickDateTime(isStart: false),
+                  isDark: isDark,
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.orange.withOpacity(0.2)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.orange, size: 18),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'When saved, all students and teachers will receive a maintenance notification. Admins can still access all features.',
+                          style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                            fontSize: 11,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
 
               const SizedBox(height: 20),
 
@@ -657,5 +735,153 @@ class _AdminPlatformSettingsScreenState
         ],
       ),
     );
+  }
+
+  Widget _buildDateTimeTile({
+    required String title,
+    required DateTime? value,
+    required IconData icon,
+    required VoidCallback onTap,
+    required bool isDark,
+  }) {
+    final formatted = value != null
+        ? DateFormat('MMM dd, yyyy – hh:mm a').format(value)
+        : 'Not set';
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+        decoration: BoxDecoration(
+          color: isDark ? AppTheme.darkCard : Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppTheme.darkBorderColor : Colors.grey.shade200,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: Colors.orange.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(icon, color: Colors.orange, size: 18),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    formatted,
+                    style: TextStyle(
+                      color: AppTheme.getTextPrimary(context),
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              Icons.calendar_today,
+              color: AppTheme.getTextSecondary(context),
+              size: 16,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickDateTime({required bool isStart}) async {
+    final initial = isStart
+        ? (_maintenanceStartTime ?? DateTime.now())
+        : (_maintenanceEndTime ?? DateTime.now().add(const Duration(hours: 2)));
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: initial,
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+    if (date == null || !mounted) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(initial),
+    );
+    if (time == null || !mounted) return;
+
+    final combined = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    setState(() {
+      if (isStart) {
+        _maintenanceStartTime = combined;
+      } else {
+        _maintenanceEndTime = combined;
+      }
+    });
+    _markChanged();
+  }
+
+  Future<void> _sendMaintenanceNotifications() async {
+    try {
+      final db = FirebaseDatabase.instance.ref();
+
+      // Collect all user UIDs from students and teachers nodes
+      final studentsSnap = await db.child('students').get();
+      final teachersSnap = await db.child('teachers').get();
+      final uids = <String>[];
+
+      if (studentsSnap.exists && studentsSnap.value is Map) {
+        uids.addAll((studentsSnap.value as Map).keys.cast<String>());
+      }
+      if (teachersSnap.exists && teachersSnap.value is Map) {
+        uids.addAll((teachersSnap.value as Map).keys.cast<String>());
+      }
+
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final msg = _maintenanceMessage.isNotEmpty
+          ? _maintenanceMessage
+          : 'The platform is under maintenance. Some features may be restricted.';
+
+      String timeFrame = '';
+      if (_maintenanceStartTime != null && _maintenanceEndTime != null) {
+        final fmt = DateFormat('MMM dd, hh:mm a');
+        timeFrame =
+            '\n${fmt.format(_maintenanceStartTime!)} – ${fmt.format(_maintenanceEndTime!)}';
+      }
+
+      final batch = <String, dynamic>{};
+      for (final uid in uids) {
+        final key = db.child('notifications/$uid').push().key;
+        if (key != null) {
+          batch['notifications/$uid/$key'] = {
+            'title': '⚠️ Scheduled Maintenance',
+            'message': '$msg$timeFrame',
+            'type': 'maintenance',
+            'timestamp': now,
+            'read': false,
+          };
+        }
+      }
+
+      if (batch.isNotEmpty) {
+        await db.update(batch);
+      }
+    } catch (e) {
+      debugPrint('Failed to send maintenance notifications: $e');
+    }
   }
 }
