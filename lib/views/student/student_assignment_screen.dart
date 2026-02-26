@@ -153,7 +153,12 @@ class _StudentAssignmentScreenState extends State<StudentAssignmentScreen> {
   }
 
   Widget _buildStatusBanner(bool isDark) {
-    final dueDate = DateTime.tryParse(_assignment!['dueDate'] ?? '');
+    final dueDateMs = _assignment!['dueDate'];
+    final dueDate = dueDateMs is int
+        ? DateTime.fromMillisecondsSinceEpoch(dueDateMs)
+        : dueDateMs is String
+            ? DateTime.tryParse(dueDateMs)
+            : null;
     final now = DateTime.now();
     final isPastDue = dueDate != null && now.isAfter(dueDate);
     final status = _submission?['status'];
@@ -521,7 +526,12 @@ class _StudentAssignmentScreenState extends State<StudentAssignmentScreen> {
 
   Widget _buildSubmissionSection(bool isDark) {
     final status = _submission!['status'];
-    final submittedAt = DateTime.tryParse(_submission!['submittedAt'] ?? '');
+    final submittedAtVal = _submission!['submittedAt'];
+    final submittedAt = submittedAtVal is int
+        ? DateTime.fromMillisecondsSinceEpoch(submittedAtVal)
+        : submittedAtVal is String
+            ? DateTime.tryParse(submittedAtVal)
+            : null;
     final files = List<Map<String, dynamic>>.from(
       (_submission!['files'] as List?)?.map(
             (f) => Map<String, dynamic>.from(f as Map),
@@ -726,7 +736,12 @@ class _StudentAssignmentScreenState extends State<StudentAssignmentScreen> {
   }
 
   Widget _buildSubmitSection(bool isDark) {
-    final dueDate = DateTime.tryParse(_assignment!['dueDate'] ?? '');
+    final dueDateMs = _assignment!['dueDate'];
+    final dueDate = dueDateMs is int
+        ? DateTime.fromMillisecondsSinceEpoch(dueDateMs)
+        : dueDateMs is String
+            ? DateTime.tryParse(dueDateMs)
+            : null;
     final isPastDue = dueDate != null && DateTime.now().isAfter(dueDate);
     final canSubmit = !isPastDue || _assignment!['allowLateSubmission'] == true;
 
