@@ -694,7 +694,7 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         ),
         _QuickActionButton(
           icon: Icons.history_rounded,
-          label: 'Audit Log',
+          label: 'Activity',
           color: Colors.blueGrey,
           onTap: () {
             final dashboardState = context
@@ -713,30 +713,6 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 .findAncestorStateOfType<_AdminDashboardScreenState>();
             if (dashboardState != null) {
               dashboardState.navigateToTab(10);
-            }
-          },
-        ),
-        _QuickActionButton(
-          icon: Icons.groups_rounded,
-          label: 'Bulk Actions',
-          color: Colors.cyan,
-          onTap: () {
-            final dashboardState = context
-                .findAncestorStateOfType<_AdminDashboardScreenState>();
-            if (dashboardState != null) {
-              dashboardState.navigateToTab(11);
-            }
-          },
-        ),
-        _QuickActionButton(
-          icon: Icons.insights_rounded,
-          label: 'Content Insights',
-          color: Colors.pink,
-          onTap: () {
-            final dashboardState = context
-                .findAncestorStateOfType<_AdminDashboardScreenState>();
-            if (dashboardState != null) {
-              dashboardState.navigateToTab(12);
             }
           },
         ),
