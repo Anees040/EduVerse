@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/auth_service.dart';
 import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
@@ -435,6 +436,36 @@ class _RegisterScreenWithVerificationState
     // Clear any existing email error first to avoid double errors
     setState(() => _emailError = null);
     
+    // Check if registration is enabled on the platform
+    try {
+      final settingsSnapshot = await FirebaseDatabase.instance
+          .ref('platform_settings')
+          .get();
+      if (settingsSnapshot.exists && settingsSnapshot.value != null) {
+        final settings = Map<String, dynamic>.from(settingsSnapshot.value as Map);
+        if (settings['registrationEnabled'] == false) {
+          if (mounted) {
+            _showRegistrationDisabledDialog();
+          }
+          return false;
+        }
+        // Check maintenance mode
+        if (settings['maintenanceMode'] == true) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Platform is under maintenance. Registration is temporarily disabled.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
+          return false;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking platform settings: $e');
+    }
+    
     // Validate email username first (for inline error)
     final emailValidation = _validateFullEmail();
     if (emailValidation != null) {
@@ -497,6 +528,61 @@ class _RegisterScreenWithVerificationState
           duration: const Duration(seconds: 2),
         ),
       );
+  }
+
+  /// Show dialog when registration has been disabled by admin
+  void _showRegistrationDisabledDialog() {
+    final isDark = AppTheme.isDarkMode(context);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Icon(Icons.person_off, color: Colors.red),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Registration Disabled',
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(ctx),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Text(
+          'New registrations are currently disabled by the administrator. Please try again later or contact support.',
+          style: TextStyle(
+            color: AppTheme.getTextSecondary(ctx),
+            fontSize: 14,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'OK',
+              style: TextStyle(
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   // Google Sign Up Handler - Coming Soon
