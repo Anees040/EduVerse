@@ -355,6 +355,15 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
 
       // Clear all caches so other screens get fresh data
       _clearAllProgressCaches();
+
+      // Record study activity for streak — triggers when video passes 30s
+      StudyStreakService().recordStudyActivity();
+      LearningStatsService().logStudySession(
+        durationSeconds: position.inSeconds > 0 ? position.inSeconds : 30,
+        activityType: 'video',
+        courseId: widget.courseUid,
+        videoId: videoId,
+      );
     }
   }
 
