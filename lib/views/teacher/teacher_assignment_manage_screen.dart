@@ -567,6 +567,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
   List<Map<String, dynamic>> _attachments = [];
   List<String> _allowedFileTypes = ['pdf', 'doc', 'docx', 'image'];
 
+  bool _publishImmediately = true;
   bool _isSaving = false;
   bool _isUploading = false;
 
@@ -794,6 +795,33 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
                 ),
             ], isDark),
             const SizedBox(height: 16),
+
+            // Publish Setting (only for new assignments)
+            if (!_isEditing)
+              ...[
+                _buildSectionCard('Publishing', [
+                  SwitchListTile(
+                    title: Text(
+                      'Publish Immediately',
+                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
+                    ),
+                    subtitle: Text(
+                      'Make assignment visible to students right away',
+                      style: TextStyle(
+                        color: AppTheme.getTextSecondary(context),
+                        fontSize: 12,
+                      ),
+                    ),
+                    value: _publishImmediately,
+                    onChanged: (v) => setState(() => _publishImmediately = v),
+                    activeColor: isDark
+                        ? AppTheme.darkAccent
+                        : AppTheme.primaryColor,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ], isDark),
+                const SizedBox(height: 16),
+              ],
 
             // File Types
             _buildSectionCard('Allowed File Types', [
@@ -1213,6 +1241,11 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
         latePenaltyPercent: _latePenaltyPercent,
       );
       success = assignmentId != null;
+
+      // Auto-publish if the toggle is on
+      if (assignmentId != null && _publishImmediately) {
+        await _assignmentService.toggleAssignmentPublished(assignmentId, true);
+      }
     }
 
     if (mounted) {
