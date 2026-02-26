@@ -18,9 +18,8 @@ class _StudyStreakCardState extends State<StudyStreakCard>
   final _streakService = StudyStreakService();
   final _statsService = LearningStatsService();
 
-  Map<String, dynamic> _streak = {};
   Map<String, dynamic> _stats = {};
-  bool _isLoading = true;
+  bool _statsLoaded = false;
   late AnimationController _fireController;
 
   @override
@@ -30,7 +29,7 @@ class _StudyStreakCardState extends State<StudyStreakCard>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _loadData();
+    _loadStats();
   }
 
   @override
@@ -39,17 +38,12 @@ class _StudyStreakCardState extends State<StudyStreakCard>
     super.dispose();
   }
 
-  Future<void> _loadData() async {
-    final results = await Future.wait([
-      _streakService.getStreakData(),
-      _statsService.getStats(),
-    ]);
-
+  Future<void> _loadStats() async {
+    final stats = await _statsService.getStats();
     if (mounted) {
       setState(() {
-        _streak = results[0];
-        _stats = results[1];
-        _isLoading = false;
+        _stats = stats;
+        _statsLoaded = true;
       });
     }
   }
@@ -58,28 +52,31 @@ class _StudyStreakCardState extends State<StudyStreakCard>
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
 
-    if (_isLoading) {
-      return const SizedBox(
-        height: 120,
-        child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
-      );
-    }
+    return StreamBuilder<Map<String, dynamic>>(
+      stream: _streakService.streakStream(),
+      builder: (context, snapshot) {
+        final streak = snapshot.data ?? {};
+        final currentStreak = streak['currentStreak'] as int? ?? 0;
+        final longestStreak = streak['longestStreak'] as int? ?? 0;
+        final studiedToday = streak['studiedToday'] as bool? ?? false;
+        final totalHours = _statsLoaded
+            ? (_stats['totalHours'] as String? ?? '0.0')
+            : '...';
+        final videosWatched = _statsLoaded
+            ? (_stats['videosWatched'] as int? ?? 0)
+            : 0;
+        final quizzesTaken = _statsLoaded
+            ? (_stats['quizzesTaken'] as int? ?? 0)
+            : 0;
 
-    final currentStreak = _streak['currentStreak'] as int? ?? 0;
-    final longestStreak = _streak['longestStreak'] as int? ?? 0;
-    final studiedToday = _streak['studiedToday'] as bool? ?? false;
-    final totalHours = _stats['totalHours'] as String? ?? '0.0';
-    final videosWatched = _stats['videosWatched'] as int? ?? 0;
-    final quizzesTaken = _stats['quizzesTaken'] as int? ?? 0;
-
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const LearningStatsScreen()),
-        );
-      },
-      child: Container(
+        return GestureDetector(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const LearningStatsScreen()),
+            );
+          },
+          child: Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard : Colors.white,
@@ -259,6 +256,8 @@ class _StudyStreakCardState extends State<StudyStreakCard>
         ],
       ),
     ),
+    );
+      },
     );
   }
 
