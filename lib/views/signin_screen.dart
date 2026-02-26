@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/auth_service.dart';
 import 'package:eduverse/services/email_verification_service.dart';
+import 'package:eduverse/services/maintenance_service.dart';
 import 'package:eduverse/views/student/home_screen.dart';
 import 'package:eduverse/views/register_screen_with_verification.dart';
 import 'package:eduverse/views/teacher/teacher_home_screen.dart';
@@ -695,39 +696,41 @@ class _SigninScreenState extends State<SigninScreen> {
     });
 
     try {
-      // Check maintenance mode before attempting login
-      final settingsSnapshot = await FirebaseDatabase.instance
-          .ref('platform_settings')
-          .get();
-      if (settingsSnapshot.exists && settingsSnapshot.value != null) {
-        final settings = Map<String, dynamic>.from(settingsSnapshot.value as Map);
-        final maintenanceMode = settings['maintenanceMode'] == true;
-
-        if (maintenanceMode) {
-          // Check if this user is an admin (admins bypass maintenance)
-          final email = _emailController.text.trim();
-          final adminSnapshot = await FirebaseDatabase.instance
-              .ref('admin')
-              .orderByChild('email')
-              .equalTo(email)
-              .get();
-
-          if (!adminSnapshot.exists) {
-            // Not an admin — block login
-            if (mounted) {
-              _showMaintenanceModeDialog();
-            }
-            return null;
-          }
-        }
-      }
-
+      // Authenticate FIRST so wrong credentials show proper errors
       final user = await _auth.signIn(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
         selectedRole: isStudent ? "student" : "teacher",
       );
-      return user?.uid;
+
+      if (user == null) return null;
+
+      // After successful auth, check maintenance mode
+      final maintenanceService = MaintenanceService.instance;
+      final isMaintenance = await maintenanceService.forceCheck();
+
+      if (isMaintenance) {
+        // Check if this user is an admin — admins bypass maintenance
+        final adminSnapshot = await FirebaseDatabase.instance
+            .ref('admin')
+            .child(user.uid)
+            .child('role')
+            .get();
+
+        final isAdmin = adminSnapshot.exists && adminSnapshot.value == 'admin';
+
+        if (!isAdmin) {
+          // Student/Teacher: send a maintenance notification and show dialog
+          await _addMaintenanceNotification(user.uid);
+
+          if (mounted) {
+            await maintenanceService.showMaintenanceDialog(context);
+          }
+          // Still return the UID — they can log in but will see the banner
+        }
+      }
+
+      return user.uid;
     } catch (e) {
       // Unfocus all fields after failed login
       FocusScope.of(context).unfocus();
@@ -753,93 +756,25 @@ class _SigninScreenState extends State<SigninScreen> {
     }
   }
 
-  /// Show a dialog when platform is in maintenance mode
-  void _showMaintenanceModeDialog() {
-    final isDark = AppTheme.isDarkMode(context);
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(
-                Icons.engineering_rounded,
-                color: Colors.orange,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'Under Maintenance',
-                style: TextStyle(
-                  color: AppTheme.getTextPrimary(ctx),
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'EduVerse is currently undergoing maintenance. Please try again later.',
-              style: TextStyle(
-                color: AppTheme.getTextSecondary(ctx),
-                fontSize: 14,
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.orange.withOpacity(0.08),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.orange.withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.info_outline, color: Colors.orange, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Only administrators can access the platform during maintenance.',
-                      style: TextStyle(
-                        color: AppTheme.getTextSecondary(ctx),
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text(
-              'OK',
-              style: TextStyle(
-                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+  /// Add a notification to the user about maintenance mode
+  Future<void> _addMaintenanceNotification(String uid) async {
+    try {
+      final maintenanceService = MaintenanceService.instance;
+      await FirebaseDatabase.instance
+          .ref('notifications')
+          .child(uid)
+          .push()
+          .set({
+        'title': 'Platform Under Maintenance',
+        'message':
+            '${maintenanceService.maintenanceMessage} Scheduled: ${maintenanceService.maintenanceTimeFrame}. Some features may be temporarily unavailable.',
+        'type': 'maintenance',
+        'isRead': false,
+        'createdAt': ServerValue.timestamp,
+      });
+    } catch (e) {
+      debugPrint('Error adding maintenance notification: $e');
+    }
   }
 
   /// Show a dialog when a suspended user tries to login
