@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import '../providers/admin_provider.dart';
 import '../widgets/admin_data_table.dart';
@@ -503,6 +505,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
             break;
           case 'unsuspend':
             provider.toggleUserSuspension(uid, role, false);
+            // Log audit entry
+            final unsuspendRef = FirebaseDatabase.instance.ref('admin_audit_log').push();
+            unsuspendRef.set({
+              'id': unsuspendRef.key,
+              'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+              'action': 'unsuspend_user',
+              'details': 'Unsuspended ${user['name'] ?? 'user'} (${user['email'] ?? uid})',
+              'timestamp': ServerValue.timestamp,
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('User has been unsuspended'),
@@ -518,6 +529,15 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
               email: user['email'] as String?,
               name: user['name'] as String?,
             );
+            // Log audit entry
+            final verifyRef = FirebaseDatabase.instance.ref('admin_audit_log').push();
+            verifyRef.set({
+              'id': verifyRef.key,
+              'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+              'action': 'verify_teacher',
+              'details': 'Verified teacher ${user['name'] ?? 'Unknown'} (${user['email'] ?? uid})',
+              'timestamp': ServerValue.timestamp,
+            });
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(
                 content: const Text('Teacher verified. Approval email sent.'),
@@ -968,6 +988,16 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   userName: userName,
                 );
 
+                // Log audit entry
+                final suspendRef = FirebaseDatabase.instance.ref('admin_audit_log').push();
+                await suspendRef.set({
+                  'id': suspendRef.key,
+                  'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+                  'action': 'suspend_user',
+                  'details': '${suspensionTypeFinal == 'permanent' ? 'Permanently' : 'Temporarily'} suspended $userName ($userEmail)',
+                  'timestamp': ServerValue.timestamp,
+                });
+
                 // Use captured scaffold messenger
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
@@ -1132,10 +1162,21 @@ class _AdminUsersScreenState extends State<AdminUsersScreen> {
                   reason: reason,
                 );
 
+                // Log audit entry
+                final rejectRef = FirebaseDatabase.instance.ref('admin_audit_log').push();
+                await rejectRef.set({
+                  'id': rejectRef.key,
+                  'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
+                  'action': 'reject_teacher',
+                  'details': 'Rejected teacher application from $userName ($userEmail)',
+                  'timestamp': ServerValue.timestamp,
+                });
+
                 // Use captured scaffold messenger
                 scaffoldMessenger.showSnackBar(
                   SnackBar(
                     content: const Text('Teacher application rejected. Email sent.'),
+
                     backgroundColor: isDark ? AppTheme.darkWarning : AppTheme.warning,
                     behavior: SnackBarBehavior.floating,
                   ),
