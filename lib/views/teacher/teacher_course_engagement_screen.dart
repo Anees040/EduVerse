@@ -89,9 +89,12 @@ class _TeacherCourseEngagementScreenState
           minChildSize: 0.4,
           maxChildSize: 0.9,
           builder: (_, scrollController) {
+            final sheetBg = isDark
+                ? AppTheme.darkSurface
+                : Colors.white;
             return Container(
               decoration: BoxDecoration(
-                color: AppTheme.getBackgroundColor(ctx),
+                color: sheetBg,
                 borderRadius:
                     const BorderRadius.vertical(top: Radius.circular(24)),
               ),
