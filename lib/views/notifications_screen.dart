@@ -22,23 +22,24 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final String _uid = FirebaseAuth.instance.currentUser!.uid;
   bool? _isTeacher;
 
-  // Filter state
   String _selectedFilter = 'all';
 
-  // Filter options for teacher
   static const List<Map<String, dynamic>> _teacherFilters = [
     {'value': 'all', 'label': 'All', 'icon': Icons.all_inbox},
     {'value': 'enrollment', 'label': 'Enrollments', 'icon': Icons.person_add},
     {'value': 'qa_question', 'label': 'Questions', 'icon': Icons.help_outline},
+    {'value': 'announcement', 'label': 'Announce', 'icon': Icons.campaign},
     {'value': 'course_update', 'label': 'Updates', 'icon': Icons.update},
+    {'value': 'maintenance', 'label': 'System', 'icon': Icons.engineering},
   ];
 
-  // Filter options for student
   static const List<Map<String, dynamic>> _studentFilters = [
     {'value': 'all', 'label': 'All', 'icon': Icons.all_inbox},
-    {'value': 'new_course', 'label': 'New Courses', 'icon': Icons.school},
+    {'value': 'new_course', 'label': 'Courses', 'icon': Icons.school},
     {'value': 'course_update', 'label': 'Videos', 'icon': Icons.video_library},
     {'value': 'qa_answer', 'label': 'Answers', 'icon': Icons.question_answer},
+    {'value': 'support_reply', 'label': 'Support', 'icon': Icons.support_agent},
+    {'value': 'maintenance', 'label': 'System', 'icon': Icons.engineering},
   ];
 
   @override
@@ -59,13 +60,136 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   List<Map<String, dynamic>> get _filters =>
       _isTeacher == true ? _teacherFilters : _studentFilters;
 
+  // ──────────── Helpers ────────────
+
+  bool _isNotificationRead(Map<String, dynamic> n) {
+    return n['isRead'] == true || n['read'] == true;
+  }
+
+  int _getNotificationTime(Map<String, dynamic> n) {
+    final t1 = n['createdAt'];
+    final t2 = n['timestamp'];
+    if (t1 is int) return t1;
+    if (t1 is num) return t1.toInt();
+    if (t2 is int) return t2;
+    if (t2 is num) return t2.toInt();
+    return 0;
+  }
+
+  Future<void> _markNotificationRead(Map<String, dynamic> notification) async {
+    if (_isNotificationRead(notification)) return;
+    final notificationId = notification['id'] as String?;
+    if (notificationId == null) return;
+    await _notificationService.markAsRead(_uid, notificationId);
+  }
+
+  IconData _getTypeIcon(String type) {
+    switch (type) {
+      case 'enrollment':
+        return Icons.person_add_rounded;
+      case 'course_update':
+        return Icons.video_library_rounded;
+      case 'new_course':
+        return Icons.school_rounded;
+      case 'qa_answer':
+        return Icons.question_answer_rounded;
+      case 'qa_question':
+        return Icons.help_outline_rounded;
+      case 'announcement':
+        return Icons.campaign_rounded;
+      case 'support_reply':
+      case 'ticket_status':
+        return Icons.support_agent_rounded;
+      case 'maintenance':
+        return Icons.engineering_rounded;
+      case 'certificate':
+        return Icons.workspace_premium_rounded;
+      case 'moderation':
+        return Icons.shield_rounded;
+      default:
+        return Icons.notifications_rounded;
+    }
+  }
+
+  Color _getTypeColor(String type, bool isDark) {
+    switch (type) {
+      case 'enrollment':
+        return Colors.green;
+      case 'course_update':
+        return Colors.blue;
+      case 'new_course':
+        return isDark ? AppTheme.darkAccentColor : AppTheme.accentColor;
+      case 'qa_answer':
+      case 'qa_question':
+        return isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor;
+      case 'announcement':
+        return Colors.deepPurple;
+      case 'support_reply':
+      case 'ticket_status':
+        return Colors.cyan;
+      case 'maintenance':
+        return Colors.orange;
+      case 'certificate':
+        return Colors.amber.shade700;
+      case 'moderation':
+        return Colors.red;
+      default:
+        return isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor;
+    }
+  }
+
+  String _getTypeLabel(String type) {
+    switch (type) {
+      case 'enrollment':
+        return 'Enrollment';
+      case 'course_update':
+        return 'Video Update';
+      case 'new_course':
+        return 'New Course';
+      case 'qa_answer':
+        return 'Q&A Answer';
+      case 'qa_question':
+        return 'Question';
+      case 'announcement':
+        return 'Announcement';
+      case 'support_reply':
+        return 'Support';
+      case 'ticket_status':
+        return 'Ticket';
+      case 'maintenance':
+        return 'Maintenance';
+      case 'certificate':
+        return 'Certificate';
+      case 'moderation':
+        return 'Moderation';
+      default:
+        return 'Notification';
+    }
+  }
+
+  String _formatTimeAgo(int timestamp) {
+    final now = DateTime.now();
+    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
+    final diff = now.difference(date);
+    if (diff.inDays > 7) return '${date.day}/${date.month}/${date.year}';
+    if (diff.inDays > 0) return '${diff.inDays}d ago';
+    if (diff.inHours > 0) return '${diff.inHours}h ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes}m ago';
+    return 'Just now';
+  }
+
+  // ──────────── Build ────────────
+
   @override
   Widget build(BuildContext context) {
     final isDark = AppTheme.isDarkMode(context);
+    final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+
     return Scaffold(
       backgroundColor: AppTheme.getBackgroundColor(context),
       appBar: AppBar(
-        title: const Text('Notifications'),
+        title: const Text('Notifications',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: isDark
@@ -82,8 +206,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 await _notificationService.markAllAsRead(_uid);
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('All notifications marked as read'),
+                    SnackBar(
+                      content: const Text('All notifications marked as read'),
+                      backgroundColor: accentColor,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10)),
                     ),
                   );
                 }
@@ -92,34 +220,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   context: context,
                   builder: (ctx) => AlertDialog(
                     backgroundColor: AppTheme.getCardColor(context),
-                    title: Text(
-                      'Clear All Notifications',
-                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                    ),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                    title: Text('Clear All Notifications',
+                        style: TextStyle(
+                            color: AppTheme.getTextPrimary(context),
+                            fontWeight: FontWeight.bold)),
                     content: Text(
-                      'Are you sure you want to delete all notifications?',
-                      style: TextStyle(
-                        color: AppTheme.getTextSecondary(context),
-                      ),
-                    ),
+                        'This will permanently delete all your notifications.',
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context))),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.pop(ctx, false),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                        ),
+                        child: Text('Cancel',
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context))),
                       ),
                       ElevatedButton(
                         onPressed: () => Navigator.pop(ctx, true),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.red,
-                          foregroundColor: const Color(0xFFF5F5F5),
-                          elevation: 6,
-                          shadowColor: Colors.red.withOpacity(0.5),
-                        ),
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white),
                         child: const Text('Clear All'),
                       ),
                     ],
@@ -129,8 +251,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   await _notificationService.clearAllNotifications(_uid);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('All notifications cleared'),
+                      SnackBar(
+                        content: const Text('All notifications cleared'),
+                        behavior: SnackBarBehavior.floating,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                     );
                   }
@@ -142,16 +267,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 value: 'mark_all_read',
                 child: Row(
                   children: [
-                    Icon(
-                      Icons.done_all,
-                      size: 20,
-                      color: AppTheme.getTextSecondary(context),
-                    ),
+                    Icon(Icons.done_all,
+                        size: 20,
+                        color: AppTheme.getTextSecondary(context)),
                     const SizedBox(width: 8),
-                    Text(
-                      'Mark all as read',
-                      style: TextStyle(color: AppTheme.getTextPrimary(context)),
-                    ),
+                    Text('Mark all as read',
+                        style: TextStyle(
+                            color: AppTheme.getTextPrimary(context))),
                   ],
                 ),
               ),
@@ -171,144 +293,74 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       ),
       body: Column(
         children: [
-          // Filter chips
-          _buildFilterChips(isDark),
-          // Notifications list
+          _buildFilterChips(isDark, accentColor),
           Expanded(
             child: StreamBuilder<List<Map<String, dynamic>>>(
               stream: _notificationService.getNotificationsStream(_uid),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(
-                    child: EngagingLoadingIndicator(
-                      message: 'Loading notifications...',
-                      size: 60,
-                    ),
-                  );
+                      child: EngagingLoadingIndicator(
+                          message: 'Loading notifications...', size: 60));
                 }
-
-                if (snapshot.hasError) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.error_outline,
-                          size: 64,
-                          color: Colors.red.shade300,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Error loading notifications',
-                          style: TextStyle(
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                if (snapshot.hasError) return _buildErrorState();
 
                 final allNotifications = snapshot.data ?? [];
-
-                // Apply filter
                 final notifications = _selectedFilter == 'all'
                     ? allNotifications
-                    : allNotifications
-                          .where((n) => n['type'] == _selectedFilter)
-                          .toList();
+                    : allNotifications.where((n) {
+                        final type = n['type'] ?? 'general';
+                        if (_selectedFilter == 'support_reply') {
+                          return type == 'support_reply' ||
+                              type == 'ticket_status';
+                        }
+                        if (_selectedFilter == 'maintenance') {
+                          return type == 'maintenance' ||
+                              type == 'moderation' ||
+                              type == 'certificate';
+                        }
+                        return type == _selectedFilter;
+                      }).toList();
 
                 if (allNotifications.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(24),
-                          decoration: BoxDecoration(
-                            color:
-                                (isDark
-                                        ? AppTheme.darkPrimaryLight
-                                        : AppTheme.primaryColor)
-                                    .withOpacity(0.1),
-                            shape: BoxShape.circle,
-                          ),
-                          child: Icon(
-                            Icons.notifications_none,
-                            size: 64,
-                            color:
-                                (isDark
-                                        ? AppTheme.darkPrimaryLight
-                                        : AppTheme.primaryColor)
-                                    .withOpacity(0.5),
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Text(
-                          'No notifications yet',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: AppTheme.getTextPrimary(context),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'You\'ll see notifications here when there\'s activity',
-                          style: TextStyle(
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  );
+                  return _buildEmptyState(accentColor);
+                }
+                if (notifications.isEmpty) {
+                  return _buildNoFilterResultsState();
                 }
 
-                // Show empty state when filter returns no results
-                if (notifications.isEmpty && allNotifications.isNotEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.filter_list_off,
-                          size: 64,
-                          color: AppTheme.getTextSecondary(context),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'No notifications match this filter',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: () =>
-                              setState(() => _selectedFilter = 'all'),
-                          child: Text(
-                            'Show all notifications',
-                            style: TextStyle(
-                              color: isDark
-                                  ? AppTheme.darkAccent
-                                  : AppTheme.primaryColor,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
+                final unreadCount = notifications
+                    .where((n) => !_isNotificationRead(n))
+                    .length;
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(vertical: 8),
-                  itemCount: notifications.length,
-                  itemBuilder: (context, index) {
-                    final notification = notifications[index];
-                    return _buildNotificationTile(notification);
-                  },
+                return Column(
+                  children: [
+                    if (unreadCount > 0)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 8),
+                        color: accentColor.withOpacity(0.06),
+                        child: Text(
+                          '$unreadCount unread notification${unreadCount > 1 ? 's' : ''}',
+                          style: TextStyle(
+                              color: accentColor,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    Expanded(
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        itemCount: notifications.length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 8),
+                        itemBuilder: (context, index) => _buildNotificationCard(
+                            notifications[index], isDark, accentColor),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
@@ -318,65 +370,64 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildFilterChips(bool isDark) {
+  // ──────────── Filter Chips ────────────
+
+  Widget _buildFilterChips(bool isDark, Color accentColor) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 10),
       decoration: BoxDecoration(
         color: AppTheme.getCardColor(context),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 4,
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 14),
         child: Row(
           children: _filters.map((filter) {
             final isSelected = _selectedFilter == filter['value'];
             return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 3),
               child: FilterChip(
-                label: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      filter['icon'] as IconData,
-                      size: 16,
-                      color: isSelected
-                          ? Colors.white
-                          : (isDark
-                                ? AppTheme.darkTextSecondary
-                                : Colors.grey.shade600),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(filter['label'] as String),
-                  ],
+                avatar: Icon(
+                  filter['icon'] as IconData,
+                  size: 15,
+                  color: isSelected
+                      ? Colors.white
+                      : AppTheme.getTextSecondary(context),
                 ),
+                label: Text(filter['label'] as String),
                 selected: isSelected,
-                onSelected: (_) {
-                  setState(() => _selectedFilter = filter['value'] as String);
-                },
-                selectedColor: isDark
-                    ? AppTheme.darkAccent
-                    : AppTheme.primaryColor,
-                backgroundColor: isDark
-                    ? AppTheme.darkSurface
-                    : Colors.grey.shade100,
+                onSelected: (_) =>
+                    setState(() => _selectedFilter = filter['value'] as String),
+                selectedColor: accentColor,
+                backgroundColor:
+                    isDark ? AppTheme.darkSurface : Colors.grey.shade50,
                 labelStyle: TextStyle(
                   color: isSelected
                       ? Colors.white
-                      : (isDark ? AppTheme.darkTextPrimary : Colors.black87),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      : AppTheme.getTextPrimary(context),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+                  fontSize: 12,
                 ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(20),
+                  side: isSelected
+                      ? BorderSide.none
+                      : BorderSide(
+                          color: isDark
+                              ? AppTheme.darkBorderColor
+                              : Colors.grey.shade300,
+                          width: 0.5),
                 ),
-                side: BorderSide.none,
                 showCheckmark: false,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
               ),
             );
           }).toList(),
@@ -385,43 +436,27 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  Widget _buildNotificationTile(Map<String, dynamic> notification) {
-    final isDark = AppTheme.isDarkMode(context);
-    final isRead = notification['isRead'] == true;
-    final type = notification['type'] ?? 'general';
-    final createdAt = notification['createdAt'] as int?;
-    final timeAgo = createdAt != null ? _formatTimeAgo(createdAt) : '';
+  // ──────────── Notification Card ────────────
+
+  Widget _buildNotificationCard(
+    Map<String, dynamic> notification,
+    bool isDark,
+    Color accentColor,
+  ) {
+    final isRead = _isNotificationRead(notification);
+    final type = notification['type'] as String? ?? 'general';
+    final createdAt = _getNotificationTime(notification);
+    final timeAgo = createdAt > 0 ? _formatTimeAgo(createdAt) : '';
     final notificationId = notification['id'] as String?;
-
-    IconData icon;
-    Color iconColor;
-
-    switch (type) {
-      case 'enrollment':
-        icon = Icons.person_add;
-        iconColor = Colors.green;
-        break;
-      case 'course_update':
-        icon = Icons.video_library;
-        iconColor = Colors.blue;
-        break;
-      case 'new_course':
-        icon = Icons.school;
-        iconColor = isDark ? AppTheme.darkAccentColor : AppTheme.accentColor;
-        break;
-      case 'qa_answer':
-        icon = Icons.question_answer;
-        iconColor = isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor;
-        break;
-      default:
-        icon = Icons.notifications;
-        iconColor = isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor;
-    }
+    final title = notification['title'] as String? ?? 'Notification';
+    final message = notification['message'] as String? ?? '';
+    final typeColor = _getTypeColor(type, isDark);
+    final typeIcon = _getTypeIcon(type);
+    final typeLabel = _getTypeLabel(type);
 
     return Dismissible(
       key: Key(
-        notificationId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-      ),
+          notificationId ?? DateTime.now().millisecondsSinceEpoch.toString()),
       direction: DismissDirection.endToStart,
       onDismissed: (_) {
         if (notificationId != null) {
@@ -430,161 +465,137 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       },
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.only(right: 20),
-        color: Colors.red,
-        child: const Icon(Icons.delete, color: Colors.white),
+        padding: const EdgeInsets.only(right: 24),
+        decoration: BoxDecoration(
+          color: Colors.red.shade400,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.delete_rounded, color: Colors.white, size: 22),
+            SizedBox(height: 2),
+            Text('Delete',
+                style: TextStyle(color: Colors.white, fontSize: 10)),
+          ],
+        ),
       ),
-      child: InkWell(
+      child: GestureDetector(
         onTap: () async {
-          // Mark as read first
-          if (!isRead && notificationId != null) {
-            _notificationService.markAsRead(_uid, notificationId);
-          }
-
-          // Navigate only for QA answers, course updates, or QA questions with video context.
-          final relatedCourseId = notification['relatedCourseId'] as String?;
-          final relatedVideoId = notification['relatedVideoId'] as String?;
-          final relatedVideoTimestamp =
-              notification['relatedVideoTimestamp'] as int?;
-          if (relatedCourseId != null &&
-              (type == 'qa_answer' ||
-                  type == 'course_update' ||
-                  type == 'qa_question')) {
-            // If this is a QA question notification OR course_update for a teacher,
-            // open the teacher course manage screen.
-            if ((type == 'qa_question' || type == 'course_update') &&
-                _isTeacher == true) {
-              try {
-                final courseDetails = await _courseService.getCourseDetails(
-                  courseUid: relatedCourseId,
-                );
-                if (courseDetails != null && mounted) {
-                  int enrolledCount = 0;
-                  final enrolled = courseDetails['enrolledStudents'];
-                  if (enrolled is Map) enrolledCount = enrolled.length;
-
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => TeacherCourseManageScreen(
-                        courseUid: relatedCourseId,
-                        courseTitle: courseDetails['title'] ?? 'Course',
-                        imageUrl: courseDetails['imageUrl'] ?? '',
-                        description: courseDetails['description'] ?? '',
-                        enrolledCount: enrolledCount,
-                      ),
-                    ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Failed to open manage screen: $e')),
-                  );
-                }
-              }
-              return;
-            }
-            try {
-              // Fetch course details
-              final courseDetails = await _courseService.getCourseDetails(
-                courseUid: relatedCourseId,
-              );
-              if (courseDetails != null && mounted) {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => StudentCourseDetailScreen(
-                      courseUid: relatedCourseId,
-                      courseTitle: courseDetails['title'] ?? 'Course',
-                      imageUrl: courseDetails['imageUrl'] ?? '',
-                      description: courseDetails['description'] ?? '',
-                      createdAt: courseDetails['createdAt'],
-                      initialVideoId: relatedVideoId,
-                      initialVideoTimestampSeconds: relatedVideoTimestamp,
-                    ),
-                  ),
-                );
-              }
-            } catch (e) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Failed to open course: $e')),
-                );
-              }
-            }
-          }
+          // ALWAYS mark as read on tap
+          await _markNotificationRead(notification);
+          if (!mounted) return;
+          await _handleNotificationTap(notification);
         },
-        child: Container(
-          color: isRead
-              ? AppTheme.getCardColor(context)
-              : (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                    .withOpacity(0.08),
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: isRead
+                ? (isDark ? AppTheme.darkCard : Colors.white)
+                : typeColor.withOpacity(isDark ? 0.08 : 0.04),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: isRead
+                  ? (isDark
+                      ? AppTheme.darkBorderColor
+                      : Colors.grey.shade200)
+                  : typeColor.withOpacity(0.2),
+              width: isRead ? 0.5 : 1,
+            ),
+            boxShadow: isRead
+                ? []
+                : [
+                    BoxShadow(
+                      color: typeColor.withOpacity(0.06),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Container(
-                padding: const EdgeInsets.all(10),
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
-                  color: iconColor.withOpacity(0.1),
-                  shape: BoxShape.circle,
+                  gradient: LinearGradient(
+                    colors: [
+                      typeColor.withOpacity(0.15),
+                      typeColor.withOpacity(0.08),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(icon, color: iconColor, size: 24),
+                child: Icon(typeIcon, color: typeColor, size: 20),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Expanded(
-                          child: Text(
-                            notification['title'] ?? 'Notification',
-                            style: TextStyle(
-                              fontWeight: isRead
-                                  ? FontWeight.normal
-                                  : FontWeight.bold,
-                              fontSize: 15,
-                              color: AppTheme.getTextPrimary(context),
-                            ),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: typeColor.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
                           ),
+                          child: Text(typeLabel,
+                              style: TextStyle(
+                                  color: typeColor,
+                                  fontSize: 9,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.3)),
                         ),
-                        if (!isRead)
-                          Container(
-                            width: 8,
-                            height: 8,
-                            decoration: BoxDecoration(
-                              color: isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
+                        const Spacer(),
+                        if (timeAgo.isNotEmpty)
+                          Text(timeAgo,
+                              style: TextStyle(
+                                  color: AppTheme.getTextSecondary(context)
+                                      .withOpacity(0.6),
+                                  fontSize: 10)),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      notification['message'] ?? '',
-                      style: TextStyle(
-                        color: AppTheme.getTextSecondary(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      timeAgo,
-                      style: TextStyle(
-                        color: isDark
-                            ? Colors.grey.shade500
-                            : Colors.grey.shade400,
-                        fontSize: 11,
-                      ),
-                    ),
+                    const SizedBox(height: 6),
+                    Text(title,
+                        style: TextStyle(
+                            fontWeight:
+                                isRead ? FontWeight.w500 : FontWeight.bold,
+                            fontSize: 14,
+                            color: AppTheme.getTextPrimary(context)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    const SizedBox(height: 3),
+                    Text(message,
+                        style: TextStyle(
+                            color: AppTheme.getTextSecondary(context),
+                            fontSize: 12,
+                            height: 1.3),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis),
                   ],
                 ),
               ),
+              if (!isRead)
+                Container(
+                  width: 8,
+                  height: 8,
+                  margin: const EdgeInsets.only(top: 4, left: 6),
+                  decoration: BoxDecoration(
+                    color: typeColor,
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                          color: typeColor.withOpacity(0.4), blurRadius: 4),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -592,21 +603,167 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     );
   }
 
-  String _formatTimeAgo(int timestamp) {
-    final now = DateTime.now();
-    final date = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final diff = now.difference(date);
+  // ──────────── Navigation ────────────
 
-    if (diff.inDays > 7) {
-      return '${date.day}/${date.month}/${date.year}';
-    } else if (diff.inDays > 0) {
-      return '${diff.inDays}d ago';
-    } else if (diff.inHours > 0) {
-      return '${diff.inHours}h ago';
-    } else if (diff.inMinutes > 0) {
-      return '${diff.inMinutes}m ago';
-    } else {
-      return 'Just now';
+  Future<void> _handleNotificationTap(
+      Map<String, dynamic> notification) async {
+    final type = notification['type'] ?? 'general';
+    final relatedCourseId =
+        (notification['relatedCourseId'] ?? notification['courseId'])
+            as String?;
+    final relatedVideoId = notification['relatedVideoId'] as String?;
+    final relatedVideoTimestamp =
+        notification['relatedVideoTimestamp'] as int?;
+
+    if (relatedCourseId == null) return;
+    if (type != 'qa_answer' &&
+        type != 'course_update' &&
+        type != 'qa_question' &&
+        type != 'enrollment' &&
+        type != 'new_course' &&
+        type != 'announcement') {
+      return;
     }
+
+    if ((type == 'qa_question' ||
+            type == 'course_update' ||
+            type == 'enrollment') &&
+        _isTeacher == true) {
+      try {
+        final courseDetails =
+            await _courseService.getCourseDetails(courseUid: relatedCourseId);
+        if (courseDetails != null && mounted) {
+          int enrolledCount = 0;
+          final enrolled = courseDetails['enrolledStudents'];
+          if (enrolled is Map) {
+            enrolledCount = enrolled.length;
+          }
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => TeacherCourseManageScreen(
+                      courseUid: relatedCourseId,
+                      courseTitle: courseDetails['title'] ?? 'Course',
+                      imageUrl: courseDetails['imageUrl'] ?? '',
+                      description: courseDetails['description'] ?? '',
+                      enrolledCount: enrolledCount)));
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context)
+              .showSnackBar(SnackBar(content: Text('Failed to open course: $e')));
+        }
+      }
+      return;
+    }
+
+    try {
+      final courseDetails =
+          await _courseService.getCourseDetails(courseUid: relatedCourseId);
+      if (courseDetails != null && mounted) {
+        Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => StudentCourseDetailScreen(
+                    courseUid: relatedCourseId,
+                    courseTitle: courseDetails['title'] ?? 'Course',
+                    imageUrl: courseDetails['imageUrl'] ?? '',
+                    description: courseDetails['description'] ?? '',
+                    createdAt: courseDetails['createdAt'],
+                    initialVideoId: relatedVideoId,
+                    initialVideoTimestampSeconds: relatedVideoTimestamp)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Failed to open course: $e')));
+      }
+    }
+  }
+
+  // ──────────── Empty States ────────────
+
+  Widget _buildEmptyState(Color accentColor) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  accentColor.withOpacity(0.12),
+                  accentColor.withOpacity(0.05),
+                ]),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.notifications_none_rounded,
+                  size: 56, color: accentColor.withOpacity(0.5)),
+            ),
+            const SizedBox(height: 24),
+            Text('No notifications yet',
+                style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.getTextPrimary(context))),
+            const SizedBox(height: 8),
+            Text(
+              'You\'ll see activity notifications here\nwhen something happens',
+              style: TextStyle(
+                  color: AppTheme.getTextSecondary(context),
+                  fontSize: 14,
+                  height: 1.4),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNoFilterResultsState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.filter_list_off_rounded,
+                size: 56,
+                color: AppTheme.getTextSecondary(context).withOpacity(0.3)),
+            const SizedBox(height: 16),
+            Text('No matching notifications',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: AppTheme.getTextSecondary(context))),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              onPressed: () => setState(() => _selectedFilter = 'all'),
+              icon: const Icon(Icons.refresh, size: 16),
+              label: const Text('Show all'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildErrorState() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.error_outline_rounded,
+              size: 56, color: Colors.red.shade300),
+          const SizedBox(height: 16),
+          Text('Error loading notifications',
+              style:
+                  TextStyle(color: AppTheme.getTextSecondary(context))),
+        ],
+      ),
+    );
   }
 }
