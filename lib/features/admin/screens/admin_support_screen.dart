@@ -755,6 +755,15 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       setState(() => _isSending = false);
       if (success) {
         _replyController.clear();
+        // Log audit entry for ticket reply
+        final logRef = _db.child('admin_audit_log').push();
+        await logRef.set({
+          'id': logRef.key,
+          'adminUid': uid,
+          'action': 'ticket_reply',
+          'details': 'Replied to support ticket #${widget.ticketId.substring(0, 8)}',
+          'timestamp': ServerValue.timestamp,
+        });
         // Auto-scroll to bottom after short delay
         Future.delayed(const Duration(milliseconds: 300), () {
           if (_scrollController.hasClients) {
@@ -781,6 +790,15 @@ class _TicketDetailScreenState extends State<_TicketDetailScreen> {
       adminId: uid,
     );
     if (success && mounted) {
+      // Log audit entry for ticket status change
+      final logRef = _db.child('admin_audit_log').push();
+      await logRef.set({
+        'id': logRef.key,
+        'adminUid': uid ?? '',
+        'action': 'ticket_status_change',
+        'details': 'Changed ticket #${widget.ticketId.substring(0, 8)} status to ${_formatLabel(status)}',
+        'timestamp': ServerValue.timestamp,
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Ticket marked as ${_formatLabel(status)}')),
       );
