@@ -642,16 +642,19 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
         ),
         const SizedBox(height: 8),
         // Date chips
-        Row(
-          children: [
-            _buildDateChip('All Time', 'all', isDark),
-            const SizedBox(width: 6),
-            _buildDateChip('Today', 'today', isDark),
-            const SizedBox(width: 6),
-            _buildDateChip('This Week', 'week', isDark),
-            const SizedBox(width: 6),
-            _buildDateChip('This Month', 'month', isDark),
-          ],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              _buildDateChip('All Time', 'all', isDark),
+              const SizedBox(width: 6),
+              _buildDateChip('Today', 'today', isDark),
+              const SizedBox(width: 6),
+              _buildDateChip('This Week', 'week', isDark),
+              const SizedBox(width: 6),
+              _buildDateChip('This Month', 'month', isDark),
+            ],
+          ),
         ),
       ],
     );
@@ -856,6 +859,8 @@ class _AdminAuditLogScreenState extends State<AdminAuditLogScreen> {
                     if (details.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Text(details,
+                          maxLines: 3,
+                          overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             color: AppTheme.getTextPrimary(context),
                             fontSize: 13,
