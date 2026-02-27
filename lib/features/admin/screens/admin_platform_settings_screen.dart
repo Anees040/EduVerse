@@ -37,6 +37,9 @@ class _AdminPlatformSettingsScreenState
   int _maxStudentsPerCourse = 500;
   int _sessionTimeoutMinutes = 60;
 
+  // Previous settings for change detection
+  Map<String, dynamic> _previousSettings = {};
+
   late TextEditingController _platformNameController;
   late TextEditingController _supportEmailController;
   late TextEditingController _welcomeMessageController;
@@ -114,6 +117,24 @@ class _AdminPlatformSettingsScreenState
               settings['privacyPolicyUrl'] as String? ?? '';
           _isLoading = false;
           _hasChanges = false;
+          _previousSettings = {
+            'maintenanceMode': _maintenanceMode,
+            'registrationEnabled': _registrationEnabled,
+            'allowNewCourses': _allowNewCourses,
+            'requireEmailVerification': _requireEmailVerification,
+            'enableNotifications': _enableNotifications,
+            'enableChatSupport': _enableChatSupport,
+            'autoApproveTeachers': _autoApproveTeachers,
+            'enableStudentReviews': _enableStudentReviews,
+            'maxUploadSizeMB': _maxUploadSizeMB,
+            'maxCoursesPerTeacher': _maxCoursesPerTeacher,
+            'maxStudentsPerCourse': _maxStudentsPerCourse,
+            'sessionTimeoutMinutes': _sessionTimeoutMinutes,
+            'platformName': _platformNameController.text,
+            'supportEmail': _supportEmailController.text,
+            'welcomeMessage': _welcomeMessageController.text,
+            'privacyPolicyUrl': _privacyPolicyUrlController.text,
+          };
         });
       }
     } catch (e) {
@@ -160,15 +181,72 @@ class _AdminPlatformSettingsScreenState
         await _sendMaintenanceNotifications();
       }
 
-      // Log admin action
+      // Log admin action with meaningful details
+      final settingLabels = <String, String>{
+        'maintenanceMode': 'Maintenance Mode',
+        'registrationEnabled': 'Registration',
+        'allowNewCourses': 'Allow New Courses',
+        'requireEmailVerification': 'Email Verification',
+        'enableNotifications': 'Notifications',
+        'enableChatSupport': 'Chat Support',
+        'autoApproveTeachers': 'Auto-Approve Teachers',
+        'enableStudentReviews': 'Student Reviews',
+        'maxUploadSizeMB': 'Max Upload Size',
+        'maxCoursesPerTeacher': 'Max Courses/Teacher',
+        'maxStudentsPerCourse': 'Max Students/Course',
+        'sessionTimeoutMinutes': 'Session Timeout',
+        'platformName': 'Platform Name',
+        'supportEmail': 'Support Email',
+        'welcomeMessage': 'Welcome Message',
+        'privacyPolicyUrl': 'Privacy Policy URL',
+      };
+
+      final currentSettings = <String, dynamic>{
+        'maintenanceMode': _maintenanceMode,
+        'registrationEnabled': _registrationEnabled,
+        'allowNewCourses': _allowNewCourses,
+        'requireEmailVerification': _requireEmailVerification,
+        'enableNotifications': _enableNotifications,
+        'enableChatSupport': _enableChatSupport,
+        'autoApproveTeachers': _autoApproveTeachers,
+        'enableStudentReviews': _enableStudentReviews,
+        'maxUploadSizeMB': _maxUploadSizeMB,
+        'maxCoursesPerTeacher': _maxCoursesPerTeacher,
+        'maxStudentsPerCourse': _maxStudentsPerCourse,
+        'sessionTimeoutMinutes': _sessionTimeoutMinutes,
+        'platformName': _platformNameController.text.trim(),
+        'supportEmail': _supportEmailController.text.trim(),
+        'welcomeMessage': _welcomeMessageController.text.trim(),
+        'privacyPolicyUrl': _privacyPolicyUrlController.text.trim(),
+      };
+
+      final changedNames = <String>[];
+      for (final key in currentSettings.keys) {
+        if (_previousSettings[key] != currentSettings[key]) {
+          final label = settingLabels[key] ?? key;
+          final val = currentSettings[key];
+          if (val is bool) {
+            changedNames.add('$label → ${val ? "ON" : "OFF"}');
+          } else {
+            changedNames.add(label);
+          }
+        }
+      }
+
+      final detailStr = changedNames.isEmpty
+          ? 'Saved settings (no changes)'
+          : 'Changed: ${changedNames.join(", ")}';
+
       final logRef = _db.child('admin_audit_log').push();
       await logRef.set({
         'id': logRef.key,
         'adminUid': FirebaseAuth.instance.currentUser?.uid ?? '',
         'action': 'update_settings',
-        'details': 'Updated ${settings.length} platform settings',
+        'details': detailStr,
         'timestamp': ServerValue.timestamp,
       });
+
+      _previousSettings = currentSettings;
 
       if (mounted) {
         setState(() {
@@ -868,10 +946,13 @@ class _AdminPlatformSettingsScreenState
         final key = db.child('notifications/$uid').push().key;
         if (key != null) {
           batch['notifications/$uid/$key'] = {
+            'id': key,
             'title': '⚠️ Scheduled Maintenance',
             'message': '$msg$timeFrame',
             'type': 'maintenance',
+            'createdAt': now,
             'timestamp': now,
+            'isRead': false,
             'read': false,
           };
         }
