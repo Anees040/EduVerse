@@ -278,6 +278,110 @@ class TeacherFeatureService {
   }
 
   // ───────────────────────────────────────────────────────────
+  // 3. ENROLLED STUDENTS SUMMARY
+  // ───────────────────────────────────────────────────────────
+
+  /// Get a quick summary of enrolled students for a course with basic progress.
+  Future<List<Map<String, dynamic>>> getEnrolledStudentsSummary(
+      String courseId) async {
+    try {
+      final courseSnap = await _db.child('courses').child(courseId).get();
+      if (!courseSnap.exists || courseSnap.value == null) return [];
+
+      final courseData = Map<String, dynamic>.from(courseSnap.value as Map);
+      final enrolled = courseData['enrolledStudents'];
+      if (enrolled is! Map || enrolled.isEmpty) return [];
+
+      final totalVideos =
+          courseData['videos'] is Map ? (courseData['videos'] as Map).length : 0;
+
+      final students = <Map<String, dynamic>>[];
+      final enrolledMap = Map<String, dynamic>.from(enrolled);
+
+      // Fetch student details in parallel
+      final futures = <Future>[];
+      for (final studentId in enrolledMap.keys) {
+        futures.add(_fetchStudentSummary(studentId, courseId, totalVideos));
+      }
+
+      final results = await Future.wait(futures);
+      for (final r in results) {
+        if (r is Map<String, dynamic> && r.isNotEmpty) {
+          students.add(r);
+        }
+      }
+
+      // Sort by name
+      students.sort((a, b) =>
+          (a['name'] as String).compareTo(b['name'] as String));
+
+      return students;
+    } catch (e) {
+      debugPrint('Error loading enrolled students: $e');
+      return [];
+    }
+  }
+
+  Future<Map<String, dynamic>> _fetchStudentSummary(
+      String studentId, String courseId, int totalVideos) async {
+    try {
+      final snap = await _db.child('student').child(studentId).get();
+      String name = 'Unknown';
+      String email = '';
+      if (snap.exists && snap.value != null) {
+        final data = Map<String, dynamic>.from(snap.value as Map);
+        name = data['name'] as String? ?? 'Unknown';
+        email = data['email'] as String? ?? '';
+      }
+
+      // Video progress
+      int watched = 0;
+      final progSnap = await _db
+          .child('student')
+          .child(studentId)
+          .child('courseProgress')
+          .child(courseId)
+          .get();
+      if (progSnap.exists && progSnap.value is Map) {
+        watched = (progSnap.value as Map).length;
+      }
+
+      // Quiz score
+      double avgQuiz = 0;
+      int quizCount = 0;
+      final quizSnap =
+          await _db.child('quiz_results').child(courseId).child(studentId).get();
+      if (quizSnap.exists && quizSnap.value is Map) {
+        final qData = Map<String, dynamic>.from(quizSnap.value as Map);
+        quizCount = qData.length;
+        double total = 0;
+        for (final q in qData.values) {
+          if (q is Map) {
+            total += (q['scorePercent'] as num?)?.toDouble() ?? 0;
+          }
+        }
+        if (quizCount > 0) avgQuiz = total / quizCount;
+      }
+
+      final completion =
+          totalVideos > 0 ? (watched / totalVideos * 100).round() : 0;
+
+      return {
+        'studentId': studentId,
+        'name': name,
+        'email': email,
+        'watchedVideos': watched,
+        'totalVideos': totalVideos,
+        'completionPercent': completion,
+        'avgQuizScore': avgQuiz,
+        'quizCount': quizCount,
+      };
+    } catch (_) {
+      return {};
+    }
+  }
+
+  // ───────────────────────────────────────────────────────────
   // 4. STUDENT PROGRESS REPORTS
   // ───────────────────────────────────────────────────────────
 
@@ -397,7 +501,7 @@ class TeacherFeatureService {
   }
 
   // ───────────────────────────────────────────────────────────
-  // 5. COURSE ANALYTICS SUMMARY
+  // 6. COURSE ANALYTICS SUMMARY
   // ───────────────────────────────────────────────────────────
 
   /// Get engagement analytics for a specific course.
