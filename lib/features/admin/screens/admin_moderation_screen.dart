@@ -1769,6 +1769,15 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               await _removeFromModerationQueue(item['id']);
               // Refresh the list in real-time
               await provider.loadFlaggedContent(refresh: true);
+              // Log audit entry
+              final logRef = _db.child('admin_audit_log').push();
+              await logRef.set({
+                'id': logRef.key,
+                'adminUid': '',
+                'action': 'dismiss_moderation',
+                'details': 'Dismissed report - kept $type content',
+                'timestamp': ServerValue.timestamp,
+              });
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1838,6 +1847,15 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
               await _removeFromModerationQueue(item['id']);
               // Refresh the list in real-time
               await provider.loadFlaggedContent(refresh: true);
+              // Log audit entry
+              final logRef = _db.child('admin_audit_log').push();
+              await logRef.set({
+                'id': logRef.key,
+                'adminUid': '',
+                'action': 'resolve_moderation',
+                'details': 'Deleted flagged $type content permanently',
+                'timestamp': ServerValue.timestamp,
+              });
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -1994,6 +2012,16 @@ class _AdminModerationScreenState extends State<AdminModerationScreen>
                 // Refresh the list in real-time
                 await provider.loadFlaggedContent(refresh: true);
               }
+
+              // Log audit entry for warning
+              final warnLogRef = _db.child('admin_audit_log').push();
+              await warnLogRef.set({
+                'id': warnLogRef.key,
+                'adminUid': '',
+                'action': 'resolve_moderation',
+                'details': 'Warned $userLabel for ${item['type'] ?? 'content'} violation',
+                'timestamp': ServerValue.timestamp,
+              });
 
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
