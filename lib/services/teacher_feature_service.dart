@@ -285,28 +285,49 @@ class TeacherFeatureService {
   Future<List<Map<String, dynamic>>> getEnrolledStudentsSummary(
       String courseId) async {
     try {
-      final courseSnap = await _db.child('courses').child(courseId).get();
-      if (!courseSnap.exists || courseSnap.value == null) return [];
+      // Read enrolledStudents directly to avoid large course payload issues
+      final enrolledSnap = await _db
+          .child('courses')
+          .child(courseId)
+          .child('enrolledStudents')
+          .get();
 
-      final courseData = Map<String, dynamic>.from(courseSnap.value as Map);
-      final enrolled = courseData['enrolledStudents'];
-      if (enrolled is! Map || enrolled.isEmpty) return [];
+      if (!enrolledSnap.exists || enrolledSnap.value == null) {
+        debugPrint('[StudentsSummary] No enrolled students at courses/$courseId/enrolledStudents');
+        return [];
+      }
 
-      final totalVideos =
-          courseData['videos'] is Map ? (courseData['videos'] as Map).length : 0;
+      final enrolledMap = Map<String, dynamic>.from(enrolledSnap.value as Map);
+      debugPrint('[StudentsSummary] Found ${enrolledMap.length} enrolled students');
+
+      // Read video count separately
+      int totalVideos = 0;
+      final videosSnap = await _db
+          .child('courses')
+          .child(courseId)
+          .child('videos')
+          .get();
+      if (videosSnap.exists && videosSnap.value != null) {
+        final vids = videosSnap.value;
+        if (vids is Map) {
+          totalVideos = vids.length;
+        } else if (vids is List) {
+          totalVideos = vids.length;
+        }
+      }
 
       final students = <Map<String, dynamic>>[];
-      final enrolledMap = Map<String, dynamic>.from(enrolled);
 
       // Fetch student details in parallel
-      final futures = <Future>[];
+      final futures = <Future<Map<String, dynamic>>>[];
       for (final studentId in enrolledMap.keys) {
-        futures.add(_fetchStudentSummary(studentId, courseId, totalVideos));
+        futures.add(_fetchStudentSummary(
+            studentId.toString(), courseId, totalVideos));
       }
 
       final results = await Future.wait(futures);
       for (final r in results) {
-        if (r is Map<String, dynamic> && r.isNotEmpty) {
+        if (r.isNotEmpty) {
           students.add(r);
         }
       }
@@ -376,7 +397,8 @@ class TeacherFeatureService {
         'avgQuizScore': avgQuiz,
         'quizCount': quizCount,
       };
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[StudentsSummary] Error fetching student $studentId: $e');
       return {};
     }
   }
