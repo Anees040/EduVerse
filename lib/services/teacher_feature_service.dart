@@ -436,11 +436,10 @@ class TeacherFeatureService {
         videoCount = (courseData['videos'] as Map).length;
       }
 
-      // Q&A count
+      // Q&A count — questions are stored under courses/{courseId}/questions
       int qaCount = 0;
-      final qaSnap = await _db.child('qa').child(courseId).get();
-      if (qaSnap.exists && qaSnap.value != null) {
-        qaCount = (qaSnap.value as Map).length;
+      if (courseData['questions'] is Map) {
+        qaCount = (courseData['questions'] as Map).length;
       }
 
       return {
