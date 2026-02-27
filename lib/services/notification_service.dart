@@ -81,8 +81,7 @@ class NotificationService {
         .child('notifications')
         .child(uid)
         .child(notificationId)
-        .child('isRead')
-        .set(true);
+        .update({'isRead': true, 'read': true});
   }
 
   /// Mark all notifications as read
@@ -96,6 +95,7 @@ class NotificationService {
     final updates = <String, dynamic>{};
     data.forEach((key, value) {
       updates['$key/isRead'] = true;
+      updates['$key/read'] = true;
     });
 
     if (updates.isNotEmpty) {
