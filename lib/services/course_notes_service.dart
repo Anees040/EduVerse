@@ -20,6 +20,7 @@ class CourseNotesService {
     required String content,
     String? videoId,
     String? title,
+    String? label,
   }) async {
     final uid = _uid;
     if (uid == null) return null;
@@ -36,6 +37,8 @@ class CourseNotesService {
         'content': content,
         'title': title ?? '',
         'videoId': videoId ?? '',
+        'label': label ?? '',
+        'pinned': false,
         'createdAt': ServerValue.timestamp,
         'updatedAt': ServerValue.timestamp,
       });
@@ -53,6 +56,8 @@ class CourseNotesService {
     required String noteId,
     required String content,
     String? title,
+    String? label,
+    bool? pinned,
   }) async {
     final uid = _uid;
     if (uid == null) return false;
@@ -66,6 +71,8 @@ class CourseNotesService {
           .update({
             'content': content,
             if (title != null) 'title': title,
+            if (label != null) 'label': label,
+            if (pinned != null) 'pinned': pinned,
             'updatedAt': ServerValue.timestamp,
           });
       return true;
