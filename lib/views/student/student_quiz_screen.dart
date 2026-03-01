@@ -435,10 +435,10 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
   Widget _buildNavigation(bool isDark) {
     return Container(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 16,
-        bottom: MediaQuery.of(context).padding.bottom + 16,
+        left: 12,
+        right: 12,
+        top: 12,
+        bottom: MediaQuery.of(context).padding.bottom + 12,
       ),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.darkCard : Colors.white,
@@ -448,106 +448,123 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          // Question navigator
-          Container(
-            height: 40,
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(min(_questions.length, 5), (index) {
-                final qIndex = _getDisplayedQuestionIndex(index);
-                final isAnswered = _answers.containsKey(qIndex);
-                final isCurrent = qIndex == _currentQuestionIndex;
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 380;
+          final displayCount = isNarrow ? min(_questions.length, 3) : min(_questions.length, 5);
 
-                return InkWell(
-                  onTap: () => setState(() => _currentQuestionIndex = qIndex),
-                  child: Container(
-                    width: 40,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: isCurrent
-                          ? (isDark
-                                ? AppTheme.darkAccent
-                                : AppTheme.primaryColor)
-                          : null,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${qIndex + 1}',
-                      style: TextStyle(
-                        color: isCurrent
-                            ? Colors.white
-                            : (isAnswered
-                                  ? (isDark
-                                        ? AppTheme.darkAccent
-                                        : AppTheme.primaryColor)
-                                  : AppTheme.getTextSecondary(context)),
-                        fontWeight: isAnswered || isCurrent
-                            ? FontWeight.bold
-                            : FontWeight.normal,
+          return Row(
+            children: [
+              // Question navigator — flexible width
+              Flexible(
+                child: Container(
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isDark ? AppTheme.darkElevated : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(displayCount, (index) {
+                      final qIndex = _getDisplayedQuestionIndex(index, displayCount);
+                      final isAnswered = _answers.containsKey(qIndex);
+                      final isCurrent = qIndex == _currentQuestionIndex;
+
+                      return InkWell(
+                        onTap: () => setState(() => _currentQuestionIndex = qIndex),
+                        child: Container(
+                          width: 34,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: isCurrent
+                                ? (isDark
+                                      ? AppTheme.darkAccent
+                                      : AppTheme.primaryColor)
+                                : null,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${qIndex + 1}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isCurrent
+                                  ? Colors.white
+                                  : (isAnswered
+                                        ? (isDark
+                                              ? AppTheme.darkAccent
+                                              : AppTheme.primaryColor)
+                                        : AppTheme.getTextSecondary(context)),
+                              fontWeight: isAnswered || isCurrent
+                                  ? FontWeight.bold
+                                  : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+
+              // Previous button
+              if (_currentQuestionIndex > 0)
+                TextButton.icon(
+                  onPressed: () => setState(() => _currentQuestionIndex--),
+                  icon: const Icon(Icons.arrow_back, size: 16),
+                  label: Text(isNarrow ? '' : 'Prev', style: const TextStyle(fontSize: 13)),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              const SizedBox(width: 4),
+
+              // Next/Submit button
+              ElevatedButton(
+                onPressed: _currentQuestionIndex < _questions.length - 1
+                    ? () => setState(() => _currentQuestionIndex++)
+                    : _submitQuiz,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _currentQuestionIndex < _questions.length - 1
+                      ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                      : Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  minimumSize: Size.zero,
+                ),
+                child: _isSubmitting
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation(Colors.white),
+                        ),
+                      )
+                    : Text(
+                        _currentQuestionIndex < _questions.length - 1
+                            ? 'Next'
+                            : 'Submit',
+                        style: const TextStyle(fontSize: 13),
                       ),
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
-          const Spacer(),
-
-          // Previous button
-          if (_currentQuestionIndex > 0)
-            TextButton.icon(
-              onPressed: () => setState(() => _currentQuestionIndex--),
-              icon: const Icon(Icons.arrow_back),
-              label: const Text('Prev'),
-            ),
-          const SizedBox(width: 8),
-
-          // Next/Submit button
-          ElevatedButton(
-            onPressed: _currentQuestionIndex < _questions.length - 1
-                ? () => setState(() => _currentQuestionIndex++)
-                : _submitQuiz,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _currentQuestionIndex < _questions.length - 1
-                  ? (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                  : Colors.green,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            ),
-            child: _isSubmitting
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation(Colors.white),
-                    ),
-                  )
-                : Text(
-                    _currentQuestionIndex < _questions.length - 1
-                        ? 'Next'
-                        : 'Submit',
-                  ),
-          ),
-        ],
+              ),
+            ],
+          );
+        },
       ),
     );
   }
 
-  int _getDisplayedQuestionIndex(int displayIndex) {
-    // Show 5 questions around current question
+  int _getDisplayedQuestionIndex(int displayIndex, [int displayCount = 5]) {
+    // Show questions around current question
     final total = _questions.length;
-    if (total <= 5) return displayIndex;
+    if (total <= displayCount) return displayIndex;
 
-    int start = _currentQuestionIndex - 2;
+    int start = _currentQuestionIndex - (displayCount ~/ 2);
     if (start < 0) start = 0;
-    if (start + 5 > total) start = total - 5;
+    if (start + displayCount > total) start = total - displayCount;
 
     return start + displayIndex;
   }
@@ -688,18 +705,55 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
               ),
               const SizedBox(height: 24),
 
-              // Review answers button (if showResults enabled)
+              // Review answers button — only after all attempts are used
               if (_quiz?['showResults'] == true) ...[
-                OutlinedButton.icon(
-                  onPressed: () => _showAnswerReview(isDark),
-                  icon: const Icon(Icons.fact_check),
-                  label: const Text('Review Answers'),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
+                FutureBuilder<bool>(
+                  future: _canReviewAnswers(),
+                  builder: (context, snap) {
+                    final maxAttempts = _quiz?['maxAttempts'] as int? ?? 0;
+                    if (snap.data == true || maxAttempts == 0) {
+                      return OutlinedButton.icon(
+                        onPressed: () => _showAnswerReview(isDark),
+                        icon: const Icon(Icons.fact_check),
+                        label: const Text('Review Answers'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 24,
+                            vertical: 12,
+                          ),
+                        ),
+                      );
+                    }
+                    // Still has attempts left — show info
+                    return FutureBuilder<List<Map<String, dynamic>>>(
+                      future: _getAttemptInfo(),
+                      builder: (context, attSnap) {
+                        final attempts = attSnap.data?.length ?? 1;
+                        return Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: Colors.blue.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Attempt $attempts of $maxAttempts — Review unlocks after final attempt',
+                                style: const TextStyle(
+                                  color: Colors.blue,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
               ],
@@ -727,6 +781,21 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
         ),
       ),
     );
+  }
+
+  /// Check if student has exhausted all attempts — only then allow review
+  Future<bool> _canReviewAnswers() async {
+    final maxAttempts = _quiz?['maxAttempts'] as int? ?? 0;
+    if (maxAttempts == 0) return true; // Unlimited → always allow
+    final studentId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final attempts = await _quizService.getStudentQuizAttempts(widget.quizId, studentId);
+    return attempts.length >= maxAttempts;
+  }
+
+  /// Get current attempt info
+  Future<List<Map<String, dynamic>>> _getAttemptInfo() async {
+    final studentId = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return _quizService.getStudentQuizAttempts(widget.quizId, studentId);
   }
 
   void _showAnswerReview(bool isDark) {
@@ -991,11 +1060,22 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
         ? DateTime.now().difference(_startTime!).inSeconds
         : 0;
 
+    // Calculate score CLIENT-SIDE where we have the correctly shuffled questions
+    // The service re-reads original questions from DB which have different indices
+    int correctCount = 0;
+    for (int i = 0; i < _questions.length; i++) {
+      final correctIndex = _questions[i]['correctAnswer'] as int? ?? 0;
+      if (_answers[i] == correctIndex) {
+        correctCount++;
+      }
+    }
+
     final results = await _quizService.submitQuizAttempt(
       attemptId: _attemptId!,
       quizId: widget.quizId,
       answers: _answers,
       timeTaken: timeTaken,
+      preCalculatedScore: correctCount,
     );
 
     if (mounted) {
