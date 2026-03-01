@@ -7,6 +7,7 @@ import 'package:eduverse/services/uploadToCloudinary.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:eduverse/services/ai_service.dart';
 
 /// Assignment Management Screen for Teachers
 /// Create, edit, and manage assignments for a course
@@ -1125,7 +1126,10 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
           final url = await uploadToCloudinaryFromXFile(pickedFile);
 
           if (url != null && mounted) {
-            final fileSize = kIsWeb ? 0 : await File(pickedFile.path).length();
+            int fileSize = 0;
+            if (!kIsWeb) {
+              try { fileSize = await File(pickedFile.path).length(); } catch (_) {}
+            }
             setState(() {
               _attachments.add({
                 'name': pickedFile.name,
@@ -1733,6 +1737,14 @@ class _AssignmentSubmissionsScreenState
                 ),
               ),
             ),
+            const SizedBox(height: 8),
+            _AISuggestFeedbackButton(
+              submission: submission,
+              assignmentTitle: widget.assignmentTitle,
+              totalPoints: widget.totalPoints,
+              feedbackController: feedbackController,
+              gradeController: gradeController,
+            ),
           ],
         ),
         actions: [
@@ -1797,5 +1809,76 @@ class _AssignmentSubmissionsScreenState
         ],
       ),
     );
+  }
+}
+
+/// Stateful widget for AI feedback suggestion button (needs own state for loading)
+class _AISuggestFeedbackButton extends StatefulWidget {
+  final Map<String, dynamic> submission;
+  final String assignmentTitle;
+  final int totalPoints;
+  final TextEditingController feedbackController;
+  final TextEditingController gradeController;
+
+  const _AISuggestFeedbackButton({
+    required this.submission,
+    required this.assignmentTitle,
+    required this.totalPoints,
+    required this.feedbackController,
+    required this.gradeController,
+  });
+
+  @override
+  State<_AISuggestFeedbackButton> createState() => _AISuggestFeedbackButtonState();
+}
+
+class _AISuggestFeedbackButtonState extends State<_AISuggestFeedbackButton> {
+  bool _isGenerating = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return TextButton.icon(
+      icon: _isGenerating
+          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+          : Icon(Icons.auto_awesome, size: 18, color: Colors.deepPurple.shade300),
+      label: Text(
+        _isGenerating ? 'Generating...' : 'AI Suggest Feedback',
+        style: TextStyle(color: Colors.deepPurple.shade300, fontSize: 13),
+      ),
+      onPressed: _isGenerating ? null : _generateFeedback,
+    );
+  }
+
+  Future<void> _generateFeedback() async {
+    setState(() => _isGenerating = true);
+    try {
+      final studentName = widget.submission['studentName'] ?? 'Student';
+      final grade = widget.gradeController.text;
+      final submittedText = widget.submission['textContent'] ?? widget.submission['content'] ?? '';
+      final fileNames = (widget.submission['files'] as List?)?.map((f) => f['name'] ?? '').join(', ') ?? '';
+      final prompt = '''Generate constructive teacher feedback for a student assignment submission:
+
+Assignment: ${widget.assignmentTitle}
+Total Points: ${widget.totalPoints}
+Student: $studentName
+Grade Given: ${grade.isNotEmpty ? grade : "Not yet graded"}
+Submitted Content: ${submittedText.toString().isNotEmpty ? submittedText : "(File submission)"}
+Files Submitted: ${fileNames.isNotEmpty ? fileNames : "None"}
+
+Provide brief, constructive feedback (2-3 sentences) that:
+1. Acknowledges what was done well
+2. Suggests specific improvements
+3. Encourages the student
+
+Keep it professional and encouraging. Just give the feedback text, no labels or prefixes.''';
+      final response = await generateAIResponse(
+        prompt,
+        systemPrompt: 'You are an experienced teacher providing constructive assignment feedback. Be specific, encouraging, and helpful.',
+      );
+      widget.feedbackController.text = response;
+    } catch (e) {
+      debugPrint('AI feedback error: $e');
+    }
+    if (mounted) setState(() => _isGenerating = false);
   }
 }
