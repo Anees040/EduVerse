@@ -17,6 +17,7 @@ import 'admin_all_courses_screen.dart';
 import 'admin_announcements_screen.dart';
 import 'admin_audit_log_screen.dart';
 import 'admin_platform_settings_screen.dart';
+import 'package:eduverse/services/ai_service.dart';
 
 /// Main Admin Dashboard Screen
 /// Hub for all admin functionalities with KPI overview
@@ -299,6 +300,10 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
                 ),
                 const SizedBox(height: 16),
                 _buildKPIGrid(stats, isLoading, isDark),
+                const SizedBox(height: 24),
+
+                // AI Platform Insights
+                _buildAIInsightsCard(stats, isLoading, isDark),
                 const SizedBox(height: 32),
 
                 // Quick Actions
@@ -588,6 +593,134 @@ class _DashboardHomeTabState extends State<_DashboardHomeTab> {
         );
       },
     );
+  }
+
+  String? _aiInsights;
+  bool _isLoadingAiInsights = false;
+
+  Widget _buildAIInsightsCard(Map<String, dynamic>? stats, bool isLoading, bool isDark) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: isDark
+              ? [Colors.deepPurple.shade900.withAlpha(120), Colors.indigo.shade900.withAlpha(120)]
+              : [Colors.deepPurple.shade50, Colors.indigo.shade50],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Colors.deepPurple.withAlpha(50),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome, color: Colors.deepPurple.shade300, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'AI Platform Insights',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getTextPrimary(context),
+                ),
+              ),
+              const Spacer(),
+              if (_aiInsights != null)
+                IconButton(
+                  icon: Icon(Icons.refresh, size: 20, color: Colors.deepPurple.shade300),
+                  onPressed: _isLoadingAiInsights ? null : () => _generateAiInsights(stats),
+                  tooltip: 'Regenerate',
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_aiInsights != null)
+            Text(
+              _aiInsights!,
+              style: TextStyle(
+                fontSize: 13.5,
+                color: AppTheme.getTextSecondary(context),
+                height: 1.5,
+              ),
+            )
+          else
+            Center(
+              child: _isLoadingAiInsights
+                  ? const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : OutlinedButton.icon(
+                      icon: Icon(Icons.insights, color: Colors.deepPurple.shade300),
+                      label: Text(
+                        isLoading ? 'Loading stats...' : 'Generate AI Insights',
+                        style: TextStyle(color: Colors.deepPurple.shade300),
+                      ),
+                      onPressed: isLoading ? null : () => _generateAiInsights(stats),
+                      style: OutlinedButton.styleFrom(
+                        side: BorderSide(color: Colors.deepPurple.shade200),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _generateAiInsights(Map<String, dynamic>? stats) async {
+    if (stats == null) return;
+    setState(() => _isLoadingAiInsights = true);
+    try {
+      final totalUsers = stats['totalUsers'] ?? 0;
+      final totalTeachers = stats['totalTeachers'] ?? 0;
+      final pendingTeachers = stats['pendingTeachers'] ?? 0;
+      final totalCourses = stats['totalCourses'] ?? 0;
+      final newCourses = stats['newCourses'] ?? 0;
+      final totalRevenue = (stats['totalRevenue'] ?? 0).toDouble();
+
+      final prompt = '''As an education platform analytics AI, analyze these platform metrics and provide actionable insights:
+
+Platform Statistics:
+- Total Users: $totalUsers
+- Total Teachers: $totalTeachers
+- Pending Teacher Applications: $pendingTeachers
+- Total Courses: $totalCourses
+- New Courses (this month): $newCourses  
+- Total Revenue: \$${totalRevenue.toStringAsFixed(0)}
+
+Provide a brief analysis (3-4 bullet points) covering:
+1. Platform health assessment
+2. Growth opportunities
+3. Areas needing attention
+4. One actionable recommendation
+
+Keep it concise (under 150 words), use bullet points with emoji, and be data-driven.''';
+
+      final response = await generateAIResponse(
+        prompt,
+        systemPrompt: 'You are an expert education platform analytics advisor. Provide concise, actionable insights based on platform data.',
+      );
+      if (mounted) {
+        setState(() {
+          _aiInsights = response;
+          _isLoadingAiInsights = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAiInsights = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not generate insights: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildQuickActions(
