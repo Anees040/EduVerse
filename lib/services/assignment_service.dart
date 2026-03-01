@@ -64,6 +64,7 @@ class AssignmentService {
     int maxFileSize = 10, // MB
     bool allowLateSubmission = true,
     int latePenaltyPercent = 10,
+    String? preparationNotes,
   }) async {
     try {
       final assignmentRef = _db.child('assignments').push();
@@ -85,6 +86,7 @@ class AssignmentService {
         'isPublished': false,
         'allowLateSubmission': allowLateSubmission,
         'latePenaltyPercent': latePenaltyPercent,
+        'preparationNotes': preparationNotes ?? '',
         'createdAt': timestamp,
         'updatedAt': timestamp,
       });
@@ -123,6 +125,7 @@ class AssignmentService {
     int? maxFileSize,
     bool? allowLateSubmission,
     int? latePenaltyPercent,
+    String? preparationNotes,
   }) async {
     try {
       final updates = <String, dynamic>{'updatedAt': ServerValue.timestamp};
@@ -142,6 +145,9 @@ class AssignmentService {
       }
       if (latePenaltyPercent != null) {
         updates['latePenaltyPercent'] = latePenaltyPercent;
+      }
+      if (preparationNotes != null) {
+        updates['preparationNotes'] = preparationNotes;
       }
 
       await _db.child('assignments').child(assignmentId).update(updates);
