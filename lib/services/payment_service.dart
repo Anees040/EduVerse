@@ -35,19 +35,21 @@ class PaymentService {
       // Create payment record
       final paymentData = {
         'paymentId': paymentId,
+        'userId': studentUid, // Must match auth.uid per Firebase validation rules
         'studentUid': studentUid,
         'studentName': studentName,
         'courseId': courseId,
         'courseName': courseName,
         'teacherUid': teacherUid,
         'teacherName': teacherName,
+        'amount': totalAmount, // Required by Firebase validation
         'totalAmount': totalAmount,
         'platformFee': platformFee,
         'teacherEarnings': teacherEarnings,
         'currency': 'USD',
         'status': 'completed',
         'paymentMethod': 'mock_payment',
-        'timestamp': timestamp,
+        'timestamp': timestamp, // Required by Firebase validation
         'createdAt': ServerValue.timestamp,
       };
 
