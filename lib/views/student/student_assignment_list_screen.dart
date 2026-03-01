@@ -328,6 +328,51 @@ class _StudentAssignmentListScreenState
                   ),
                 ],
 
+                // Preparation notes from teacher
+                if ((assignment['preparationNotes'] as String? ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.menu_book, size: 16, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Prepare from:',
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                assignment['preparationNotes'] as String,
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+
                 const SizedBox(height: 16),
 
                 // Due date and action
