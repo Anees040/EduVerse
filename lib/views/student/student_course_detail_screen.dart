@@ -13,7 +13,7 @@ import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/video_thumbnail_widget.dart';
-import 'package:eduverse/widgets/course_notes_sheet.dart';
+import 'package:eduverse/views/student/student_notes_screen.dart';
 import 'package:eduverse/views/student/certificate_screen.dart';
 import 'package:eduverse/views/student/courses_screen.dart';
 import 'package:eduverse/views/student/profile_screen.dart';
@@ -763,12 +763,16 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
             final videoId = _videos.isNotEmpty
                 ? _videos[_currentVideoIndex]['videoId'] as String?
                 : null;
-            CourseNotesSheet.show(
+            Navigator.push(
               context,
-              courseId: widget.courseUid,
-              courseTitle: widget.courseTitle,
-              currentVideoId: videoId,
-              currentVideoTitle: videoTitle,
+              MaterialPageRoute(
+                builder: (_) => StudentNotesScreen(
+                  courseId: widget.courseUid,
+                  courseTitle: widget.courseTitle,
+                  currentVideoId: videoId,
+                  currentVideoTitle: videoTitle,
+                ),
+              ),
             );
           },
         ),
