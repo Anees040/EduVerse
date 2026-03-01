@@ -1107,7 +1107,10 @@ class _StudentAssignmentScreenState extends State<StudentAssignmentScreen> {
 
         if (pickedFile != null) {
           final url = await uploadToCloudinaryFromXFile(pickedFile);
-          final fileSize = kIsWeb ? 0 : await File(pickedFile.path).length();
+          int fileSize = 0;
+          if (!kIsWeb) {
+            try { fileSize = await File(pickedFile.path).length(); } catch (_) {}
+          }
 
           if (url != null && mounted) {
             setState(() {
