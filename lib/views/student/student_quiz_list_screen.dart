@@ -27,6 +27,7 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
 
   List<Map<String, dynamic>> _quizzes = [];
   Map<String, Map<String, dynamic>?> _bestAttempts = {};
+  Map<String, int> _attemptCounts = {};
   bool _isLoading = true;
 
   @override
@@ -42,8 +43,9 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
     final allQuizzes = await _quizService.getCourseQuizzes(widget.courseId);
     final quizzes = allQuizzes.where((q) => q['isPublished'] == true).toList();
 
-    // Load best attempts for each quiz
+    // Load best attempts and attempt counts for each quiz
     final attempts = <String, Map<String, dynamic>?>{};
+    final counts = <String, int>{};
     for (final quiz in quizzes) {
       final quizId = quiz['id'] as String?;
       if (quizId != null) {
@@ -51,12 +53,18 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
           quizId,
           _studentId,
         );
+        final allAttempts = await _quizService.getStudentQuizAttempts(
+          quizId,
+          _studentId,
+        );
+        counts[quizId] = allAttempts.length;
       }
     }
 
     setState(() {
       _quizzes = quizzes;
       _bestAttempts = attempts;
+      _attemptCounts = counts;
       _isLoading = false;
     });
   }
@@ -131,8 +139,9 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
 
     final bestAttempt = _bestAttempts[quizId];
     final hasPassed = bestAttempt?['passed'] == true;
-    final bestScore = bestAttempt?['percentage']?.toDouble();
-    final attemptCount = bestAttempt?['attemptNumber'] ?? 0;
+    final bestScore = (bestAttempt?['scorePercent'] as num?)?.toDouble() ??
+        (bestAttempt?['percentage'] as num?)?.toDouble();
+    final attemptCount = _attemptCounts[quizId] ?? 0;
 
     // Determine status
     final now = DateTime.now();
@@ -245,6 +254,51 @@ class _StudentQuizListScreenState extends State<StudentQuizListScreen> {
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+
+                // Preparation notes from teacher
+                if ((quiz['preparationNotes'] as String? ?? '').isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.blue.withOpacity(0.15)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.menu_book, size: 16, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Prepare from:',
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                quiz['preparationNotes'] as String,
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontSize: 12,
+                                ),
+                                maxLines: 3,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
 
