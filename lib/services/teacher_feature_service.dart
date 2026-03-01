@@ -368,16 +368,22 @@ class TeacherFeatureService {
         email = data['email'] as String? ?? '';
       }
 
-      // Video progress
+      // Video progress — read from enrolledCourses/{courseId}/videoProgress
       int watched = 0;
       final progSnap = await _db
           .child('student')
           .child(studentId)
-          .child('courseProgress')
+          .child('enrolledCourses')
           .child(courseId)
+          .child('videoProgress')
           .get();
       if (progSnap.exists && progSnap.value is Map) {
-        watched = (progSnap.value as Map).length;
+        final progressData = Map<String, dynamic>.from(progSnap.value as Map);
+        for (final v in progressData.values) {
+          if (v is Map && v['isCompleted'] == true) {
+            watched++;
+          }
+        }
       }
 
       // Quiz score — query flat quiz_attempts by studentId, filter by courseId
@@ -459,19 +465,24 @@ class TeacherFeatureService {
         final videos = Map<String, dynamic>.from(courseData['videos'] as Map);
         totalVideos = videos.length;
 
-        // Check watched status
+        // Check watched status — read from enrolledCourses/{courseId}/videoProgress
         final progressSnap = await _db
             .child('student')
             .child(studentId)
-            .child('courseProgress')
+            .child('enrolledCourses')
             .child(courseId)
+            .child('videoProgress')
             .get();
 
         if (progressSnap.exists && progressSnap.value != null) {
           final progress = Map<String, dynamic>.from(
             progressSnap.value as Map,
           );
-          watchedVideos = progress.length;
+          for (final v in progress.values) {
+            if (v is Map && v['isCompleted'] == true) {
+              watchedVideos++;
+            }
+          }
         }
       }
 
