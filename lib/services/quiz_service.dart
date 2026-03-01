@@ -59,6 +59,7 @@ class QuizService {
     bool shuffleQuestions = false,
     bool shuffleOptions = false,
     bool showResults = true,
+    String? preparationNotes,
   }) async {
     try {
       final quizRef = _db.child('quizzes').push();
@@ -79,6 +80,7 @@ class QuizService {
         'shuffleQuestions': shuffleQuestions,
         'shuffleOptions': shuffleOptions,
         'showResults': showResults,
+        'preparationNotes': preparationNotes ?? '',
         'createdAt': timestamp,
         'updatedAt': timestamp,
       });
@@ -111,6 +113,7 @@ class QuizService {
     bool? shuffleQuestions,
     bool? shuffleOptions,
     bool? showResults,
+    String? preparationNotes,
   }) async {
     try {
       final updates = <String, dynamic>{'updatedAt': ServerValue.timestamp};
@@ -121,6 +124,7 @@ class QuizService {
       if (timeLimit != null) updates['timeLimit'] = timeLimit;
       if (passingScore != null) updates['passingScore'] = passingScore;
       if (maxAttempts != null) updates['maxAttempts'] = maxAttempts;
+      if (preparationNotes != null) updates['preparationNotes'] = preparationNotes;
       if (shuffleQuestions != null) {
         updates['shuffleQuestions'] = shuffleQuestions;
       }
