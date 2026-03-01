@@ -8,6 +8,7 @@ import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/services/certificate_service.dart';
 import 'package:eduverse/services/study_streak_service.dart';
 import 'package:eduverse/services/learning_stats_service.dart';
+import 'package:eduverse/services/ai_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
 import 'package:eduverse/widgets/qa_section_widget.dart';
@@ -72,6 +73,8 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
   bool _isVideoMinimized = false; // For picture-in-picture style
   bool _certificateAwarded = false; // Track if certificate was just awarded
   bool _isTransitioning = false; // For smooth transition
+  String? _aiSummary; // AI-generated course summary
+  bool _isLoadingAiSummary = false;
 
   @override
   void initState() {
@@ -1371,9 +1374,113 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
               height: 1.5,
             ),
           ),
+          const SizedBox(height: 16),
+          // AI Course Summary
+          if (_aiSummary != null) ...[
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: isDark
+                      ? [Colors.purple.withOpacity(0.15), Colors.blue.withOpacity(0.1)]
+                      : [Colors.purple.withOpacity(0.08), Colors.blue.withOpacity(0.05)],
+                ),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: isDark ? Colors.purple.withOpacity(0.3) : Colors.purple.withOpacity(0.2),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, size: 16, color: Colors.purple.shade300),
+                      const SizedBox(width: 6),
+                      Text(
+                        'AI Course Summary',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                          color: isDark ? Colors.purple.shade200 : Colors.purple.shade700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    _aiSummary!,
+                    style: TextStyle(
+                      color: AppTheme.getTextSecondary(context),
+                      fontSize: 13,
+                      height: 1.5,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ] else
+            OutlinedButton.icon(
+              onPressed: _isLoadingAiSummary ? null : _generateAiSummary,
+              icon: _isLoadingAiSummary
+                  ? SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.purple.shade300),
+                    )
+                  : Icon(Icons.auto_awesome, size: 16, color: Colors.purple.shade300),
+              label: Text(
+                _isLoadingAiSummary ? 'Generating...' : 'AI Course Summary',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.purple.shade200 : Colors.purple.shade600,
+                ),
+              ),
+              style: OutlinedButton.styleFrom(
+                side: BorderSide(color: Colors.purple.withOpacity(0.3)),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Future<void> _generateAiSummary() async {
+    setState(() => _isLoadingAiSummary = true);
+    try {
+      final videoTitles = _videos.map((v) => v['title'] ?? '').where((t) => t.toString().isNotEmpty).join(', ');
+      final prompt = '''Provide a concise, helpful summary of this course for a student:
+
+Course Title: ${widget.courseTitle}
+Description: ${widget.description}
+Topics Covered (from video titles): $videoTitles
+
+Include:
+1. What the student will learn (3-4 key takeaways)
+2. Who this course is best suited for
+3. A short motivational note to encourage learning
+
+Keep it under 200 words and use a friendly, encouraging tone.''';
+
+      final response = await generateAIResponse(
+        prompt,
+        systemPrompt: 'You are an educational AI assistant that helps students understand course content. Be concise, informative, and encouraging.',
+      );
+      if (mounted) {
+        setState(() {
+          _aiSummary = response;
+          _isLoadingAiSummary = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoadingAiSummary = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not generate AI summary: $e')),
+        );
+      }
+    }
   }
 
   Widget _buildInstructorSection() {
