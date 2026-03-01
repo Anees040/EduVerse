@@ -314,6 +314,7 @@ class QuizService {
     required String quizId,
     required Map<int, int> answers, // questionIndex -> selectedOptionIndex
     required int timeTaken, // in seconds
+    int? preCalculatedScore, // Client-calculated score (accounts for shuffling)
   }) async {
     try {
       // Get quiz to calculate score
@@ -321,18 +322,24 @@ class QuizService {
       if (quiz == null) return null;
 
       final questions = quiz['questions'] as List? ?? [];
-      int correctAnswers = 0;
+      final totalQuestions = questions.length;
 
-      // Calculate score
-      for (int i = 0; i < questions.length; i++) {
-        final question = Map<String, dynamic>.from(questions[i] as Map);
-        final correctIndex = question['correctAnswer'] as int? ?? 0;
-        if (answers[i] == correctIndex) {
-          correctAnswers++;
+      // Use pre-calculated score if provided (handles shuffled options correctly)
+      // Otherwise fall back to server-side calculation (original order)
+      int correctAnswers;
+      if (preCalculatedScore != null) {
+        correctAnswers = preCalculatedScore;
+      } else {
+        correctAnswers = 0;
+        for (int i = 0; i < questions.length; i++) {
+          final question = Map<String, dynamic>.from(questions[i] as Map);
+          final correctIndex = question['correctAnswer'] as int? ?? 0;
+          if (answers[i] == correctIndex) {
+            correctAnswers++;
+          }
         }
       }
 
-      final totalQuestions = questions.length;
       final percentage = totalQuestions > 0
           ? (correctAnswers / totalQuestions * 100).roundToDouble()
           : 0.0;
