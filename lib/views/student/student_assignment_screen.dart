@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:image_picker/image_picker.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:eduverse/services/assignment_service.dart';
 import 'package:eduverse/services/uploadToCloudinary.dart';
 import 'package:eduverse/utils/app_theme.dart';
@@ -1008,33 +1010,156 @@ class _StudentAssignmentScreenState extends State<StudentAssignmentScreen> {
       return;
     }
 
-    // Use ImagePicker to pick files (images and documents)
-    final picker = ImagePicker();
-    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    if (pickedFile == null) return;
+    // Show picker type chooser like MS Teams
+    final type = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: isDark ? AppTheme.darkBorder : Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Attach File',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.image, color: Colors.blue),
+              ),
+              title: Text(
+                'Photo / Image',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'JPG, PNG, GIF',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+              onTap: () => Navigator.pop(ctx, 'image'),
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.insert_drive_file, color: Colors.orange),
+              ),
+              title: Text(
+                'Document',
+                style: TextStyle(
+                  color: isDark ? AppTheme.darkTextPrimary : AppTheme.textPrimary,
+                ),
+              ),
+              subtitle: Text(
+                'PDF, Word, Excel, PowerPoint, Text',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? AppTheme.darkTextSecondary : AppTheme.textSecondary,
+                ),
+              ),
+              onTap: () => Navigator.pop(ctx, 'document'),
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+
+    if (type == null) return;
 
     setState(() => _isUploading = true);
 
     try {
-      final uploadUrl = await uploadToCloudinaryFromXFile(pickedFile);
-      final fileSize = await File(pickedFile.path).length();
+      if (type == 'image') {
+        final picker = ImagePicker();
+        final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-      if (uploadUrl != null) {
-        setState(() {
-          _selectedFiles.add({
-            'name': pickedFile.name,
-            'url': uploadUrl,
-            'type': pickedFile.path.split('.').last,
-            'size': fileSize,
-          });
-        });
+        if (pickedFile != null) {
+          final url = await uploadToCloudinaryFromXFile(pickedFile);
+          final fileSize = kIsWeb ? 0 : await File(pickedFile.path).length();
+
+          if (url != null && mounted) {
+            setState(() {
+              _selectedFiles.add({
+                'name': pickedFile.name,
+                'url': url,
+                'type': pickedFile.name.split('.').last,
+                'size': fileSize,
+              });
+            });
+          }
+        }
+      } else {
+        // Document picker
+        final result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          withData: kIsWeb, // Required on web to get bytes
+          allowedExtensions: [
+            'pdf', 'doc', 'docx', 'txt', 'xlsx', 'xls', 'ppt', 'pptx',
+          ],
+        );
+
+        if (result != null && result.files.isNotEmpty) {
+          final file = result.files.first;
+
+          String? url;
+          if (file.bytes != null) {
+            // Web platform — upload from bytes
+            url = await uploadToCloudinaryFromBytes(file.bytes!, file.name);
+          } else if (file.path != null) {
+            // Mobile/desktop — upload from path
+            final xFile = XFile(file.path!);
+            url = await uploadToCloudinaryFromXFile(xFile);
+          }
+
+          if (url != null && mounted) {
+            setState(() {
+              _selectedFiles.add({
+                'name': file.name,
+                'url': url,
+                'type': file.extension ?? 'file',
+                'size': file.size,
+              });
+            });
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error uploading file: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error uploading file: $e')),
+        );
       }
     }
 
@@ -1059,18 +1184,177 @@ class _StudentAssignmentScreenState extends State<StudentAssignmentScreen> {
     setState(() => _isSubmitting = false);
 
     if (result != null && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Assignment submitted successfully!'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      // Show cool success animation overlay like MS Teams
+      _showSuccessAnimation();
       await _loadData();
     } else if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Failed to submit assignment')),
       );
     }
+  }
+
+  void _showSuccessAnimation() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Success',
+      barrierColor: Colors.black54,
+      transitionDuration: const Duration(milliseconds: 400),
+      pageBuilder: (context, animation, secondaryAnimation) {
+        return Center(
+          child: ScaleTransition(
+            scale: CurvedAnimation(
+              parent: animation,
+              curve: Curves.elasticOut,
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 300,
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                          .withOpacity(0.3),
+                      blurRadius: 30,
+                      spreadRadius: 5,
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Animated checkmark
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 800),
+                      curve: Curves.bounceOut,
+                      builder: (context, value, child) {
+                        return Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: LinearGradient(
+                              colors: [
+                                Colors.green.shade400,
+                                Colors.green.shade600,
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.green.withOpacity(0.4 * value),
+                                blurRadius: 20 * value,
+                                spreadRadius: 5 * value,
+                              ),
+                            ],
+                          ),
+                          child: Transform.scale(
+                            scale: value,
+                            child: const Icon(
+                              Icons.check_rounded,
+                              color: Colors.white,
+                              size: 48,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    // Celebration particles
+                    TweenAnimationBuilder<double>(
+                      tween: Tween(begin: 0.0, end: 1.0),
+                      duration: const Duration(milliseconds: 600),
+                      curve: Curves.easeOut,
+                      builder: (context, value, child) {
+                        return Opacity(
+                          opacity: value,
+                          child: Transform.translate(
+                            offset: Offset(0, 20 * (1 - value)),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: Column(
+                        children: [
+                          Text(
+                            'Submitted! 🎉',
+                            style: TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              color: isDark
+                                  ? AppTheme.darkTextPrimary
+                                  : AppTheme.textPrimary,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Your assignment has been\nsuccessfully submitted',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isDark
+                                  ? AppTheme.darkTextSecondary
+                                  : AppTheme.textSecondary,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 20),
+                          // Decorative dots row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(5, (i) {
+                              return TweenAnimationBuilder<double>(
+                                tween: Tween(begin: 0.0, end: 1.0),
+                                duration: Duration(milliseconds: 300 + i * 100),
+                                curve: Curves.bounceOut,
+                                builder: (context, value, _) {
+                                  return Container(
+                                    margin: const EdgeInsets.symmetric(horizontal: 3),
+                                    width: 8 * value,
+                                    height: 8 * value,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: [
+                                        Colors.green,
+                                        Colors.blue,
+                                        Colors.purple,
+                                        Colors.orange,
+                                        Colors.pink,
+                                      ][i]
+                                          .withOpacity(0.7),
+                                    ),
+                                  );
+                                },
+                              );
+                            }),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+
+    // Auto-dismiss after 2.5 seconds
+    Future.delayed(const Duration(milliseconds: 2500), () {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    });
   }
 
   void _downloadFile(String? url) {
