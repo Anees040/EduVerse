@@ -1140,6 +1140,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
         // Use file picker for documents
         final result = await FilePicker.platform.pickFiles(
           type: FileType.custom,
+          withData: kIsWeb, // Required on web to get bytes
           allowedExtensions: [
             'pdf',
             'doc',
