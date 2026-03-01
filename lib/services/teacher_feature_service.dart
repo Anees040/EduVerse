@@ -284,16 +284,29 @@ class TeacherFeatureService {
   /// Get a quick summary of enrolled students for a course with basic progress.
   Future<List<Map<String, dynamic>>> getEnrolledStudentsSummary(
       String courseId) async {
+    final uid = _uid;
     try {
-      // Read enrolledStudents directly to avoid large course payload issues
-      final enrolledSnap = await _db
+      // Try primary path first
+      var enrolledSnap = await _db
           .child('courses')
           .child(courseId)
           .child('enrolledStudents')
           .get();
 
+      // Fallback to teacher node if primary path is empty
+      if ((!enrolledSnap.exists || enrolledSnap.value == null) && uid != null) {
+        debugPrint('[StudentsSummary] Falling back to teacher/$uid/courses/$courseId/enrolledStudents');
+        enrolledSnap = await _db
+            .child('teacher')
+            .child(uid)
+            .child('courses')
+            .child(courseId)
+            .child('enrolledStudents')
+            .get();
+      }
+
       if (!enrolledSnap.exists || enrolledSnap.value == null) {
-        debugPrint('[StudentsSummary] No enrolled students at courses/$courseId/enrolledStudents');
+        debugPrint('[StudentsSummary] No enrolled students found anywhere for course $courseId');
         return [];
       }
 
@@ -367,21 +380,28 @@ class TeacherFeatureService {
         watched = (progSnap.value as Map).length;
       }
 
-      // Quiz score
+      // Quiz score — query flat quiz_attempts by studentId, filter by courseId
       double avgQuiz = 0;
       int quizCount = 0;
-      final quizSnap =
-          await _db.child('quiz_results').child(courseId).child(studentId).get();
+      final quizSnap = await _db
+          .child('quiz_attempts')
+          .orderByChild('studentId')
+          .equalTo(studentId)
+          .get();
       if (quizSnap.exists && quizSnap.value is Map) {
-        final qData = Map<String, dynamic>.from(quizSnap.value as Map);
-        quizCount = qData.length;
-        double total = 0;
-        for (final q in qData.values) {
-          if (q is Map) {
-            total += (q['scorePercent'] as num?)?.toDouble() ?? 0;
+        final allAttempts = Map<String, dynamic>.from(quizSnap.value as Map);
+        double totalScore = 0;
+        for (final a in allAttempts.values) {
+          if (a is Map) {
+            final attemptCourseId = a['courseId'] as String? ?? '';
+            final status = a['status'] as String? ?? '';
+            if (attemptCourseId == courseId && status == 'completed') {
+              quizCount++;
+              totalScore += (a['scorePercent'] as num?)?.toDouble() ?? 0;
+            }
           }
         }
-        if (quizCount > 0) avgQuiz = total / quizCount;
+        if (quizCount > 0) avgQuiz = totalScore / quizCount;
       }
 
       final completion =
@@ -455,37 +475,49 @@ class TeacherFeatureService {
         }
       }
 
-      // Get quiz scores
+      // Get quiz scores — query flat quiz_attempts by studentId, filter by courseId
       final quizResults = <Map<String, dynamic>>[];
       final quizzesSnap = await _db
-          .child('quiz_results')
-          .child(courseId)
-          .child(studentId)
+          .child('quiz_attempts')
+          .orderByChild('studentId')
+          .equalTo(studentId)
           .get();
 
       if (quizzesSnap.exists && quizzesSnap.value != null) {
         final data = Map<String, dynamic>.from(quizzesSnap.value as Map);
         for (final entry in data.entries) {
           if (entry.value is Map) {
-            quizResults.add({
-              'quizId': entry.key,
-              ...Map<String, dynamic>.from(entry.value as Map),
-            });
+            final attempt = Map<String, dynamic>.from(entry.value as Map);
+            final attemptCourseId = attempt['courseId'] as String? ?? '';
+            final status = attempt['status'] as String? ?? '';
+            if (attemptCourseId == courseId && status == 'completed') {
+              quizResults.add({
+                'attemptId': entry.key,
+                ...attempt,
+              });
+            }
           }
         }
       }
 
-      // Get assignment submissions
+      // Get assignment submissions — query flat assignment_submissions by studentId, filter by courseId
       final assignmentSnap = await _db
           .child('assignment_submissions')
-          .child(courseId)
-          .child(studentId)
+          .orderByChild('studentId')
+          .equalTo(studentId)
           .get();
 
       int assignmentsSubmitted = 0;
       if (assignmentSnap.exists && assignmentSnap.value != null) {
         final data = Map<String, dynamic>.from(assignmentSnap.value as Map);
-        assignmentsSubmitted = data.length;
+        for (final entry in data.values) {
+          if (entry is Map) {
+            final subCourseId = entry['courseId'] as String? ?? '';
+            if (subCourseId == courseId) {
+              assignmentsSubmitted++;
+            }
+          }
+        }
       }
 
       // Calculate completion percentage
