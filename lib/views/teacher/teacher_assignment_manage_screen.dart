@@ -557,6 +557,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _instructionsController = TextEditingController();
+  final _preparationNotesController = TextEditingController();
 
   DateTime _dueDate = DateTime.now().add(const Duration(days: 7));
   TimeOfDay _dueTime = const TimeOfDay(hour: 23, minute: 59);
@@ -586,6 +587,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
     _titleController.text = assignment['title'] ?? '';
     _descriptionController.text = assignment['description'] ?? '';
     _instructionsController.text = assignment['instructions'] ?? '';
+    _preparationNotesController.text = assignment['preparationNotes'] ?? '';
 
     final dueDateMs =
         assignment['dueDate'] as int? ?? DateTime.now().millisecondsSinceEpoch;
@@ -610,6 +612,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
     _titleController.dispose();
     _descriptionController.dispose();
     _instructionsController.dispose();
+    _preparationNotesController.dispose();
     super.dispose();
   }
 
@@ -692,6 +695,15 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
                   Icons.list_alt,
                 ),
                 maxLines: 5,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _preparationNotesController,
+                decoration: _inputDecoration(
+                  'Preparation notes (e.g. "Based on Lecture 3-5")',
+                  Icons.menu_book,
+                ),
+                maxLines: 2,
               ),
             ], isDark),
             const SizedBox(height: 16),
@@ -1224,6 +1236,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
         maxFileSize: _maxFileSize,
         allowLateSubmission: _allowLateSubmission,
         latePenaltyPercent: _latePenaltyPercent,
+        preparationNotes: _preparationNotesController.text.trim(),
       );
     } else {
       final assignmentId = await _assignmentService.createAssignment(
@@ -1239,6 +1252,7 @@ class _AssignmentEditorScreenState extends State<AssignmentEditorScreen> {
         maxFileSize: _maxFileSize,
         allowLateSubmission: _allowLateSubmission,
         latePenaltyPercent: _latePenaltyPercent,
+        preparationNotes: _preparationNotesController.text.trim(),
       );
       success = assignmentId != null;
 
