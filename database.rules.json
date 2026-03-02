@@ -11,14 +11,22 @@
     
     "student": {
       ".read": "auth != null",
+      ".indexOn": ["createdAt"],
       "$uid": {
         ".read": "auth != null",
-        ".write": "$uid === auth.uid || root.child('admin').child(auth.uid).child('role').val() === 'admin'"
+        ".write": "$uid === auth.uid || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+        "certificates": {
+          ".indexOn": ["courseId", "quizId"]
+        },
+        "payments": {
+          ".indexOn": ["courseId"]
+        }
       }
     },
     
     "teacher": {
       ".read": "auth != null",
+      ".indexOn": ["createdAt"],
       "$uid": {
         ".read": "auth != null",
         ".write": "$uid === auth.uid || root.child('admin').child(auth.uid).child('role').val() === 'admin'",
@@ -60,6 +68,7 @@
     "courses": {
       ".read": "auth != null",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["teacherUid", "createdAt"],
       "$courseId": {
         ".read": "auth != null",
         ".write": "auth != null",
@@ -79,6 +88,7 @@
         "questions": {
           ".read": "auth != null",
           ".write": "auth != null",
+          ".indexOn": ["createdAt"],
           "$questionId": {
             ".read": "auth != null",
             ".write": "auth != null"
@@ -173,10 +183,21 @@
       }
     },
     
+    "course_announcements": {
+      ".read": "auth != null",
+      ".write": "auth != null",
+      "$courseId": {
+        ".indexOn": ["createdAt"]
+      }
+    },
+    
     
     "moderation": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
-      ".write": "auth != null"
+      ".write": "auth != null",
+      "logs": {
+        ".indexOn": ["timestamp"]
+      }
     },
     
     "moderation_resolved": {
@@ -221,6 +242,7 @@
     "platform_announcements": {
       ".read": "auth != null",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["sentAt"],
       "$announcementId": {
         ".read": "auth != null",
         ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
@@ -229,6 +251,7 @@
     "admin_audit_log": {
       ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
       ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
+      ".indexOn": ["timestamp"],
       "$entryId": {
         ".read": "root.child('admin').child(auth.uid).child('role').val() === 'admin'",
         ".write": "root.child('admin').child(auth.uid).child('role').val() === 'admin'"
@@ -249,7 +272,7 @@
     "payments": {
       ".read": "auth != null",
       ".write": "auth != null",
-      ".indexOn": ["teacherId", "studentUid", "courseId"],
+      ".indexOn": ["teacherId", "teacherUid", "studentUid", "courseId", "timestamp"],
       "$paymentId": {
         ".read": "auth != null",
         ".write": "auth != null"
@@ -333,6 +356,7 @@
       "$uid": {
         ".read": "auth != null && $uid === auth.uid",
         ".write": "auth != null && $uid === auth.uid",
+        ".indexOn": ["updatedAt"],
         "$chatId": {
           ".read": "auth != null && $uid === auth.uid",
           ".write": "auth != null && $uid === auth.uid",
@@ -366,6 +390,7 @@
       "$uid": {
         ".read": "auth != null",
         ".write": "auth != null",
+        ".indexOn": ["createdAt"],
         "$notificationId": {
           ".read": "auth != null",
           ".write": "auth != null"
