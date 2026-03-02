@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show Uint8List, debugPrint;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -1493,22 +1494,19 @@ class _CredentialDialogState extends State<_CredentialDialog> {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
-      final picker = ImagePicker();
-
-      // Pick image
-      XFile? picked;
+      // Use FilePicker for better reliability (supports images + documents)
+      FilePickerResult? result;
       try {
-        picked = await picker.pickImage(
-          source: ImageSource.gallery,
-          maxWidth: 1200,
-          maxHeight: 1200,
-          imageQuality: 85,
+        result = await FilePicker.platform.pickFiles(
+          type: FileType.custom,
+          withData: true, // Always get bytes for cross-platform reliability
+          allowedExtensions: ['jpg', 'jpeg', 'png', 'webp', 'pdf'],
         );
       } catch (pickerError) {
-        debugPrint('Image picker error: $pickerError');
+        debugPrint('File picker error: $pickerError');
         scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text('Could not open gallery: $pickerError'),
+            content: Text('Could not open file picker: $pickerError'),
             backgroundColor: Colors.red,
           ),
         );
@@ -1516,50 +1514,53 @@ class _CredentialDialogState extends State<_CredentialDialog> {
       }
 
       // User cancelled
-      if (picked == null) return;
+      if (result == null || result.files.isEmpty) return;
       if (!mounted) return;
+
+      final file = result.files.first;
 
       // Show uploading state
       setState(() => _isUploading = true);
 
-      // Read bytes with error handling
-      Uint8List bytes;
-      try {
-        bytes = await picked.readAsBytes();
-      } catch (readError) {
-        debugPrint('Error reading image bytes: $readError');
+      // Read bytes
+      Uint8List? bytes = file.bytes;
+      if (bytes == null && file.path != null) {
+        try {
+          bytes = await XFile(file.path!).readAsBytes();
+        } catch (readError) {
+          debugPrint('Error reading file bytes: $readError');
+        }
+      }
+
+      if (bytes == null || bytes.isEmpty) {
         if (mounted) setState(() => _isUploading = false);
         scaffoldMessenger.showSnackBar(
           const SnackBar(
-            content: Text('Failed to read image file'),
+            content: Text('Could not read file'),
             backgroundColor: Colors.red,
           ),
         );
         return;
       }
 
-      if (bytes.isEmpty) {
-        if (mounted) setState(() => _isUploading = false);
-        scaffoldMessenger.showSnackBar(
-          const SnackBar(
-            content: Text('Invalid image file'),
-            backgroundColor: Colors.red,
-          ),
-        );
-        return;
-      }
-
-      // Show image preview immediately
-      if (mounted) {
+      // Show image preview immediately (for image types)
+      final ext = file.extension?.toLowerCase() ?? '';
+      final isImage = ['jpg', 'jpeg', 'png', 'webp'].contains(ext);
+      if (mounted && isImage) {
         setState(() {
           _credentialImageBytes = bytes;
+        });
+      } else if (mounted) {
+        // For PDFs, show a placeholder
+        setState(() {
+          _credentialImageBytes = bytes; // Store bytes; will show placeholder in UI
         });
       }
 
       // Upload to Cloudinary with timeout
       String? url;
       try {
-        url = await uploadToCloudinaryFromXFile(picked).timeout(
+        url = await uploadToCloudinaryFromBytes(bytes, file.name).timeout(
           const Duration(seconds: 30),
           onTimeout: () => null,
         );
@@ -1593,7 +1594,7 @@ class _CredentialDialogState extends State<_CredentialDialog> {
         );
       }
     } catch (e) {
-      debugPrint('Image picker error: $e');
+      debugPrint('Certificate picker error: $e');
       if (mounted) {
         setState(() => _isUploading = false);
       }
