@@ -134,20 +134,30 @@ const server = http.createServer((req, res) => {
       <p style="color: rgba(255, 255, 255, 0.9); margin-top: 8px; font-size: 14px;">Your Learning Journey Starts Here</p>
     </div>
     <div style="padding: 40px 30px;">
-      <h2 style="color: #333333; margin-top: 0;">Hello! 👋</h2>
+      <h2 style="color: #333333; margin-top: 0;">Hello${name ? ', ' + name : ''}! 👋</h2>
       <p style="color: #666666; font-size: 16px; line-height: 1.6;">
         Thank you for registering with EduVerse! Please verify your email using the code below:
       </p>
-      <div style="background-color: #f8f9fa; border: 2px dashed #667eea; border-radius: 8px; padding: 25px; text-align: center; margin: 30px 0;">
-        <p style="color: #666666; margin: 0 0 10px 0; font-size: 14px;">Your Verification Code</p>
-        <h1 style="color: #667eea; margin: 0; font-size: 36px; letter-spacing: 8px; font-weight: bold;">${code}</h1>
+      <div style="background-color: #f8f9fa; border: 2px dashed #667eea; border-radius: 12px; padding: 25px 15px; text-align: center; margin: 30px 0;">
+        <p style="color: #666666; margin: 0 0 15px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Your Verification Code</p>
+        <table cellspacing="0" cellpadding="0" border="0" align="center" style="margin: 0 auto;">
+          <tr>
+            ${code.toString().split('').map(digit => `<td style="padding: 0 4px;"><div style="width: 48px; height: 56px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 10px; text-align: center; line-height: 56px; font-size: 28px; font-weight: bold; color: #ffffff; font-family: 'Segoe UI', monospace;">${digit}</div></td>`).join('')}
+          </tr>
+        </table>
       </div>
-      <p style="color: #666666; font-size: 14px; line-height: 1.6;">
-        This code will expire in <strong>10 minutes</strong>.
+      <div style="background-color: #fff3e0; border-radius: 8px; padding: 12px 16px; margin: 20px 0; border-left: 4px solid #ff9800;">
+        <p style="color: #e65100; font-size: 13px; margin: 0;">
+          ⏰ This code will expire in <strong>10 minutes</strong>. Do not share it with anyone.
+        </p>
+      </div>
+      <p style="color: #999999; font-size: 13px; line-height: 1.6; margin-top: 20px;">
+        If you didn't request this code, you can safely ignore this email.
       </p>
     </div>
     <div style="background-color: #f8f9fa; padding: 25px 30px; text-align: center; border-top: 1px solid #eee;">
       <p style="color: #999999; font-size: 12px; margin: 0;">© 2026 EduVerse. All rights reserved.</p>
+      <p style="color: #bbbbbb; font-size: 11px; margin: 5px 0 0 0;">This is an automated message. Please do not reply.</p>
     </div>
   </div>
 </body>
