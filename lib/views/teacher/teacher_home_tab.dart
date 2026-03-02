@@ -13,6 +13,7 @@ import 'package:eduverse/views/teacher/teacher_course_engagement_screen.dart';
 import 'package:eduverse/views/teacher/teacher_revenue_dashboard.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/utils/route_transitions.dart';
+import 'package:eduverse/services/platform_settings_service.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/features/admin/services/admin_feature_service.dart';
 
@@ -920,18 +921,19 @@ class _TeacherHomeTabState extends State<TeacherHomeTab>
             ),
             const SizedBox(height: 12),
 
-            _buildFeatureCard(
-              icon: Icons.smart_toy_outlined,
-              title: "Get Help from AI",
-              subtitle: "Ask questions and get instant assistance",
-              color: AppTheme.primaryColor,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  SlideAndFadeRoute(page: const AIChatScreen(openNew: true)),
-                );
-              },
-            ),
+            if (PlatformSettingsService.instance.enableChatSupport)
+              _buildFeatureCard(
+                icon: Icons.smart_toy_outlined,
+                title: "Get Help from AI",
+                subtitle: "Ask questions and get instant assistance",
+                color: AppTheme.primaryColor,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    SlideAndFadeRoute(page: const AIChatScreen(openNew: true)),
+                  );
+                },
+              ),
 
             const SizedBox(height: 28),
 

@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/auth_service.dart';
 import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/features/teacher/screens/teacher_registration_wizard.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:eduverse/services/platform_settings_service.dart';
 import 'dart:async';
 
 class RegisterScreenWithVerification extends StatefulWidget {
@@ -76,6 +76,21 @@ class _RegisterScreenWithVerificationState
     super.initState();
     _initializeControllers();
     _passwordController.addListener(_updatePasswordStrength);
+    _loadEmailVerificationSetting();
+  }
+
+  /// Check admin platform setting: is email verification required?
+  Future<void> _loadEmailVerificationSetting() async {
+    try {
+      final ps = PlatformSettingsService.instance;
+      await ps.fetch();
+      if (mounted && !ps.requireEmailVerification) {
+        setState(() {
+          // Auto-mark verified so all verification UI is hidden
+          _isEmailVerified = true;
+        });
+      }
+    } catch (_) {}
   }
 
   void _initializeControllers() {
@@ -436,32 +451,28 @@ class _RegisterScreenWithVerificationState
     // Clear any existing email error first to avoid double errors
     setState(() => _emailError = null);
     
-    // Check if registration is enabled on the platform
+    // Check platform settings
+    bool emailVerificationRequired = true;
     try {
-      final settingsSnapshot = await FirebaseDatabase.instance
-          .ref('platform_settings')
-          .get();
-      if (settingsSnapshot.exists && settingsSnapshot.value != null) {
-        final settings = Map<String, dynamic>.from(settingsSnapshot.value as Map);
-        if (settings['registrationEnabled'] == false) {
-          if (mounted) {
-            _showRegistrationDisabledDialog();
-          }
-          return false;
-        }
-        // Check maintenance mode
-        if (settings['maintenanceMode'] == true) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Platform is under maintenance. Registration is temporarily disabled.'),
-                backgroundColor: Colors.orange,
-              ),
-            );
-          }
-          return false;
-        }
+      final ps = PlatformSettingsService.instance;
+      await ps.fetch();
+
+      if (!ps.registrationEnabled) {
+        if (mounted) _showRegistrationDisabledDialog();
+        return false;
       }
+      if (ps.maintenanceMode) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Platform is under maintenance. Registration is temporarily disabled.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return false;
+      }
+      emailVerificationRequired = ps.requireEmailVerification;
     } catch (e) {
       debugPrint('Error checking platform settings: $e');
     }
@@ -475,8 +486,8 @@ class _RegisterScreenWithVerificationState
       return false;
     }
     
-    if (!_isEmailVerified) {
-      // Show inline error instead of snackbar for consistency
+    // Only require email verification when the admin setting says so
+    if (emailVerificationRequired && !_isEmailVerified) {
       setState(() {
         _emailError = 'Please verify your email first';
       });

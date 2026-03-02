@@ -461,16 +461,28 @@ class _SigninScreenState extends State<SigninScreen> {
                             }
 
                             // Send verification code
-                            await _emailVerificationService
-                                .sendVerificationCode(
+                            try {
+                              await _emailVerificationService
+                                  .sendVerificationCode(
+                                    resetEmailController.text.trim(),
+                                  );
+                              setDialogState(() {
+                                codeSent = true;
+                                codeSuccessMessage =
+                                    'Verification code sent to your email!';
+                                isLoading = false;
+                              });
+                            } catch (sendError) {
+                              // Email server failed — offer Firebase reset link fallback
+                              setDialogState(() => isLoading = false);
+                              if (ctx.mounted) {
+                                _showFirebaseFallbackResetDialog(
+                                  ctx,
                                   resetEmailController.text.trim(),
                                 );
-                            setDialogState(() {
-                              codeSent = true;
-                              codeSuccessMessage =
-                                  'Verification code sent to your email!';
-                              isLoading = false;
-                            });
+                              }
+                              return;
+                            }
                           } catch (e) {
                             setDialogState(() {
                               emailError = e.toString().replaceAll(
@@ -685,6 +697,113 @@ class _SigninScreenState extends State<SigninScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Fallback dialog when the custom email server is unreachable.
+  /// Uses Firebase Auth's built-in password reset email instead.
+  void _showFirebaseFallbackResetDialog(BuildContext parentCtx, String email) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.getCardColor(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.info_outline, color: Colors.orange, size: 24),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                'Email Service Unavailable',
+                style: TextStyle(
+                  color: AppTheme.getTextPrimary(context),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'The verification code service is temporarily unavailable. '
+              'Would you like to receive a password reset link from Firebase instead?',
+              style: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.08),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.email_outlined, size: 18, color: Colors.blue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      email,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppTheme.getTextSecondary(context)),
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(ctx); // close this dialog
+              Navigator.pop(parentCtx); // close the forgot-password dialog
+              try {
+                await _auth.sendPasswordResetEmail(email);
+                if (mounted) {
+                  _showPasswordResetSuccessDialog(email, isActualReset: false);
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(
+                        e.toString().replaceAll('Exception: ', ''),
+                      ),
+                      backgroundColor: Theme.of(context).colorScheme.error,
+                      behavior: SnackBarBehavior.floating,
+                    ),
+                  );
+                }
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.isDarkMode(context)
+                  ? AppTheme.darkAccent
+                  : AppTheme.primaryColor,
+              foregroundColor: AppTheme.isDarkMode(context)
+                  ? Colors.black
+                  : Colors.white,
+            ),
+            child: const Text('Send Reset Link'),
+          ),
+        ],
       ),
     );
   }

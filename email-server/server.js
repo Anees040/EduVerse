@@ -10,6 +10,7 @@
 
 const http = require('http');
 const https = require('https');
+const nodemailer = require('nodemailer');
 
 // Firebase Admin SDK for password reset
 const admin = require('firebase-admin');
@@ -46,10 +47,60 @@ try {
 const PORT = 3001;
 
 // Mailjet credentials
-const MAILJET_API_KEY = 'REDACTED_MAILJET_KEY';
-const MAILJET_API_SECRET = 'REDACTED_MAILJET_SECRET';
+const MAILJET_API_KEY = 'REDACTED_MAILJET_KEY'; //REDACTED_MAILJET_KEY
+const MAILJET_API_SECRET = 'REDACTED_MAILJET_SECRET';//REDACTED_OLD_SECRET
 const FROM_EMAIL = 'noreply@eduverse-official.me';
 const FROM_NAME = 'EduVerse Team';
+
+// ── Nodemailer fallback transport (SMTP) ──
+// Configure via environment variables for production.
+// Supported: Gmail App Password, SendGrid, Brevo, or any SMTP provider.
+// Example: SMTP_HOST=smtp.gmail.com SMTP_PORT=587 SMTP_USER=you@gmail.com SMTP_PASS=app-password
+let nodemailerTransport = null;
+const SMTP_HOST = process.env.SMTP_HOST || '';
+const SMTP_USER = process.env.SMTP_USER || '';
+const SMTP_PASS = process.env.SMTP_PASS || '';
+const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587', 10);
+
+if (SMTP_HOST && SMTP_USER && SMTP_PASS) {
+  nodemailerTransport = nodemailer.createTransport({
+    host: SMTP_HOST,
+    port: SMTP_PORT,
+    secure: SMTP_PORT === 465,
+    auth: { user: SMTP_USER, pass: SMTP_PASS },
+  });
+  console.log(`✅ Nodemailer SMTP fallback configured (${SMTP_HOST})`);
+} else {
+  console.log('ℹ️  No SMTP env vars set. Nodemailer fallback disabled.');
+  console.log('   Set SMTP_HOST, SMTP_USER, SMTP_PASS to enable.');
+}
+
+// Try Mailjet first; if it fails, try Nodemailer SMTP; if both fail, report error.
+function sendEmail(to, name, subject, htmlContent, textContent, callback) {
+  sendEmailViaMailjet(to, name, subject, htmlContent, textContent, (mjErr, mjRes) => {
+    if (!mjErr) {
+      return callback(null, mjRes);
+    }
+    console.warn('⚠️  Mailjet failed, attempting Nodemailer fallback…');
+    if (!nodemailerTransport) {
+      return callback(mjErr, mjRes);
+    }
+    nodemailerTransport.sendMail({
+      from: `"${FROM_NAME}" <${SMTP_USER}>`,
+      to,
+      subject,
+      html: htmlContent,
+      text: textContent,
+    }, (smtpErr, info) => {
+      if (smtpErr) {
+        console.error('Nodemailer fallback also failed:', smtpErr.message);
+        return callback(mjErr); // return original Mailjet error
+      }
+      console.log(`📧 Email sent via Nodemailer fallback to ${to}`);
+      callback(null, JSON.stringify({ success: true }));
+    });
+  });
+}
 
 // Helper function to send email via Mailjet
 function sendEmailViaMailjet(to, name, subject, htmlContent, textContent, callback) {
@@ -81,7 +132,20 @@ function sendEmailViaMailjet(to, name, subject, htmlContent, textContent, callba
     let responseData = '';
     mailjetRes.on('data', chunk => { responseData += chunk; });
     mailjetRes.on('end', () => {
-      callback(mailjetRes.statusCode === 200 ? null : responseData, responseData);
+      if (mailjetRes.statusCode === 200) {
+        callback(null, responseData);
+      } else {
+        // Parse Mailjet error for a clear message
+        let errorMsg = `Mailjet returned status ${mailjetRes.statusCode}`;
+        try {
+          const parsed = JSON.parse(responseData);
+          if (parsed.ErrorMessage) {
+            errorMsg = parsed.ErrorMessage;
+          }
+        } catch (_) { /* use default */ }
+        console.error(`Mailjet API error (${mailjetRes.statusCode}):`, responseData);
+        callback(errorMsg, responseData);
+      }
     });
   });
 
@@ -165,11 +229,11 @@ const server = http.createServer((req, res) => {
 
         const textContent = `Your EduVerse verification code is: ${code}. This code expires in 10 minutes.`;
 
-        sendEmailViaMailjet(to, name, 'EduVerse - Email Verification Code', htmlContent, textContent, (error) => {
+        sendEmail(to, name, 'EduVerse - Email Verification Code', htmlContent, textContent, (error) => {
           if (error) {
-            console.error('Mailjet error:', error);
+            console.error('Email send error:', error);
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: error }));
+            res.end(JSON.stringify({ success: false, error: String(error) }));
           } else {
             console.log(`📧 Verification email sent to ${to}`);
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -390,7 +454,7 @@ If you did NOT make this change, please reset your password immediately.
 
 © 2026 EduVerse. All rights reserved.`;
 
-        sendEmailViaMailjet(normalizedEmail, userName, 'Your EduVerse Password Has Been Changed', htmlContent, textContent, (emailError) => {
+        sendEmail(normalizedEmail, userName, 'Your EduVerse Password Has Been Changed', htmlContent, textContent, (emailError) => {
           if (emailError) {
             console.error('Failed to send password changed email:', emailError);
           } else {
@@ -544,11 +608,11 @@ If you did NOT make this change, please reset your password immediately.
           return;
         }
 
-        sendEmailViaMailjet(to, name, emailSubject, htmlContent, textContent, (error) => {
+        sendEmail(to, name, emailSubject, htmlContent, textContent, (error) => {
           if (error) {
-            console.error('Mailjet error:', error);
+            console.error('Email send error:', error);
             res.writeHead(500, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: error }));
+            res.end(JSON.stringify({ success: false, error: String(error) }));
           } else {
             console.log(`📧 Admin email (${emailType}) sent to ${to}`);
             res.writeHead(200, { 'Content-Type': 'application/json' });
@@ -563,6 +627,15 @@ If you did NOT make this change, please reset your password immediately.
       }
     });
   }
+  // ==== HEALTH CHECK ====
+  else if (req.method === 'GET' && req.url === '/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({
+      status: 'ok',
+      firebase: firebaseInitialized,
+      smtpFallback: !!nodemailerTransport,
+    }));
+  }
   else {
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -575,5 +648,7 @@ server.listen(PORT, () => {
   console.log('📧 Endpoints:');
   console.log('   POST http://localhost:' + PORT + '/send-verification');
   console.log('   POST http://localhost:' + PORT + '/reset-password');
+  console.log('   POST http://localhost:' + PORT + '/send-admin-email');
+  console.log('   GET  http://localhost:' + PORT + '/health');
   console.log('═══════════════════════════════════════════════════');
 });

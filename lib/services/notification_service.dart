@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:firebase_database/firebase_database.dart';
+import 'platform_settings_service.dart';
 
 class NotificationService {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
@@ -15,6 +16,18 @@ class NotificationService {
     String? relatedVideoId,
     int? relatedVideoTimestamp,
   }) async {
+    // Check if notifications are enabled in platform settings
+    try {
+      await PlatformSettingsService.instance.ensureLoaded();
+      if (!PlatformSettingsService.instance.enableNotifications) {
+        debugPrint('Notifications are disabled in platform settings. Skipping.');
+        return;
+      }
+    } catch (e) {
+      debugPrint('Failed to check notification settings: $e');
+      // Continue sending if we can't check — fail-open
+    }
+
     final notificationId = _db.push().key;
     final timestamp = DateTime.now().millisecondsSinceEpoch;
 

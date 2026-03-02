@@ -13,6 +13,7 @@ import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/study_streak_card.dart';
 import 'package:eduverse/services/course_recommendation_service.dart';
 import 'package:eduverse/features/admin/services/admin_feature_service.dart';
+import 'package:eduverse/services/platform_settings_service.dart';
 
 class HomeTab extends StatefulWidget {
   final String uid;
@@ -692,21 +693,22 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
             ),
             const SizedBox(height: 16),
 
-            // Study with AI Card
-            _buildFeatureCard(
-              icon: Icons.smart_toy_outlined,
-              title: "Study with AI",
-              subtitle: "Chat with our AI assistant for personalized help",
-              color: AppTheme.primaryColor,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AIChatScreen(openNew: true),
-                  ),
-                );
-              },
-            ),
+            // Study with AI Card (only if chat support is enabled)
+            if (PlatformSettingsService.instance.enableChatSupport)
+              _buildFeatureCard(
+                icon: Icons.smart_toy_outlined,
+                title: "Study with AI",
+                subtitle: "Chat with our AI assistant for personalized help",
+                color: AppTheme.primaryColor,
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AIChatScreen(openNew: true),
+                    ),
+                  );
+                },
+              ),
 
             const SizedBox(height: 12),
 

@@ -4,6 +4,7 @@ import 'package:eduverse/views/splash_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/services/theme_service.dart';
 import 'package:eduverse/widgets/animated_dark_background.dart';
+import 'package:eduverse/widgets/session_timeout_wrapper.dart';
 
 class EduVerseApp extends StatelessWidget {
   const EduVerseApp({super.key});
@@ -56,7 +57,9 @@ class EduVerseApp extends StatelessWidget {
                         SizedBox(
                           width: double.infinity,
                           height: double.infinity,
-                          child: child ?? const SizedBox.shrink(),
+                          child: SessionTimeoutWrapper(
+                            child: child ?? const SizedBox.shrink(),
+                          ),
                         ),
                       ],
                     );

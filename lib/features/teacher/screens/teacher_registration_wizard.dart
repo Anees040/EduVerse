@@ -5,6 +5,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/services/uploadToCloudinary.dart';
+import 'package:eduverse/services/platform_settings_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'dart:async';
 
@@ -48,6 +49,9 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
   Timer? _resendTimer;
   int _resendCountdown = 0;
 
+  // Whether admin requires email verification
+  bool _emailVerificationRequired = true;
+
   // Page 2: Professional Information
   final _headlineController = TextEditingController();
   final _bioController = TextEditingController();
@@ -78,6 +82,39 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
 
   final _emailVerificationService = EmailVerificationService();
   final _imagePicker = ImagePicker();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPlatformSettings();
+  }
+
+  Future<void> _loadPlatformSettings() async {
+    try {
+      final ps = PlatformSettingsService.instance;
+      await ps.fetch();
+      if (!mounted) return;
+
+      // If registration is disabled, show message and pop
+      if (!ps.registrationEnabled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('New registrations are currently disabled by the administrator.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        Navigator.pop(context);
+        return;
+      }
+
+      if (!ps.requireEmailVerification) {
+        setState(() {
+          _emailVerificationRequired = false;
+          _isEmailVerified = true;
+        });
+      }
+    } catch (_) {}
+  }
 
   @override
   void dispose() {
@@ -1276,7 +1313,7 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
     switch (_currentPage) {
       case 0:
         isValid = _personalFormKey.currentState?.validate() ?? false;
-        if (isValid && !_isEmailVerified) {
+        if (isValid && _emailVerificationRequired && !_isEmailVerified) {
           setState(() => _emailError = 'Please verify your email first');
           return;
         }
@@ -1504,7 +1541,11 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
 
       final uid = userCredential.user!.uid;
 
-      // 4. Save teacher data to Firebase with pending status
+      // 4. Save teacher data to Firebase — auto-approve if admin setting says so
+      final ps = PlatformSettingsService.instance;
+      await ps.fetch();
+      final autoApprove = ps.autoApproveTeachers;
+
       await FirebaseDatabase.instance.ref().child('teacher').child(uid).set({
         'name': _nameController.text.trim(),
         'email': _emailController.text.trim(),
@@ -1519,8 +1560,8 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
         'certifications': _certificationController.text.trim(),
         'education': _educationController.text.trim(),
         'credentialDocuments': _credentialUrls,
-        'status': 'pending', // Pending verification
-        'isVerified': false,
+        'status': autoApprove ? 'approved' : 'pending',
+        'isVerified': autoApprove,
         'createdAt': ServerValue.timestamp,
       });
 
@@ -1540,13 +1581,15 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
             'registeredAt': ServerValue.timestamp,
           });
 
-      // 6. Sign out immediately (pending verification)
-      await FirebaseAuth.instance.signOut();
+      // 6. Sign out immediately if pending verification, otherwise keep signed in
+      if (!autoApprove) {
+        await FirebaseAuth.instance.signOut();
+      }
 
       if (!mounted) return;
 
       // 7. Show success screen
-      _showSuccessScreen();
+      _showSuccessScreen(autoApproved: autoApprove);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1563,7 +1606,7 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
     }
   }
 
-  void _showSuccessScreen() {
+  void _showSuccessScreen({bool autoApproved = false}) {
     final isDark = AppTheme.isDarkMode(context);
 
     Navigator.pushReplacement(
@@ -1597,7 +1640,9 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
                     ),
                     const SizedBox(height: 32),
                     Text(
-                      'Application Submitted!',
+                      autoApproved
+                          ? 'Registration Complete!'
+                          : 'Application Submitted!',
                       style: TextStyle(
                         color: isDark
                             ? AppTheme.darkTextPrimary
@@ -1609,7 +1654,9 @@ class _TeacherRegistrationWizardState extends State<TeacherRegistrationWizard> {
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Your application has been submitted for review. You will be notified via email once your account is verified.',
+                      autoApproved
+                          ? 'Your teacher account is ready! You can now sign in and start creating courses.'
+                          : 'Your application has been submitted for review. You will be notified via email once your account is verified.',
                       style: TextStyle(
                         color: isDark
                             ? AppTheme.darkTextSecondary
