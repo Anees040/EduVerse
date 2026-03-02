@@ -11,6 +11,7 @@
 const http = require('http');
 const https = require('https');
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 // Firebase Admin SDK for password reset
 const admin = require('firebase-admin');
@@ -24,7 +25,7 @@ try {
   const serviceAccount = require('./serviceAccountKey.json');
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount),
-    databaseURL: 'https://eduverse-8780a-default-rtdb.firebaseio.com'
+    databaseURL: process.env.FIREBASE_DB_URL || 'https://eduverse-8780a-default-rtdb.firebaseio.com'
   });
   firebaseInitialized = true;
   console.log('✅ Firebase Admin SDK initialized with service account');
@@ -33,7 +34,7 @@ try {
   try {
     admin.initializeApp({
       credential: admin.credential.applicationDefault(),
-      databaseURL: 'https://eduverse-8780a-default-rtdb.firebaseio.com'
+      databaseURL: process.env.FIREBASE_DB_URL || 'https://eduverse-8780a-default-rtdb.firebaseio.com'
     });
     firebaseInitialized = true;
     console.log('✅ Firebase Admin SDK initialized with default credentials');
@@ -44,13 +45,18 @@ try {
   }
 }
 
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 
-// Mailjet credentials
-const MAILJET_API_KEY = 'REDACTED_MAILJET_KEY'; //REDACTED_MAILJET_KEY
-const MAILJET_API_SECRET = 'REDACTED_MAILJET_SECRET';//REDACTED_OLD_SECRET
-const FROM_EMAIL = 'noreply@eduverse-official.me';
-const FROM_NAME = 'EduVerse Team';
+// Mailjet credentials — loaded from .env (NEVER hardcode)
+const MAILJET_API_KEY = process.env.MAILJET_API_KEY || '';
+const MAILJET_API_SECRET = process.env.MAILJET_API_SECRET || '';
+const FROM_EMAIL = process.env.FROM_EMAIL || 'noreply@eduverse-official.me';
+const FROM_NAME = process.env.FROM_NAME || 'EduVerse Team';
+
+if (!MAILJET_API_KEY || !MAILJET_API_SECRET || MAILJET_API_KEY.startsWith('your_')) {
+  console.log('⚠️  Mailjet API keys not configured in .env — email sending will fail.');
+  console.log('   Copy .env.example → .env and add your keys.');
+}
 
 // ── Nodemailer fallback transport (SMTP) ──
 // Configure via environment variables for production.
