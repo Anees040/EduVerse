@@ -340,7 +340,7 @@ class _StudentProgressReportScreenState
               final q = quiz as Map<String, dynamic>;
               final score =
                   (q['scorePercent'] as num?)?.toDouble() ?? 0;
-              final quizId = q['quizId'] ?? 'Quiz';
+              final quizTitle = q['quizTitle'] ?? q['quizId'] ?? 'Quiz';
 
               Color scoreColor;
               if (score >= 80) {
@@ -357,9 +357,9 @@ class _StudentProgressReportScreenState
                   children: [
                     Expanded(
                       child: Text(
-                        quizId.toString().length > 25
-                            ? '${quizId.toString().substring(0, 25)}...'
-                            : quizId.toString(),
+                        quizTitle.toString().length > 25
+                            ? '${quizTitle.toString().substring(0, 25)}...'
+                            : quizTitle.toString(),
                         style: TextStyle(
                           color: AppTheme.getTextPrimary(context),
                           fontSize: 13,
