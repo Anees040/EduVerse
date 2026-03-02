@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -1692,9 +1693,11 @@ class _ProfileScreenState extends State<ProfileScreen>
                         'Email Support',
                         'eduverse.company@gmail.com',
                         () {
+                          Clipboard.setData(const ClipboardData(text: 'eduverse.company@gmail.com'));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Email copied to clipboard'),
+                              content: Text('Email copied to clipboard! Send us your query.'),
+                              backgroundColor: Colors.green,
                             ),
                           );
                         },
