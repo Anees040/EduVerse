@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
@@ -15,6 +16,7 @@ import 'package:eduverse/views/teacher/teacher_analytics_screen.dart';
 import 'package:eduverse/views/teacher/teacher_onboarding_wizard.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
+import 'package:eduverse/services/support_service.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   final String uid;
@@ -1410,9 +1412,11 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                         'Email Support',
                         'eduverse.company@gmail.com',
                         () {
+                          Clipboard.setData(const ClipboardData(text: 'eduverse.company@gmail.com'));
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                              content: Text('Email copied to clipboard'),
+                              content: Text('Email copied to clipboard! Send us your query.'),
+                              backgroundColor: Colors.green,
                             ),
                           );
                         },
@@ -1469,6 +1473,37 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                         '📢',
                         'Post announcements to keep your students informed and engaged',
                         isDark,
+                      ),
+
+                      const SizedBox(height: 20),
+                      Divider(
+                        color: isDark
+                            ? AppTheme.darkBorder
+                            : Colors.grey.shade300,
+                      ),
+                      const SizedBox(height: 20),
+
+                      // Submit Ticket Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(ctx);
+                            _showSubmitTicketDialog();
+                          },
+                          icon: const Icon(Icons.support_agent, size: 20),
+                          label: const Text('Submit Support Ticket'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: isDark
+                                ? AppTheme.darkAccent
+                                : AppTheme.primaryColor,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -1618,6 +1653,178 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  void _showSubmitTicketDialog() {
+    final isDark = AppTheme.isDarkMode(context);
+    final subjectController = TextEditingController();
+    final messageController = TextEditingController();
+    String selectedCategory = 'technical';
+    String selectedPriority = 'medium';
+    bool isSubmitting = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.support_agent,
+                color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Submit Support Ticket',
+                style: TextStyle(
+                  color: isDark
+                      ? AppTheme.darkTextPrimary
+                      : AppTheme.textPrimary,
+                  fontSize: 18,
+                ),
+              ),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: SizedBox(
+              width: 400,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text('Category', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedCategory,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'account', child: Text('Account Issues')),
+                      DropdownMenuItem(value: 'technical', child: Text('Technical Problems')),
+                      DropdownMenuItem(value: 'billing', child: Text('Billing & Payments')),
+                      DropdownMenuItem(value: 'content', child: Text('Course Content')),
+                      DropdownMenuItem(value: 'other', child: Text('Other')),
+                    ],
+                    onChanged: (value) => setState(() => selectedCategory = value!),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Priority', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedPriority,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'low', child: Text('Low')),
+                      DropdownMenuItem(value: 'medium', child: Text('Medium')),
+                      DropdownMenuItem(value: 'high', child: Text('High')),
+                      DropdownMenuItem(value: 'urgent', child: Text('Urgent')),
+                    ],
+                    onChanged: (value) => setState(() => selectedPriority = value!),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Subject', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: subjectController,
+                    decoration: InputDecoration(
+                      hintText: 'Brief description of your issue',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Message', style: TextStyle(color: AppTheme.getTextSecondary(context), fontSize: 12)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: messageController,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      hintText: 'Describe your issue in detail...',
+                      alignLabelWithHint: true,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      filled: true,
+                      fillColor: isDark ? Colors.grey[800]!.withOpacity(0.3) : Colors.grey[100],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: Text('Cancel', style: TextStyle(color: AppTheme.getTextSecondary(context))),
+            ),
+            ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      if (subjectController.text.trim().isEmpty || messageController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Please fill in all fields')),
+                        );
+                        return;
+                      }
+                      setState(() => isSubmitting = true);
+                      try {
+                        final supportService = SupportService();
+                        final ticketId = await supportService.createTicket(
+                          userId: widget.uid,
+                          userEmail: email,
+                          userName: userName,
+                          userRole: 'teacher',
+                          subject: subjectController.text.trim(),
+                          message: messageController.text.trim(),
+                          category: selectedCategory,
+                          priority: selectedPriority,
+                        );
+                        if (ticketId != null && mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Support ticket submitted successfully! We\'ll respond within 24-48 hours.'),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          throw Exception('Failed to create ticket');
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error submitting ticket: $e'), backgroundColor: Colors.red),
+                          );
+                        }
+                      } finally {
+                        if (mounted) setState(() => isSubmitting = false);
+                      }
+                    },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                foregroundColor: Colors.white,
+              ),
+              child: isSubmitting
+                  ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Text('Submit Ticket'),
+            ),
+          ],
+        ),
       ),
     );
   }
