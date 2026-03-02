@@ -41,6 +41,7 @@ class PaymentService {
         'courseId': courseId,
         'courseName': courseName,
         'teacherUid': teacherUid,
+        'teacherId': teacherUid, // Alias for revenue dashboard queries
         'teacherName': teacherName,
         'amount': totalAmount, // Required by Firebase validation
         'totalAmount': totalAmount,
