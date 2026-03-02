@@ -502,9 +502,36 @@ class TeacherFeatureService {
             final attemptCourseId = attempt['courseId'] as String? ?? '';
             final status = attempt['status'] as String? ?? '';
             if (attemptCourseId == courseId && status == 'completed') {
+              // Resolve quiz title from quizId
+              final quizId = attempt['quizId'] as String? ?? '';
+              String quizTitle = attempt['quizTitle'] as String? ?? '';
+              if (quizTitle.isEmpty && quizId.isNotEmpty) {
+                try {
+                  final quizSnap = await _db.child('quizzes').child(quizId).child('title').get();
+                  if (quizSnap.exists && quizSnap.value != null) {
+                    quizTitle = quizSnap.value.toString();
+                  }
+                } catch (_) {}
+              }
+              if (quizTitle.isEmpty) {
+                quizTitle = 'Quiz ${quizResults.length + 1}';
+              }
+
+              // Recalculate score if scorePercent is 0 but answers exist
+              double scorePercent = (attempt['scorePercent'] as num?)?.toDouble() ?? 0;
+              if (scorePercent == 0) {
+                final correct = (attempt['correctAnswers'] as num?)?.toDouble() ?? 0;
+                final total = (attempt['totalQuestions'] as num?)?.toDouble() ?? 0;
+                if (total > 0) {
+                  scorePercent = (correct / total) * 100;
+                }
+              }
+
               quizResults.add({
                 'attemptId': entry.key,
                 ...attempt,
+                'quizTitle': quizTitle,
+                'scorePercent': scorePercent,
               });
             }
           }
