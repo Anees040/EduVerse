@@ -139,11 +139,21 @@ class _TeacherRevenueDashboardState extends State<TeacherRevenueDashboard> {
       }
 
       // Get payment data for real revenue tracking
-      final paymentsSnap = await _db
+      // Try teacherId first, fall back to teacherUid for older records
+      DataSnapshot? paymentsSnap = await _db
           .child('payments')
           .orderByChild('teacherId')
           .equalTo(uid)
           .get();
+
+      // If no results with teacherId, try teacherUid  
+      if (!paymentsSnap.exists || paymentsSnap.value == null) {
+        paymentsSnap = await _db
+            .child('payments')
+            .orderByChild('teacherUid')
+            .equalTo(uid)
+            .get();
+      }
 
       if (paymentsSnap.exists && paymentsSnap.value != null) {
         final payments =
@@ -152,8 +162,12 @@ class _TeacherRevenueDashboardState extends State<TeacherRevenueDashboard> {
         for (final entry in payments.entries) {
           if (entry.value is! Map) continue;
           final payment = Map<String, dynamic>.from(entry.value as Map);
-          final amount = (payment['amount'] as num?)?.toDouble() ?? 0;
-          final timestamp = (payment['createdAt'] as num?)?.toInt() ?? 0;
+          // Use teacherEarnings (after platform commission), fall back to amount
+          final amount = (payment['teacherEarnings'] as num?)?.toDouble() 
+              ?? (payment['amount'] as num?)?.toDouble() ?? 0;
+          // Use timestamp field first (millis), fall back to createdAt
+          final timestamp = (payment['timestamp'] as num?)?.toInt() 
+              ?? (payment['createdAt'] as num?)?.toInt() ?? 0;
           final courseId = payment['courseId'] as String? ?? '';
 
           totalRevenue += amount;
@@ -184,7 +198,16 @@ class _TeacherRevenueDashboardState extends State<TeacherRevenueDashboard> {
         }
       }
 
-      // If no payments exist, use enrollment-based estimates
+      // If no payment records found, check teacher/totalEarnings as fallback
+      if (totalTransactions == 0) {
+        final earningsSnap = await _db.child('teacher/$uid/totalEarnings').get();
+        if (earningsSnap.exists && earningsSnap.value != null) {
+          totalRevenue = (earningsSnap.value as num).toDouble();
+          totalTransactions = 1; // at least one transaction happened
+        }
+      }
+
+      // If still no data, use enrollment-based estimates
       if (totalTransactions == 0) {
         for (final cs in courseStatsMap.values) {
           totalRevenue += (cs['revenue'] as num?)?.toDouble() ?? 0;
