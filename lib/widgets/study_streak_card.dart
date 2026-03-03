@@ -18,8 +18,6 @@ class _StudyStreakCardState extends State<StudyStreakCard>
   final _streakService = StudyStreakService();
   final _statsService = LearningStatsService();
 
-  Map<String, dynamic> _stats = {};
-  bool _statsLoaded = false;
   late AnimationController _fireController;
 
   @override
@@ -29,23 +27,12 @@ class _StudyStreakCardState extends State<StudyStreakCard>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     )..repeat(reverse: true);
-    _loadStats();
   }
 
   @override
   void dispose() {
     _fireController.dispose();
     super.dispose();
-  }
-
-  Future<void> _loadStats() async {
-    final stats = await _statsService.getStats();
-    if (mounted) {
-      setState(() {
-        _stats = stats;
-        _statsLoaded = true;
-      });
-    }
   }
 
   @override
@@ -59,15 +46,21 @@ class _StudyStreakCardState extends State<StudyStreakCard>
         final currentStreak = streak['currentStreak'] as int? ?? 0;
         final longestStreak = streak['longestStreak'] as int? ?? 0;
         final studiedToday = streak['studiedToday'] as bool? ?? false;
-        final totalHours = _statsLoaded
-            ? (_stats['totalHours'] as String? ?? '0.0')
-            : '...';
-        final videosWatched = _statsLoaded
-            ? (_stats['videosWatched'] as int? ?? 0)
-            : 0;
-        final quizzesTaken = _statsLoaded
-            ? (_stats['quizzesTaken'] as int? ?? 0)
-            : 0;
+
+        return StreamBuilder<Map<String, dynamic>>(
+          stream: _statsService.statsStream(),
+          builder: (context, statsSnap) {
+            final statsData = statsSnap.data;
+            final statsLoaded = statsData != null;
+            final totalHours = statsLoaded
+                ? (statsData['totalHours'] as String? ?? '0.0')
+                : '...';
+            final videosWatched = statsLoaded
+                ? (statsData['videosWatched'] as int? ?? 0)
+                : 0;
+            final quizzesTaken = statsLoaded
+                ? (statsData['quizzesTaken'] as int? ?? 0)
+                : 0;
 
         return GestureDetector(
           onTap: () {
@@ -257,6 +250,8 @@ class _StudyStreakCardState extends State<StudyStreakCard>
       ),
     ),
     );
+          },
+        );
       },
     );
   }
