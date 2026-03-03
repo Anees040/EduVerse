@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:eduverse/views/splash_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/services/theme_service.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/widgets/animated_dark_background.dart';
 import 'package:eduverse/widgets/session_timeout_wrapper.dart';
 
@@ -11,8 +12,8 @@ class EduVerseApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ThemeService>(
-      builder: (context, themeService, child) {
+    return Consumer2<ThemeService, UserCustomizationService>(
+      builder: (context, themeService, customization, child) {
         return MaterialApp(
           title: 'eduVerse',
           debugShowCheckedModeBanner: false,
@@ -34,7 +35,9 @@ class EduVerseApp extends StatelessWidget {
 
             return MediaQuery(
               data: mediaQuery.copyWith(
-                textScaleFactor: mediaQuery.textScaleFactor.clamp(0.8, 1.3),
+                textScaleFactor: (mediaQuery.textScaleFactor *
+                        customization.fontScale)
+                    .clamp(0.7, 1.5),
               ),
               child: ScrollConfiguration(
                 behavior: _NoOverscrollBehavior(),
