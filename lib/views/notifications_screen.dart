@@ -700,8 +700,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
 
     try {
+      // Show a quick loading overlay while fetching course details
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        barrierColor: Colors.black26,
+        builder: (_) => const Center(
+          child: Card(
+            elevation: 4,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(16))),
+            child: Padding(
+              padding: EdgeInsets.all(24),
+              child: SizedBox(
+                width: 28,
+                height: 28,
+                child: CircularProgressIndicator(strokeWidth: 3),
+              ),
+            ),
+          ),
+        ),
+      );
+
       final courseDetails =
           await _courseService.getCourseDetails(courseUid: relatedCourseId);
+
+      // Dismiss loading overlay
+      if (mounted) Navigator.pop(context);
+
       if (courseDetails != null && mounted) {
         // Check if student is enrolled
         bool isEnrolled = false;
@@ -723,8 +749,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       initialVideoId: relatedVideoId,
                       initialVideoTimestampSeconds: relatedVideoTimestamp)));
         } else {
-          // Student is not enrolled — show enrollment dialog
-          _showEnrollmentDialog(
+          // Student is not enrolled — show enrollment bottom sheet
+          _showEnrollmentSheet(
             courseUid: relatedCourseId,
             courseTitle: courseDetails['title'] ?? 'Course',
             imageUrl: courseDetails['imageUrl'] ?? '',
@@ -734,6 +760,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         }
       }
     } catch (e) {
+      // Dismiss loading overlay if still showing
+      if (mounted) Navigator.of(context, rootNavigator: true).pop();
       if (mounted) {
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Failed to open course: $e')));
@@ -741,7 +769,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
-  void _showEnrollmentDialog({
+  void _showEnrollmentSheet({
     required String courseUid,
     required String courseTitle,
     required String imageUrl,
@@ -749,120 +777,223 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     dynamic createdAt,
   }) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    showDialog(
+    final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+
+    showModalBottomSheet(
       context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Row(
-          children: [
-            Icon(Icons.school_outlined,
-                color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                courseTitle,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (ctx) {
+        bool isEnrolling = false;
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
               ),
-            ),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (imageUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  imageUrl,
-                  height: 120,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              ),
-            if (imageUrl.isNotEmpty) const SizedBox(height: 12),
-            const Text(
-              'You are not enrolled in this course.',
-              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              description.length > 120
-                  ? '${description.substring(0, 120)}...'
-                  : description,
-              style: TextStyle(
-                  fontSize: 13,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600]),
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'Would you like to enroll now?',
-              style: TextStyle(fontSize: 14),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: Text('Close',
-                style: TextStyle(
-                    color: isDark ? Colors.grey[400] : Colors.grey[600])),
-          ),
-          ElevatedButton.icon(
-            onPressed: () async {
-              Navigator.pop(ctx);
-              try {
-                await _courseService.enrollInCourse(
-                  studentUid: _uid,
-                  courseUid: courseUid,
-                );
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Successfully enrolled in $courseTitle!'),
-                      backgroundColor: Colors.green,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
                     ),
-                  );
-                  // Navigate to the course after enrolling
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => StudentCourseDetailScreen(
-                        courseUid: courseUid,
-                        courseTitle: courseTitle,
-                        imageUrl: imageUrl,
-                        description: description,
-                        createdAt: createdAt,
+                  ),
+                  const SizedBox(height: 16),
+                  // Course image
+                  if (imageUrl.isNotEmpty)
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(14),
+                      child: Image.network(
+                        imageUrl,
+                        height: 140,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                       ),
                     ),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Failed to enroll: $e'),
-                      backgroundColor: Colors.red,
+                  if (imageUrl.isNotEmpty) const SizedBox(height: 16),
+                  // Course title
+                  Text(
+                    courseTitle,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context),
                     ),
-                  );
-                }
-              }
-            },
-            icon: const Icon(Icons.check_circle_outline, size: 18),
-            label: const Text('Enroll'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor:
-                  isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
-              foregroundColor: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12)),
-            ),
-          ),
-        ],
-      ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 10),
+                  // Info chip
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                          color: Colors.orange.withOpacity(0.25)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.info_outline,
+                            size: 16, color: Colors.orange.shade700),
+                        const SizedBox(width: 6),
+                        Text(
+                          'You are not enrolled in this course',
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.orange.shade700,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (description.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      description.length > 150
+                          ? '${description.substring(0, 150)}...'
+                          : description,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 3,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  // Action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(ctx),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                            side: BorderSide(
+                                color: AppTheme.getBorderColor(context)),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                          ),
+                          child: Text(
+                            'Close',
+                            style: TextStyle(
+                              color: AppTheme.getTextSecondary(context),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 2,
+                        child: ElevatedButton.icon(
+                          onPressed: isEnrolling
+                              ? null
+                              : () async {
+                                  setSheetState(
+                                      () => isEnrolling = true);
+                                  try {
+                                    await _courseService.enrollInCourse(
+                                      studentUid: _uid,
+                                      courseUid: courseUid,
+                                    );
+                                    if (mounted) {
+                                      Navigator.pop(ctx);
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Enrolled in $courseTitle!'),
+                                          backgroundColor: Colors.green,
+                                          behavior:
+                                              SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      10)),
+                                        ),
+                                      );
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) =>
+                                              StudentCourseDetailScreen(
+                                            courseUid: courseUid,
+                                            courseTitle: courseTitle,
+                                            imageUrl: imageUrl,
+                                            description: description,
+                                            createdAt: createdAt,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    setSheetState(
+                                        () => isEnrolling = false);
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                              'Failed to enroll: $e'),
+                                          backgroundColor: Colors.red,
+                                          behavior:
+                                              SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      10)),
+                                        ),
+                                      );
+                                    }
+                                  }
+                                },
+                          icon: isEnrolling
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white),
+                                )
+                              : const Icon(Icons.school_rounded,
+                                  size: 18),
+                          label: Text(
+                              isEnrolling ? 'Enrolling...' : 'Enroll Now'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: accentColor,
+                            foregroundColor: Colors.white,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(14)),
+                            elevation: 0,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -971,25 +1102,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                                 ),
                                 TextButton(
                                   onPressed: () async {
-                                    await _notificationService
-                                        .cancelSnooze(_uid);
-                                    setState(() => _snoozeUntil = 0);
-                                    setSheetState(() {});
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context)
-                                          .showSnackBar(
-                                        SnackBar(
-                                          content: const Text(
-                                              'Snooze cancelled'),
-                                          backgroundColor: accentColor,
-                                          behavior:
-                                              SnackBarBehavior.floating,
-                                          shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(
-                                                      10)),
-                                        ),
-                                      );
+                                    try {
+                                      await _notificationService
+                                          .cancelSnooze(_uid);
+                                      setState(() => _snoozeUntil = 0);
+                                      setSheetState(() {});
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context)
+                                            .showSnackBar(
+                                          SnackBar(
+                                            content: const Text(
+                                                'Snooze cancelled'),
+                                            backgroundColor: accentColor,
+                                            behavior:
+                                                SnackBarBehavior.floating,
+                                            shape: RoundedRectangleBorder(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        10)),
+                                          ),
+                                        );
+                                      }
+                                    } catch (_) {
+                                      setState(() => _snoozeUntil = 0);
+                                      setSheetState(() {});
                                     }
                                   },
                                   child: const Text('Cancel',
@@ -1054,10 +1190,12 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                         if (_mutedTypes.isNotEmpty)
                           TextButton(
                             onPressed: () async {
-                              await _notificationService
-                                  .setMutedTypes(_uid, []);
-                              setState(() => _mutedTypes = []);
-                              setSheetState(() {});
+                              try {
+                                await _notificationService
+                                    .setMutedTypes(_uid, []);
+                                setState(() => _mutedTypes = []);
+                                setSheetState(() {});
+                              } catch (_) {}
                             },
                             child: Text('Unmute all',
                                 style: TextStyle(
@@ -1118,16 +1256,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             activeColor: accentColor,
                             onChanged: (enabled) async {
                               final muted = !enabled;
-                              await _notificationService
-                                  .toggleMuteType(_uid, type, muted);
-                              setState(() {
-                                if (muted) {
-                                  _mutedTypes.add(type);
-                                } else {
-                                  _mutedTypes.remove(type);
-                                }
-                              });
-                              setSheetState(() {});
+                              try {
+                                await _notificationService
+                                    .toggleMuteType(_uid, type, muted);
+                                setState(() {
+                                  if (muted) {
+                                    _mutedTypes.add(type);
+                                  } else {
+                                    _mutedTypes.remove(type);
+                                  }
+                                });
+                                setSheetState(() {});
+                              } catch (_) {
+                                // Update UI optimistically even on failure
+                                setState(() {
+                                  if (muted) {
+                                    _mutedTypes.add(type);
+                                  } else {
+                                    _mutedTypes.remove(type);
+                                  }
+                                });
+                                setSheetState(() {});
+                              }
                             },
                           ),
                         );
@@ -1156,22 +1306,37 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       backgroundColor: AppTheme.getCardColor(context),
       side: BorderSide(color: accentColor.withOpacity(0.3)),
       onPressed: () async {
-        await _notificationService.snoozeNotifications(_uid, duration);
-        final snoozeUntil =
-            DateTime.now().add(duration).millisecondsSinceEpoch;
-        setState(() => _snoozeUntil = snoozeUntil);
-        setSheetState(() {});
-        if (mounted) {
-          Navigator.pop(context);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Notifications snoozed for $label'),
-              backgroundColor: Colors.orange,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10)),
-            ),
-          );
+        try {
+          await _notificationService.snoozeNotifications(_uid, duration);
+          final snoozeUntil =
+              DateTime.now().add(duration).millisecondsSinceEpoch;
+          setState(() => _snoozeUntil = snoozeUntil);
+          setSheetState(() {});
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Notifications snoozed for $label'),
+                backgroundColor: Colors.orange,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            );
+          }
+        } catch (e) {
+          if (mounted) {
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text('Failed to snooze notifications'),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10)),
+              ),
+            );
+          }
         }
       },
     );
