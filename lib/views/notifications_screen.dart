@@ -23,6 +23,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   bool? _isTeacher;
 
   String _selectedFilter = 'all';
+  List<String> _mutedTypes = [];
+  int _snoozeUntil = 0;
 
   static const List<Map<String, dynamic>> _teacherFilters = [
     {'value': 'all', 'label': 'All', 'icon': Icons.all_inbox},
@@ -46,6 +48,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   void initState() {
     super.initState();
     _detectUserRole();
+    _loadNotificationPreferences();
+  }
+
+  Future<void> _loadNotificationPreferences() async {
+    try {
+      final prefs =
+          await _notificationService.getNotificationPreferences(_uid);
+      if (mounted) {
+        setState(() {
+          _mutedTypes = List<String>.from(prefs['mutedTypes'] ?? []);
+          _snoozeUntil = prefs['snoozeUntil'] ?? 0;
+        });
+      }
+    } catch (_) {}
   }
 
   Future<void> _detectUserRole() async {
@@ -260,6 +276,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     );
                   }
                 }
+              } else if (value == 'manage_preferences') {
+                _showNotificationPreferences();
               }
             },
             itemBuilder: (context) => [
@@ -287,6 +305,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ],
                 ),
               ),
+              const PopupMenuDivider(),
+              PopupMenuItem(
+                value: 'manage_preferences',
+                child: Row(
+                  children: [
+                    Icon(Icons.tune,
+                        size: 20,
+                        color: AppTheme.getTextSecondary(context)),
+                    const SizedBox(width: 8),
+                    Text('Manage notifications',
+                        style: TextStyle(
+                            color: AppTheme.getTextPrimary(context))),
+                  ],
+                ),
+              ),
             ],
           ),
         ],
@@ -306,9 +339,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 if (snapshot.hasError) return _buildErrorState();
 
                 final allNotifications = snapshot.data ?? [];
-                final notifications = _selectedFilter == 'all'
+
+                // Filter out muted notification types
+                final visibleNotifications = _mutedTypes.isEmpty
                     ? allNotifications
-                    : allNotifications.where((n) {
+                    : allNotifications
+                        .where((n) =>
+                            !_mutedTypes.contains(n['type'] ?? 'general'))
+                        .toList();
+
+                final notifications = _selectedFilter == 'all'
+                    ? visibleNotifications
+                    : visibleNotifications.where((n) {
                         final type = n['type'] ?? 'general';
                         if (_selectedFilter == 'support_reply') {
                           return type == 'support_reply' ||
@@ -661,17 +703,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final courseDetails =
           await _courseService.getCourseDetails(courseUid: relatedCourseId);
       if (courseDetails != null && mounted) {
-        Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (_) => StudentCourseDetailScreen(
-                    courseUid: relatedCourseId,
-                    courseTitle: courseDetails['title'] ?? 'Course',
-                    imageUrl: courseDetails['imageUrl'] ?? '',
-                    description: courseDetails['description'] ?? '',
-                    createdAt: courseDetails['createdAt'],
-                    initialVideoId: relatedVideoId,
-                    initialVideoTimestampSeconds: relatedVideoTimestamp)));
+        // Check if student is enrolled
+        bool isEnrolled = false;
+        final enrolled = courseDetails['enrolledStudents'];
+        if (enrolled is Map) {
+          isEnrolled = enrolled.containsKey(_uid);
+        }
+
+        if (isEnrolled) {
+          Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (_) => StudentCourseDetailScreen(
+                      courseUid: relatedCourseId,
+                      courseTitle: courseDetails['title'] ?? 'Course',
+                      imageUrl: courseDetails['imageUrl'] ?? '',
+                      description: courseDetails['description'] ?? '',
+                      createdAt: courseDetails['createdAt'],
+                      initialVideoId: relatedVideoId,
+                      initialVideoTimestampSeconds: relatedVideoTimestamp)));
+        } else {
+          // Student is not enrolled — show enrollment dialog
+          _showEnrollmentDialog(
+            courseUid: relatedCourseId,
+            courseTitle: courseDetails['title'] ?? 'Course',
+            imageUrl: courseDetails['imageUrl'] ?? '',
+            description: courseDetails['description'] ?? '',
+            createdAt: courseDetails['createdAt'],
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -679,6 +739,448 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             .showSnackBar(SnackBar(content: Text('Failed to open course: $e')));
       }
     }
+  }
+
+  void _showEnrollmentDialog({
+    required String courseUid,
+    required String courseTitle,
+    required String imageUrl,
+    required String description,
+    dynamic createdAt,
+  }) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
+          children: [
+            Icon(Icons.school_outlined,
+                color: isDark ? AppTheme.primaryDark : AppTheme.primaryLight),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                courseTitle,
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (imageUrl.isNotEmpty)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.network(
+                  imageUrl,
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              ),
+            if (imageUrl.isNotEmpty) const SizedBox(height: 12),
+            const Text(
+              'You are not enrolled in this course.',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              description.length > 120
+                  ? '${description.substring(0, 120)}...'
+                  : description,
+              style: TextStyle(
+                  fontSize: 13,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600]),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Would you like to enroll now?',
+              style: TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('Close',
+                style: TextStyle(
+                    color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          ),
+          ElevatedButton.icon(
+            onPressed: () async {
+              Navigator.pop(ctx);
+              try {
+                await _courseService.enrollInCourse(
+                  studentUid: _uid,
+                  courseUid: courseUid,
+                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Successfully enrolled in $courseTitle!'),
+                      backgroundColor: Colors.green,
+                    ),
+                  );
+                  // Navigate to the course after enrolling
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StudentCourseDetailScreen(
+                        courseUid: courseUid,
+                        courseTitle: courseTitle,
+                        imageUrl: imageUrl,
+                        description: description,
+                        createdAt: createdAt,
+                      ),
+                    ),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Failed to enroll: $e'),
+                      backgroundColor: Colors.red,
+                    ),
+                  );
+                }
+              }
+            },
+            icon: const Icon(Icons.check_circle_outline, size: 18),
+            label: const Text('Enroll'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor:
+                  isDark ? AppTheme.primaryDark : AppTheme.primaryLight,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ──────────── Notification Preferences ────────────
+
+  void _showNotificationPreferences() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
+    final filters = _filters.where((f) => f['value'] != 'all').toList();
+
+    // Check if currently snoozed
+    final bool isSnoozed =
+        _snoozeUntil > DateTime.now().millisecondsSinceEpoch;
+    final snoozeRemaining = isSnoozed
+        ? Duration(
+            milliseconds:
+                _snoozeUntil - DateTime.now().millisecondsSinceEpoch)
+        : Duration.zero;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.75,
+              ),
+              decoration: BoxDecoration(
+                color: AppTheme.getCardColor(context),
+                borderRadius:
+                    const BorderRadius.vertical(top: Radius.circular(24)),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  // Title
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+                    child: Row(
+                      children: [
+                        Icon(Icons.tune, color: accentColor, size: 24),
+                        const SizedBox(width: 10),
+                        Text(
+                          'Notification Preferences',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.getTextPrimary(context),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(),
+
+                  // Snooze section
+                  Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Snooze All Notifications',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.getTextPrimary(context),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        if (isSnoozed)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(
+                                  color: Colors.orange.withOpacity(0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(Icons.snooze,
+                                    color: Colors.orange, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'Snoozed for ${_formatSnoozeRemaining(snoozeRemaining)}',
+                                    style: const TextStyle(
+                                        color: Colors.orange, fontSize: 13),
+                                  ),
+                                ),
+                                TextButton(
+                                  onPressed: () async {
+                                    await _notificationService
+                                        .cancelSnooze(_uid);
+                                    setState(() => _snoozeUntil = 0);
+                                    setSheetState(() {});
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        SnackBar(
+                                          content: const Text(
+                                              'Snooze cancelled'),
+                                          backgroundColor: accentColor,
+                                          behavior:
+                                              SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                      10)),
+                                        ),
+                                      );
+                                    }
+                                  },
+                                  child: const Text('Cancel',
+                                      style: TextStyle(
+                                          color: Colors.orange,
+                                          fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Wrap(
+                            spacing: 8,
+                            children: [
+                              _buildSnoozeChip(
+                                '1 hour',
+                                const Duration(hours: 1),
+                                accentColor,
+                                setSheetState,
+                              ),
+                              _buildSnoozeChip(
+                                '8 hours',
+                                const Duration(hours: 8),
+                                accentColor,
+                                setSheetState,
+                              ),
+                              _buildSnoozeChip(
+                                '24 hours',
+                                const Duration(hours: 24),
+                                accentColor,
+                                setSheetState,
+                              ),
+                              _buildSnoozeChip(
+                                '3 days',
+                                const Duration(days: 3),
+                                accentColor,
+                                setSheetState,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+
+                  const Divider(),
+
+                  // Mute notification types
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 4),
+                    child: Row(
+                      children: [
+                        Text(
+                          'Mute by Type',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.getTextPrimary(context),
+                          ),
+                        ),
+                        const Spacer(),
+                        if (_mutedTypes.isNotEmpty)
+                          TextButton(
+                            onPressed: () async {
+                              await _notificationService
+                                  .setMutedTypes(_uid, []);
+                              setState(() => _mutedTypes = []);
+                              setSheetState(() {});
+                            },
+                            child: Text('Unmute all',
+                                style: TextStyle(
+                                    color: accentColor, fontSize: 12)),
+                          ),
+                      ],
+                    ),
+                  ),
+                  Flexible(
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: filters.length,
+                      itemBuilder: (context, index) {
+                        final filter = filters[index];
+                        final type = filter['value'] as String;
+                        final label = filter['label'] as String;
+                        final icon = filter['icon'] as IconData;
+                        final isMuted = _mutedTypes.contains(type);
+                        final typeColor = _getTypeColor(type, isDark);
+
+                        return ListTile(
+                          leading: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: typeColor.withOpacity(0.12),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child:
+                                Icon(icon, color: typeColor, size: 20),
+                          ),
+                          title: Text(
+                            label,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w500,
+                              color: isMuted
+                                  ? AppTheme.getTextSecondary(context)
+                                  : AppTheme.getTextPrimary(context),
+                              decoration: isMuted
+                                  ? TextDecoration.lineThrough
+                                  : null,
+                            ),
+                          ),
+                          subtitle: Text(
+                            isMuted
+                                ? 'Muted — you won\'t receive these'
+                                : 'Tap to mute this type',
+                            style: TextStyle(
+                              fontSize: 11,
+                              color: isMuted
+                                  ? Colors.orange.shade400
+                                  : AppTheme.getTextSecondary(context),
+                            ),
+                          ),
+                          trailing: Switch.adaptive(
+                            value: !isMuted,
+                            activeColor: accentColor,
+                            onChanged: (enabled) async {
+                              final muted = !enabled;
+                              await _notificationService
+                                  .toggleMuteType(_uid, type, muted);
+                              setState(() {
+                                if (muted) {
+                                  _mutedTypes.add(type);
+                                } else {
+                                  _mutedTypes.remove(type);
+                                }
+                              });
+                              setSheetState(() {});
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildSnoozeChip(
+    String label,
+    Duration duration,
+    Color accentColor,
+    StateSetter setSheetState,
+  ) {
+    return ActionChip(
+      label: Text(label, style: const TextStyle(fontSize: 12)),
+      avatar: const Icon(Icons.snooze, size: 16),
+      backgroundColor: AppTheme.getCardColor(context),
+      side: BorderSide(color: accentColor.withOpacity(0.3)),
+      onPressed: () async {
+        await _notificationService.snoozeNotifications(_uid, duration);
+        final snoozeUntil =
+            DateTime.now().add(duration).millisecondsSinceEpoch;
+        setState(() => _snoozeUntil = snoozeUntil);
+        setSheetState(() {});
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Notifications snoozed for $label'),
+              backgroundColor: Colors.orange,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  String _formatSnoozeRemaining(Duration d) {
+    if (d.inDays > 0) return '${d.inDays}d ${d.inHours % 24}h';
+    if (d.inHours > 0) return '${d.inHours}h ${d.inMinutes % 60}m';
+    return '${d.inMinutes}m';
   }
 
   // ──────────── Empty States ────────────
