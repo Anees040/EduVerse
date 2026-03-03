@@ -391,6 +391,12 @@
         ".write": "$uid === auth.uid"
       }
     },
+    "user_customization": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
     "notifications": {
       ".read": "auth != null",
       "$uid": {
