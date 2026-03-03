@@ -5,6 +5,97 @@ import 'platform_settings_service.dart';
 class NotificationService {
   final DatabaseReference _db = FirebaseDatabase.instance.ref();
 
+  // ──────────── Notification Preferences ────────────
+
+  /// Get user's notification preferences (muted types, snooze info)
+  Future<Map<String, dynamic>> getNotificationPreferences(String uid) async {
+    final snapshot =
+        await _db.child('notification_preferences').child(uid).get();
+    if (!snapshot.exists || snapshot.value == null) {
+      return {'mutedTypes': <String>[], 'snoozeUntil': 0};
+    }
+    final data = Map<String, dynamic>.from(snapshot.value as Map);
+    // Parse mutedTypes — stored as a map { "type": true }
+    final mutedRaw = data['mutedTypes'];
+    List<String> mutedTypes = [];
+    if (mutedRaw is Map) {
+      mutedTypes = mutedRaw.keys
+          .where((k) => mutedRaw[k] == true)
+          .map((k) => k.toString())
+          .toList();
+    }
+    final snoozeUntil = data['snoozeUntil'] is int ? data['snoozeUntil'] as int : 0;
+    return {'mutedTypes': mutedTypes, 'snoozeUntil': snoozeUntil};
+  }
+
+  /// Set muted notification types for a user
+  Future<void> setMutedTypes(String uid, List<String> mutedTypes) async {
+    final Map<String, dynamic> mutedMap = {};
+    for (final type in mutedTypes) {
+      mutedMap[type] = true;
+    }
+    await _db
+        .child('notification_preferences')
+        .child(uid)
+        .child('mutedTypes')
+        .set(mutedMap);
+  }
+
+  /// Toggle a single notification type mute state
+  Future<void> toggleMuteType(String uid, String type, bool muted) async {
+    await _db
+        .child('notification_preferences')
+        .child(uid)
+        .child('mutedTypes')
+        .child(type)
+        .set(muted ? true : null);
+  }
+
+  /// Snooze all notifications for a duration
+  Future<void> snoozeNotifications(String uid, Duration duration) async {
+    final snoozeUntil =
+        DateTime.now().add(duration).millisecondsSinceEpoch;
+    await _db
+        .child('notification_preferences')
+        .child(uid)
+        .child('snoozeUntil')
+        .set(snoozeUntil);
+  }
+
+  /// Cancel snooze
+  Future<void> cancelSnooze(String uid) async {
+    await _db
+        .child('notification_preferences')
+        .child(uid)
+        .child('snoozeUntil')
+        .remove();
+  }
+
+  /// Check if user has snoozed notifications
+  Future<bool> isSnoozed(String uid) async {
+    final snapshot = await _db
+        .child('notification_preferences')
+        .child(uid)
+        .child('snoozeUntil')
+        .get();
+    if (!snapshot.exists || snapshot.value == null) return false;
+    final snoozeUntil = snapshot.value as int;
+    return DateTime.now().millisecondsSinceEpoch < snoozeUntil;
+  }
+
+  /// Check if a specific notification type is muted for a user
+  Future<bool> isTypeMuted(String uid, String type) async {
+    final snapshot = await _db
+        .child('notification_preferences')
+        .child(uid)
+        .child('mutedTypes')
+        .child(type)
+        .get();
+    return snapshot.exists && snapshot.value == true;
+  }
+
+  // ──────────── Core Notification Methods ────────────
+
   /// Send a notification to a specific user
   Future<void> sendNotification({
     required String toUid,
@@ -25,6 +116,21 @@ class NotificationService {
       }
     } catch (e) {
       debugPrint('Failed to check notification settings: $e');
+      // Continue sending if we can't check — fail-open
+    }
+
+    // Check user-level notification preferences (muted types & snooze)
+    try {
+      if (await isSnoozed(toUid)) {
+        debugPrint('User $toUid has snoozed notifications. Skipping.');
+        return;
+      }
+      if (await isTypeMuted(toUid, type)) {
+        debugPrint('Notification type "$type" is muted for user $toUid. Skipping.');
+        return;
+      }
+    } catch (e) {
+      debugPrint('Failed to check user notification preferences: $e');
       // Continue sending if we can't check — fail-open
     }
 
