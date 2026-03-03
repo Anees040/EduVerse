@@ -1004,15 +1004,6 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     final accentColor = isDark ? AppTheme.darkAccent : AppTheme.primaryColor;
     final filters = _filters.where((f) => f['value'] != 'all').toList();
 
-    // Check if currently snoozed
-    final bool isSnoozed =
-        _snoozeUntil > DateTime.now().millisecondsSinceEpoch;
-    final snoozeRemaining = isSnoozed
-        ? Duration(
-            milliseconds:
-                _snoozeUntil - DateTime.now().millisecondsSinceEpoch)
-        : Duration.zero;
-
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -1020,6 +1011,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       builder: (ctx) {
         return StatefulBuilder(
           builder: (context, setSheetState) {
+            // Compute snooze state inside builder so it updates on setSheetState
+            final bool isSnoozed =
+                _snoozeUntil > DateTime.now().millisecondsSinceEpoch;
+            final snoozeRemaining = isSnoozed
+                ? Duration(
+                    milliseconds:
+                        _snoozeUntil - DateTime.now().millisecondsSinceEpoch)
+                : Duration.zero;
+
             return Container(
               constraints: BoxConstraints(
                 maxHeight: MediaQuery.of(context).size.height * 0.75,
