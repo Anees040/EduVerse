@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/theme_service.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/preferences_service.dart';
 import 'package:eduverse/services/analytics_service.dart';
@@ -839,9 +840,7 @@ class _ProfileScreenState extends State<ProfileScreen>
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                gradient: isDark
-                    ? AppTheme.darkPrimaryGradient
-                    : AppTheme.primaryGradient,
+                gradient: _getProfileBannerGradient(isDark),
                 borderRadius: BorderRadius.circular(24),
                 boxShadow: [
                   BoxShadow(
@@ -1248,6 +1247,186 @@ class _ProfileScreenState extends State<ProfileScreen>
                     },
                   ),
                   Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Accent Color Picker
+                  Consumer<UserCustomizationService>(
+                    builder: (context, customization, _) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 8),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: customization.accentColor.withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.palette,
+                              color: customization.accentColor, size: 22),
+                        ),
+                        title: Text("Accent Color",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.getTextPrimary(context))),
+                        subtitle: Text("Personalize your theme color",
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 12)),
+                        trailing: Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: customization.accentColor,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                                color: AppTheme.getBorderColor(context)),
+                          ),
+                        ),
+                        onTap: () => _showAccentColorPicker(context),
+                      );
+                    },
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Font Size
+                  Consumer<UserCustomizationService>(
+                    builder: (context, customization, _) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 8),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.text_fields,
+                              color: isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor,
+                              size: 22),
+                        ),
+                        title: Text("Text Size",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.getTextPrimary(context))),
+                        subtitle: Text(customization.fontScaleLabel,
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 12)),
+                        trailing: Icon(Icons.arrow_forward_ios,
+                            size: 16,
+                            color: AppTheme.getTextSecondary(context)),
+                        onTap: () => _showFontSizePicker(context),
+                      );
+                    },
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Dashboard Layout
+                  _buildActionTile(
+                    Icons.dashboard_customize,
+                    "Dashboard Layout",
+                    "Choose which widgets to show",
+                    () => _showDashboardLayoutEditor(context),
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Banner Color
+                  _buildActionTile(
+                    Icons.photo_size_select_actual,
+                    "Profile Banner",
+                    "Choose your banner gradient",
+                    () => _showBannerColorPicker(context),
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Certificate Style
+                  _buildActionTile(
+                    Icons.workspace_premium,
+                    "Certificate Style",
+                    "Choose your certificate template",
+                    () => _showCertificateStylePicker(context),
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Study Reminders
+                  Consumer<UserCustomizationService>(
+                    builder: (context, customization, _) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 8),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.alarm,
+                              color: isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor,
+                              size: 22),
+                        ),
+                        title: Text("Study Reminders",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.getTextPrimary(context))),
+                        subtitle: Text(
+                            customization.studyReminderEnabled
+                                ? '${customization.studyReminderTime.format(context)} · ${customization.studyReminderDays.map((d) => UserCustomizationService.dayLabels[d]).join(', ')}'
+                                : 'Off',
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 12)),
+                        trailing: Icon(Icons.arrow_forward_ios,
+                            size: 16,
+                            color: AppTheme.getTextSecondary(context)),
+                        onTap: () => _showStudyReminderEditor(context),
+                      );
+                    },
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
+                  // Focus Mode Toggle
+                  Consumer<UserCustomizationService>(
+                    builder: (context, customization, _) {
+                      return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 8),
+                        leading: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: (isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor)
+                                .withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(Icons.do_not_disturb_on,
+                              color: isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor,
+                              size: 22),
+                        ),
+                        title: Text("Focus Mode",
+                            style: TextStyle(
+                                fontWeight: FontWeight.w500,
+                                color: AppTheme.getTextPrimary(context))),
+                        subtitle: Text(
+                            "Hide distractions while watching videos",
+                            style: TextStyle(
+                                color: AppTheme.getTextSecondary(context),
+                                fontSize: 12)),
+                        trailing: Switch(
+                          value: customization.focusModeEnabled,
+                          onChanged: (v) => customization.setFocusMode(v),
+                          activeColor: isDark
+                              ? AppTheme.darkAccentColor
+                              : AppTheme.accentColor,
+                        ),
+                      );
+                    },
+                  ),
+                  Divider(height: 1, color: AppTheme.getBorderColor(context)),
                   _buildActionTile(
                     Icons.lock_outline,
                     "Change Password",
@@ -1396,6 +1575,748 @@ class _ProfileScreenState extends State<ProfileScreen>
         color: AppTheme.getTextSecondary(context),
       ),
       onTap: onTap,
+    );
+  }
+
+  LinearGradient _getProfileBannerGradient(bool isDark) {
+    final customization = UserCustomizationService.instance;
+    final colors = customization.bannerGradient;
+    if (isDark) {
+      // Darken the colors for dark mode
+      return LinearGradient(
+        colors: colors
+            .map((c) => Color.lerp(c, Colors.black, 0.4)!)
+            .toList(),
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    return LinearGradient(
+      colors: colors,
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  // ──────────── Accent Color Picker ────────────
+
+  void _showAccentColorPicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Choose Accent Color",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("This color personalizes buttons and highlights",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: List.generate(
+                    UserCustomizationService.accentColorOptions.length,
+                    (index) {
+                  final color =
+                      UserCustomizationService.accentColorOptions[index];
+                  final isSelected = customization.accentColorIndex == index;
+                  return GestureDetector(
+                    onTap: () {
+                      customization.setAccentColor(index);
+                      Navigator.pop(ctx);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: isSelected ? Colors.white : Colors.transparent,
+                          width: 3,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                    color: color.withOpacity(0.5),
+                                    blurRadius: 8,
+                                    spreadRadius: 2)
+                              ]
+                            : [],
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 26)
+                          : null,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────── Font Size Picker ────────────
+
+  void _showFontSizePicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+    final isDark = AppTheme.isDarkMode(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Text Size",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("Adjust the text size across the app",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              ...UserCustomizationService.fontScaleOptions.entries.map((entry) {
+                final isSelected =
+                    customization.fontScaleLabel == entry.key;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: isSelected
+                        ? (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                            .withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      leading: Text("Aa",
+                          style: TextStyle(
+                              fontSize: 14 * entry.value,
+                              fontWeight: FontWeight.bold,
+                              color: isSelected
+                                  ? (isDark
+                                      ? AppTheme.darkPrimaryLight
+                                      : AppTheme.primaryColor)
+                                  : AppTheme.getTextPrimary(context))),
+                      title: Text(entry.key,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.getTextPrimary(context))),
+                      subtitle: Text("Scale: ${entry.value}x",
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.getTextSecondary(context))),
+                      trailing: isSelected
+                          ? Icon(Icons.check_circle,
+                              color: isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor)
+                          : null,
+                      onTap: () {
+                        customization.setFontScale(entry.key);
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────── Dashboard Layout Editor ────────────
+
+  void _showDashboardLayoutEditor(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+    final isDark = AppTheme.isDarkMode(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return DraggableScrollableSheet(
+              initialChildSize: 0.6,
+              maxChildSize: 0.85,
+              minChildSize: 0.4,
+              expand: false,
+              builder: (ctx, scrollController) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 40,
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppTheme.getTextSecondary(context)
+                                .withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Text("Dashboard Layout",
+                          style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.getTextPrimary(context))),
+                      const SizedBox(height: 4),
+                      Text("Toggle and reorder your home screen widgets",
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.getTextSecondary(context))),
+                      const SizedBox(height: 16),
+                      Expanded(
+                        child: ReorderableListView.builder(
+                          scrollController: scrollController,
+                          itemCount: UserCustomizationService
+                              .allDashboardWidgets.length,
+                          onReorder: (oldIdx, newIdx) {
+                            // Only reorder visible items
+                            final visible =
+                                customization.visibleDashboardWidgets;
+                            if (oldIdx < visible.length &&
+                                newIdx <= visible.length) {
+                              customization.reorderDashboardWidgets(
+                                  oldIdx, newIdx);
+                              setSheetState(() {});
+                            }
+                          },
+                          itemBuilder: (ctx, index) {
+                            final widget = UserCustomizationService
+                                .allDashboardWidgets[index];
+                            final isVisible = customization
+                                .visibleDashboardWidgets
+                                .contains(widget);
+                            final label = UserCustomizationService
+                                    .dashboardWidgetLabels[widget] ??
+                                widget;
+                            final icon = UserCustomizationService
+                                    .dashboardWidgetIcons[widget] ??
+                                Icons.widgets;
+
+                            return Card(
+                              key: ValueKey(widget),
+                              color: isDark
+                                  ? AppTheme.darkCard
+                                  : Colors.white,
+                              elevation: 1,
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              child: ListTile(
+                                leading: Icon(icon,
+                                    color: isVisible
+                                        ? (isDark
+                                            ? AppTheme.darkPrimaryLight
+                                            : AppTheme.primaryColor)
+                                        : AppTheme.getTextSecondary(context)),
+                                title: Text(label,
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        color: isVisible
+                                            ? AppTheme.getTextPrimary(context)
+                                            : AppTheme.getTextSecondary(
+                                                context))),
+                                trailing: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Switch(
+                                      value: isVisible,
+                                      onChanged: (_) {
+                                        customization
+                                            .toggleDashboardWidget(widget);
+                                        setSheetState(() {});
+                                      },
+                                      activeColor: isDark
+                                          ? AppTheme.darkAccentColor
+                                          : AppTheme.accentColor,
+                                    ),
+                                    if (isVisible)
+                                      Icon(Icons.drag_handle,
+                                          color:
+                                              AppTheme.getTextSecondary(
+                                                  context)),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // ──────────── Banner Color Picker ────────────
+
+  void _showBannerColorPicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Profile Banner",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("Choose your profile banner gradient",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: List.generate(
+                    UserCustomizationService.bannerGradients.length, (index) {
+                  final gradient =
+                      UserCustomizationService.bannerGradients[index];
+                  final isSelected =
+                      customization.bannerGradientIndex == index;
+                  return GestureDetector(
+                    onTap: () {
+                      customization.setBannerGradient(index);
+                      Navigator.pop(ctx);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 64,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: gradient),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.transparent,
+                          width: 2.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                    color:
+                                        gradient.first.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 1)
+                              ]
+                            : [],
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 20)
+                          : null,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────── Certificate Style Picker ────────────
+
+  void _showCertificateStylePicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+    final isDark = AppTheme.isDarkMode(context);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Certificate Style",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("Choose how your certificates look",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              ...UserCustomizationService.certificateStyles.map((style) {
+                final label = UserCustomizationService
+                        .certificateStyleLabels[style] ??
+                    style;
+                final isSelected =
+                    customization.certificateStyle == style;
+                final descriptions = {
+                  'classic':
+                      'Traditional bordered design with serif fonts',
+                  'modern':
+                      'Clean layout with bold colors and sans-serif type',
+                  'elegant':
+                      'Gold accents with ornate decorative elements',
+                  'minimal':
+                      'Simple, whitespace-focused with subtle details',
+                };
+                final icons = {
+                  'classic': Icons.school,
+                  'modern': Icons.auto_awesome,
+                  'elegant': Icons.diamond,
+                  'minimal': Icons.crop_square,
+                };
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Material(
+                    color: isSelected
+                        ? (isDark
+                                ? AppTheme.darkPrimaryLight
+                                : AppTheme.primaryColor)
+                            .withOpacity(0.1)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                    child: ListTile(
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      leading: Icon(icons[style] ?? Icons.workspace_premium,
+                          color: isSelected
+                              ? (isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor)
+                              : AppTheme.getTextSecondary(context)),
+                      title: Text(label,
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.getTextPrimary(context))),
+                      subtitle: Text(descriptions[style] ?? '',
+                          style: TextStyle(
+                              fontSize: 12,
+                              color: AppTheme.getTextSecondary(context))),
+                      trailing: isSelected
+                          ? Icon(Icons.check_circle,
+                              color: isDark
+                                  ? AppTheme.darkPrimaryLight
+                                  : AppTheme.primaryColor)
+                          : null,
+                      onTap: () {
+                        customization.setCertificateStyle(style);
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────── Study Reminder Editor ────────────
+
+  void _showStudyReminderEditor(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+    final isDark = AppTheme.isDarkMode(context);
+    bool enabled = customization.studyReminderEnabled;
+    TimeOfDay selectedTime = customization.studyReminderTime;
+    List<int> selectedDays = List.from(customization.studyReminderDays);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 24,
+                right: 24,
+                top: 24,
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 24,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Center(
+                    child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: AppTheme.getTextSecondary(context)
+                            .withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text("Study Reminders",
+                      style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.getTextPrimary(context))),
+                  const SizedBox(height: 4),
+                  Text("Set daily study reminders to stay on track",
+                      style: TextStyle(
+                          fontSize: 13,
+                          color: AppTheme.getTextSecondary(context))),
+                  const SizedBox(height: 20),
+                  // Enable toggle
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: Text("Enable Reminders",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.getTextPrimary(context))),
+                    value: enabled,
+                    onChanged: (v) => setSheetState(() => enabled = v),
+                    activeColor: isDark
+                        ? AppTheme.darkAccentColor
+                        : AppTheme.accentColor,
+                  ),
+                  if (enabled) ...[
+                    const SizedBox(height: 12),
+                    // Time picker
+                    ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(Icons.access_time,
+                          color: isDark
+                              ? AppTheme.darkPrimaryLight
+                              : AppTheme.primaryColor),
+                      title: Text("Reminder Time",
+                          style: TextStyle(
+                              color: AppTheme.getTextPrimary(context))),
+                      trailing: TextButton(
+                        onPressed: () async {
+                          final picked = await showTimePicker(
+                            context: ctx,
+                            initialTime: selectedTime,
+                          );
+                          if (picked != null) {
+                            setSheetState(() => selectedTime = picked);
+                          }
+                        },
+                        child: Text(selectedTime.format(context),
+                            style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor)),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    // Day selector
+                    Text("Repeat On",
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: AppTheme.getTextPrimary(context))),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: List.generate(7, (i) {
+                        final day = i + 1;
+                        final isActive = selectedDays.contains(day);
+                        final label =
+                            UserCustomizationService.dayLabels[day]![0];
+                        return GestureDetector(
+                          onTap: () {
+                            setSheetState(() {
+                              if (isActive) {
+                                selectedDays.remove(day);
+                              } else {
+                                selectedDays.add(day);
+                                selectedDays.sort();
+                              }
+                            });
+                          },
+                          child: CircleAvatar(
+                            radius: 18,
+                            backgroundColor: isActive
+                                ? (isDark
+                                    ? AppTheme.darkPrimaryLight
+                                    : AppTheme.primaryColor)
+                                : AppTheme.getTextSecondary(context)
+                                    .withOpacity(0.15),
+                            child: Text(label,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: isActive
+                                        ? Colors.white
+                                        : AppTheme.getTextSecondary(
+                                            context))),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  // Save button
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: isDark
+                            ? AppTheme.darkPrimaryLight
+                            : AppTheme.primaryColor,
+                        foregroundColor: Colors.white,
+                        padding:
+                            const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () {
+                        customization.setStudyReminder(
+                          enabled: enabled,
+                          time: selectedTime,
+                          days: selectedDays,
+                        );
+                        Navigator.pop(ctx);
+                        if (enabled) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                  'Study reminder set for ${selectedTime.format(context)}'),
+                              backgroundColor: AppTheme.success,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius:
+                                      BorderRadius.circular(10)),
+                            ),
+                          );
+                        }
+                      },
+                      child: const Text("Save",
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16)),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
