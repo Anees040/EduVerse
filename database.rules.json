@@ -385,6 +385,12 @@
         }
       }
     },
+    "notification_preferences": {
+      "$uid": {
+        ".read": "$uid === auth.uid",
+        ".write": "$uid === auth.uid"
+      }
+    },
     "notifications": {
       ".read": "auth != null",
       "$uid": {
