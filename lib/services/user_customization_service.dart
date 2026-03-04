@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -5,6 +7,7 @@ import 'package:firebase_database/firebase_database.dart';
 
 /// Centralized service for all user customization preferences.
 /// Local prefs (SharedPreferences) for instant UI, synced to Firebase for backup.
+/// Automatically reloads preferences when the authenticated user changes.
 class UserCustomizationService extends ChangeNotifier {
   static UserCustomizationService? _instance;
   static UserCustomizationService get instance {
@@ -12,12 +15,60 @@ class UserCustomizationService extends ChangeNotifier {
     return _instance!;
   }
 
-  UserCustomizationService._();
+  UserCustomizationService._() {
+    // Listen to auth state changes to auto-reload per-user preferences
+    try {
+      _authSub =
+          FirebaseAuth.instance.authStateChanges().listen(_onAuthChanged);
+    } catch (_) {
+      // Firebase not initialized (e.g., in tests) — skip auth listener
+    }
+  }
+
+  StreamSubscription<User?>? _authSub;
+
+  @override
+  void dispose() {
+    _authSub?.cancel();
+    super.dispose();
+  }
 
   DatabaseReference get _db => FirebaseDatabase.instance.ref();
 
   String? get _uid => FirebaseAuth.instance.currentUser?.uid;
   String _userKey(String key) => '${key}_${_uid ?? 'default'}';
+
+  /// Tracks which user's preferences are currently loaded in memory.
+  String? _loadedForUid;
+
+  /// Called automatically whenever the Firebase auth user changes.
+  void _onAuthChanged(User? user) {
+    if (user == null) {
+      // User signed out — reset to defaults
+      _loadedForUid = null;
+      _isLoaded = false;
+      _resetToDefaults();
+      notifyListeners();
+    } else if (_loadedForUid != user.uid) {
+      // Different user logged in — load their preferences
+      _resetToDefaults();
+      loadPreferences();
+    }
+  }
+
+  /// Reset all in-memory values to defaults (no SharedPreferences clearing).
+  void _resetToDefaults() {
+    _accentColorIndex = 0;
+    _fontScaleLabel = 'Medium';
+    _visibleDashboardWidgets = List.from(allDashboardWidgets);
+    _bannerGradientIndex = 0;
+    _focusModeEnabled = false;
+    _certificateStyle = 'classic';
+    _defaultPlaybackSpeed = 1.0;
+    _studyReminderEnabled = false;
+    _studyReminderTime = const TimeOfDay(hour: 18, minute: 0);
+    _studyReminderDays = [1, 2, 3, 4, 5];
+  }
 
   // ──────────── Accent Color ────────────
 
@@ -307,6 +358,7 @@ class UserCustomizationService extends ChangeNotifier {
     }
 
     _isLoaded = true;
+    _loadedForUid = _uid;
     notifyListeners();
   }
 
@@ -371,16 +423,7 @@ class UserCustomizationService extends ChangeNotifier {
 
   /// Reset all customizations to defaults
   Future<void> resetAll() async {
-    _accentColorIndex = 0;
-    _fontScaleLabel = 'Medium';
-    _visibleDashboardWidgets = List.from(allDashboardWidgets);
-    _bannerGradientIndex = 0;
-    _focusModeEnabled = false;
-    _certificateStyle = 'classic';
-    _defaultPlaybackSpeed = 1.0;
-    _studyReminderEnabled = false;
-    _studyReminderTime = const TimeOfDay(hour: 18, minute: 0);
-    _studyReminderDays = [1, 2, 3, 4, 5];
+    _resetToDefaults();
 
     final prefs = await SharedPreferences.getInstance();
     final keys = [
