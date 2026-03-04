@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:eduverse/services/auth_service.dart';
 import 'package:eduverse/services/email_verification_service.dart';
 import 'package:eduverse/services/maintenance_service.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/views/student/home_screen.dart';
 import 'package:eduverse/views/register_screen_with_verification.dart';
 import 'package:eduverse/views/teacher/teacher_home_screen.dart';
@@ -1576,26 +1577,33 @@ class _SigninScreenState extends State<SigninScreen> {
                                           const AdminDashboardScreen(),
                                     ),
                                   );
-                                } else if (isStudent) {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => HomeScreen(
-                                        role: isStudent ? "student" : "teacher",
-                                        uid: uid,
-                                      ),
-                                    ),
-                                  );
                                 } else {
-                                  Navigator.pushReplacement(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => TeacherHomeScreen(
-                                        role: isStudent ? "student" : "teacher",
-                                        uid: uid,
+                                  // Load user-specific customization before navigating
+                                  await UserCustomizationService.instance.loadPreferences();
+
+                                  if (!mounted) return;
+
+                                  if (isStudent) {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => HomeScreen(
+                                          role: isStudent ? "student" : "teacher",
+                                          uid: uid,
+                                        ),
                                       ),
-                                    ),
-                                  );
+                                    );
+                                  } else {
+                                    Navigator.pushReplacement(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) => TeacherHomeScreen(
+                                          role: isStudent ? "student" : "teacher",
+                                          uid: uid,
+                                        ),
+                                      ),
+                                    );
+                                  }
                                 }
                               },
                         child: _loading
