@@ -12,8 +12,10 @@ import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/study_streak_card.dart';
 import 'package:eduverse/services/course_recommendation_service.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/features/admin/services/admin_feature_service.dart';
 import 'package:eduverse/services/platform_settings_service.dart';
+import 'package:provider/provider.dart';
 
 class HomeTab extends StatefulWidget {
   final String uid;
@@ -341,395 +343,524 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
       color: AppTheme.getBackgroundColor(context),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Welcome Card
-            Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: AppTheme.getGradient(context),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: isDark
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: AppTheme.primaryColor.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Hello, $userName!",
-                          style: const TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        const Text(
-                          "Continue your learning journey today",
-                          style: TextStyle(fontSize: 14, color: Colors.white70),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                    child: const Icon(
-                      Icons.school_rounded,
-                      color: Colors.white,
-                      size: 40,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Platform Announcements
-            if (_announcements.isNotEmpty)
-              _buildAnnouncementsSection(isDark),
-
-            // Study Streak & Stats
-            const StudyStreakCard(),
-            const SizedBox(height: 20),
-
-            // Recommended For You
-            if (_recommendedCourses.isNotEmpty) ...[
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: isDark
-                        ? [
-                            AppTheme.darkAccent.withOpacity(0.08),
-                            AppTheme.darkCard.withOpacity(0.5),
-                          ]
-                        : [
-                            AppTheme.primaryColor.withOpacity(0.04),
-                            AppTheme.accentColor.withOpacity(0.04),
-                          ],
-                  ),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(
-                    color: isDark
-                        ? AppTheme.darkBorderColor.withOpacity(0.5)
-                        : AppTheme.primaryColor.withOpacity(0.1),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                                    isDark ? AppTheme.darkAccent.withOpacity(0.7) : AppTheme.accentColor,
-                                  ],
-                                ),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(
-                                Icons.auto_awesome,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
-                            const SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  "Recommended For You",
-                                  style: TextStyle(
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                    color: AppTheme.getTextPrimary(context),
-                                  ),
-                                ),
-                                Text(
-                                  "Personalized by AI",
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: AppTheme.getTextSecondary(context),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                        IconButton(
-                          icon: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
-                                  .withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Icon(
-                              Icons.refresh,
-                              color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
-                              size: 18,
-                            ),
-                          ),
-                          onPressed: _loadRecommendations,
-                          tooltip: 'Refresh recommendations',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    SizedBox(
-                      height: 220,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _recommendedCourses.length,
-                        itemBuilder: (context, index) {
-                          final course = _recommendedCourses[index];
-                          return _buildRecommendationCard(course, isDark);
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-            ],
-
-            // Search Bar
-            Container(
-              decoration: BoxDecoration(
-                color: AppTheme.getCardColor(context),
-                borderRadius: BorderRadius.circular(16),
-                border: isDark
-                    ? Border.all(color: AppTheme.darkBorderColor)
-                    : null,
-                boxShadow: isDark
-                    ? null
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 10,
-                          offset: const Offset(0, 2),
-                        ),
-                      ],
-              ),
-              child: TextField(
-                controller: _searchController,
-                onChanged: (value) {
-                  setState(() {
-                    searchQuery = value;
-                  });
-                },
-                decoration: InputDecoration(
-                  hintText: "Search all courses...",
-                  hintStyle: TextStyle(
-                    color: AppTheme.getTextSecondary(context),
-                  ),
-                  prefixIcon: Icon(
-                    Icons.search,
-                    color: isDark
-                        ? AppTheme.darkPrimaryLight
-                        : AppTheme.primaryColor,
-                  ),
-                  suffixIcon: searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            Icons.clear,
-                            color: AppTheme.getTextSecondary(context),
-                          ),
-                          onPressed: () {
-                            _searchController.clear();
-                            setState(() {
-                              searchQuery = "";
-                            });
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppTheme.getCardColor(context),
-                  contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(16),
-                    borderSide: BorderSide.none,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 28),
-
-            // Featured Courses
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        child: Consumer<UserCustomizationService>(
+          builder: (context, customization, _) {
+            final visible = customization.visibleDashboardWidgets;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  "Featured Courses",
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: AppTheme.getTextPrimary(context),
+                // Welcome Card (always shown)
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    gradient: AppTheme.getGradient(context),
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: isDark
+                        ? null
+                        : [
+                            BoxShadow(
+                              color: AppTheme.primaryColor.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
+                            ),
+                          ],
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Hello, $userName!",
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              "Continue your learning journey today",
+                              style: TextStyle(fontSize: 14, color: Colors.white70),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: const Icon(
+                          Icons.school_rounded,
+                          color: Colors.white,
+                          size: 40,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                TextButton(
-                  onPressed: widget.onSeeAllCourses,
-                  child: const Text("See All"),
+                const SizedBox(height: 16),
+
+                // Dynamic dashboard widgets based on user preferences
+                ...visible.map((key) => _buildDashboardWidget(key, isDark)),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  /// Build a single dashboard widget by key
+  Widget _buildDashboardWidget(String key, bool isDark) {
+    switch (key) {
+      case 'announcements':
+        if (_announcements.isEmpty) return const SizedBox.shrink();
+        return _buildAnnouncementsSection(isDark);
+      case 'streak':
+        return Column(
+          children: const [
+            StudyStreakCard(),
+            SizedBox(height: 20),
+          ],
+        );
+      case 'stats':
+        return _buildQuickStatsSection(isDark);
+      case 'recommendations':
+        if (_recommendedCourses.isEmpty) return const SizedBox.shrink();
+        return _buildRecommendationsSection(isDark);
+      case 'featured_courses':
+        return _buildFeaturedCoursesSection(isDark);
+      case 'ai_tools':
+        return _buildAIToolsSection(isDark);
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+
+  /// Quick stats section (enrolled courses, completed, etc.)
+  Widget _buildQuickStatsSection(bool isDark) {
+    final enrolled = enrolledCourseIds.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20),
+      child: Row(
+        children: [
+          Expanded(
+            child: _buildStatCard(
+              icon: Icons.book,
+              label: 'Enrolled',
+              value: '$enrolled',
+              color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              icon: Icons.play_circle_filled,
+              label: 'Courses',
+              value: '${allCourses.length}',
+              color: isDark ? AppTheme.darkAccent : AppTheme.accentColor,
+              isDark: isDark,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: _buildStatCard(
+              icon: Icons.auto_awesome,
+              label: 'Recommended',
+              value: '${_recommendedCourses.length}',
+              color: isDark ? AppTheme.darkSecondary : const Color(0xFF4895EF),
+              isDark: isDark,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatCard({
+    required IconData icon,
+    required String label,
+    required String value,
+    required Color color,
+    required bool isDark,
+  }) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.getCardColor(context),
+        borderRadius: BorderRadius.circular(16),
+        border: isDark ? Border.all(color: AppTheme.darkBorderColor) : null,
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.04),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
                 ),
               ],
-            ),
-            const SizedBox(height: 12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 8),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: AppTheme.getTextPrimary(context))),
+          const SizedBox(height: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: AppTheme.getTextSecondary(context))),
+        ],
+      ),
+    );
+  }
 
-            // Auto-sliding carousel
-            SizedBox(
-              height: 260,
-              child: filteredCourses.isEmpty
-                  ? Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            searchQuery.isNotEmpty
-                                ? Icons.search_off
-                                : Icons.book_outlined,
-                            size: 48,
-                            color: AppTheme.getTextSecondary(context),
+  /// Recommendations section extracted
+  Widget _buildRecommendationsSection(bool isDark) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: isDark
+                  ? [
+                      AppTheme.darkAccent.withOpacity(0.08),
+                      AppTheme.darkCard.withOpacity(0.5),
+                    ]
+                  : [
+                      AppTheme.primaryColor.withOpacity(0.04),
+                      AppTheme.accentColor.withOpacity(0.04),
+                    ],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark
+                  ? AppTheme.darkBorderColor.withOpacity(0.5)
+                  : AppTheme.primaryColor.withOpacity(0.1),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                              isDark ? AppTheme.darkAccent.withOpacity(0.7) : AppTheme.accentColor,
+                            ],
                           ),
-                          const SizedBox(height: 8),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(
+                          Icons.auto_awesome,
+                          color: Colors.white,
+                          size: 18,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            searchQuery.isNotEmpty
-                                ? "No courses match '$searchQuery'"
-                                : "No courses available",
+                            "Recommended For You",
                             style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.getTextPrimary(context),
+                            ),
+                          ),
+                          Text(
+                            "Personalized by AI",
+                            style: TextStyle(
+                              fontSize: 11,
                               color: AppTheme.getTextSecondary(context),
                             ),
-                            textAlign: TextAlign.center,
                           ),
                         ],
                       ),
-                    )
-                  : PageView.builder(
-                      controller: _pageController,
-                      padEnds: true,
-                      itemCount: filteredCourses.length,
-                      onPageChanged: (index) {
-                        setState(() => _currentPage = index);
-                      },
-                      itemBuilder: (context, index) {
-                        final course = filteredCourses[index];
-                        return AnimatedBuilder(
-                          animation: _pageController,
-                          builder: (context, child) {
-                            double value = 1.0;
-                            if (_pageController.position.haveDimensions) {
-                              value = (_pageController.page! - index).abs();
-                              value = (1 - (value * 0.15)).clamp(0.85, 1.0);
-                            }
-                            return Transform.scale(scale: value, child: child);
-                          },
-                          child: _buildCourseCard(course, isDark),
-                        );
-                      },
-                    ),
-            ),
-
-            // Page indicator dots
-            if (filteredCourses.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: List.generate(
-                  filteredCourses.length.clamp(0, 8),
-                  (index) => AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    width: _currentPage == index ? 24 : 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: _currentPage == index
-                          ? (isDark
-                                ? AppTheme.darkAccent
-                                : AppTheme.primaryColor)
-                          : (isDark ? Colors.white24 : Colors.grey[300]),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
+                    ],
                   ),
+                  IconButton(
+                    icon: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: (isDark ? AppTheme.darkAccent : AppTheme.primaryColor)
+                            .withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Icon(
+                        Icons.refresh,
+                        color: isDark ? AppTheme.darkAccent : AppTheme.primaryColor,
+                        size: 18,
+                      ),
+                    ),
+                    onPressed: _loadRecommendations,
+                    tooltip: 'Refresh recommendations',
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              SizedBox(
+                height: 220,
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _recommendedCourses.length,
+                  itemBuilder: (context, index) {
+                    final course = _recommendedCourses[index];
+                    return _buildRecommendationCard(course, isDark);
+                  },
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(height: 20),
+      ],
+    );
+  }
 
-            const SizedBox(height: 28),
+  /// Featured courses section extracted
+  Widget _buildFeaturedCoursesSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Search Bar
+        Container(
+          decoration: BoxDecoration(
+            color: AppTheme.getCardColor(context),
+            borderRadius: BorderRadius.circular(16),
+            border: isDark
+                ? Border.all(color: AppTheme.darkBorderColor)
+                : null,
+            boxShadow: isDark
+                ? null
+                : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+          ),
+          child: TextField(
+            controller: _searchController,
+            onChanged: (value) {
+              setState(() {
+                searchQuery = value;
+              });
+            },
+            decoration: InputDecoration(
+              hintText: "Search all courses...",
+              hintStyle: TextStyle(
+                color: AppTheme.getTextSecondary(context),
+              ),
+              prefixIcon: Icon(
+                Icons.search,
+                color: isDark
+                    ? AppTheme.darkPrimaryLight
+                    : AppTheme.primaryColor,
+              ),
+              suffixIcon: searchQuery.isNotEmpty
+                  ? IconButton(
+                      icon: Icon(
+                        Icons.clear,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {
+                          searchQuery = "";
+                        });
+                      },
+                    )
+                  : null,
+              filled: true,
+              fillColor: AppTheme.getCardColor(context),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 16,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(16),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 28),
 
-            // AI Learning Section
+        // Featured Courses header
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
             Text(
-              "AI Learning Tools",
+              "Featured Courses",
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
                 color: AppTheme.getTextPrimary(context),
               ),
             ),
-            const SizedBox(height: 16),
-
-            // Study with AI Card (only if chat support is enabled)
-            if (PlatformSettingsService.instance.enableChatSupport)
-              _buildFeatureCard(
-                icon: Icons.smart_toy_outlined,
-                title: "Study with AI",
-                subtitle: "Chat with our AI assistant for personalized help",
-                color: AppTheme.primaryColor,
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const AIChatScreen(openNew: true),
-                    ),
-                  );
-                },
-              ),
-
-            const SizedBox(height: 12),
-
-            // Homework Help Card
-            _buildFeatureCard(
-              icon: Icons.camera_alt_outlined,
-              title: "Homework Help",
-              subtitle: "Snap a photo and get step-by-step solutions",
-              color: AppTheme.accentColor,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const MathwayHelpScreen(),
-                  ),
-                );
-              },
+            TextButton(
+              onPressed: widget.onSeeAllCourses,
+              child: const Text("See All"),
             ),
           ],
         ),
-      ),
+        const SizedBox(height: 12),
+
+        // Auto-sliding carousel
+        SizedBox(
+          height: 260,
+          child: filteredCourses.isEmpty
+              ? Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        searchQuery.isNotEmpty
+                            ? Icons.search_off
+                            : Icons.book_outlined,
+                        size: 48,
+                        color: AppTheme.getTextSecondary(context),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        searchQuery.isNotEmpty
+                            ? "No courses match '$searchQuery'"
+                            : "No courses available",
+                        style: TextStyle(
+                          color: AppTheme.getTextSecondary(context),
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              : PageView.builder(
+                  controller: _pageController,
+                  padEnds: true,
+                  itemCount: filteredCourses.length,
+                  onPageChanged: (index) {
+                    setState(() => _currentPage = index);
+                  },
+                  itemBuilder: (context, index) {
+                    final course = filteredCourses[index];
+                    return AnimatedBuilder(
+                      animation: _pageController,
+                      builder: (context, child) {
+                        double value = 1.0;
+                        if (_pageController.position.haveDimensions) {
+                          value = (_pageController.page! - index).abs();
+                          value = (1 - (value * 0.15)).clamp(0.85, 1.0);
+                        }
+                        return Transform.scale(scale: value, child: child);
+                      },
+                      child: _buildCourseCard(course, isDark),
+                    );
+                  },
+                ),
+        ),
+
+        // Page indicator dots
+        if (filteredCourses.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: List.generate(
+              filteredCourses.length.clamp(0, 8),
+              (index) => AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                width: _currentPage == index ? 24 : 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: _currentPage == index
+                      ? (isDark
+                            ? AppTheme.darkAccent
+                            : AppTheme.primaryColor)
+                      : (isDark ? Colors.white24 : Colors.grey[300]),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 28),
+      ],
+    );
+  }
+
+  /// AI Tools section extracted
+  Widget _buildAIToolsSection(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "AI Learning Tools",
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: AppTheme.getTextPrimary(context),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Study with AI Card (only if chat support is enabled)
+        if (PlatformSettingsService.instance.enableChatSupport)
+          _buildFeatureCard(
+            icon: Icons.smart_toy_outlined,
+            title: "Study with AI",
+            subtitle: "Chat with our AI assistant for personalized help",
+            color: AppTheme.primaryColor,
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AIChatScreen(openNew: true),
+                ),
+              );
+            },
+          ),
+
+        const SizedBox(height: 12),
+
+        // Homework Help Card
+        _buildFeatureCard(
+          icon: Icons.camera_alt_outlined,
+          title: "Homework Help",
+          subtitle: "Snap a photo and get step-by-step solutions",
+          color: AppTheme.accentColor,
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MathwayHelpScreen(),
+              ),
+            );
+          },
+        ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 
