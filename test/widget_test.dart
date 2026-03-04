@@ -27,7 +27,16 @@ void main() {
       ),
     );
 
-    // Verify that the app loads
+    // Verify that the app loads (splash screen shown)
     expect(find.byType(MaterialApp), findsOneWidget);
+
+    // Drain the splash screen's 3-second navigation timer to avoid
+    // "pending timer" test errors. Suppress Firebase errors from
+    // the navigation attempt (Firebase not initialized in tests).
+    final originalHandler = FlutterError.onError;
+    FlutterError.onError = (details) {};
+    await tester.pump(const Duration(seconds: 4));
+    await tester.pump();
+    FlutterError.onError = originalHandler;
   });
 }
