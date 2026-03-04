@@ -818,6 +818,8 @@ class _ProfileScreenState extends State<ProfileScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    // Watch customization for live banner/accent color updates (no reload needed)
+    context.watch<UserCustomizationService>();
     final isDark = AppTheme.isDarkMode(context);
 
     if (_isInitialLoading) {
