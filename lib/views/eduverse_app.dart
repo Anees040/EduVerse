@@ -14,19 +14,96 @@ class EduVerseApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer2<ThemeService, UserCustomizationService>(
       builder: (context, themeService, customization, child) {
+        final accent = customization.accentColor;
+
+        // Build light theme with user's accent color overrides
+        final lightBase = AppTheme.lightTheme;
+        final lightTheme = lightBase.copyWith(
+          scaffoldBackgroundColor: AppTheme.backgroundColor,
+          canvasColor: AppTheme.backgroundColor,
+          colorScheme: lightBase.colorScheme.copyWith(
+            primary: accent,
+          ),
+          appBarTheme: lightBase.appBarTheme.copyWith(
+            backgroundColor: accent,
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accent,
+              foregroundColor: const Color(0xFFF5F5F5),
+              padding:
+                  const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+              elevation: 4,
+              shadowColor: accent.withOpacity(0.4),
+              textStyle: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 0.5),
+            ),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: accent,
+              textStyle: const TextStyle(
+                  fontSize: 16, fontWeight: FontWeight.w600),
+            ),
+          ),
+          bottomNavigationBarTheme:
+              lightBase.bottomNavigationBarTheme.copyWith(
+            backgroundColor: accent,
+          ),
+          floatingActionButtonTheme: FloatingActionButtonThemeData(
+            backgroundColor: accent,
+            foregroundColor: Colors.white,
+            elevation: 4,
+          ),
+          snackBarTheme: lightBase.snackBarTheme.copyWith(
+            backgroundColor: accent,
+          ),
+          inputDecorationTheme:
+              lightBase.inputDecorationTheme.copyWith(
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide(color: accent, width: 2),
+            ),
+          ),
+          tabBarTheme: lightBase.tabBarTheme.copyWith(
+            indicatorColor: accent,
+          ),
+        );
+
+        // Build dark theme with user's accent color overrides
+        final darkBase = AppTheme.darkTheme;
+        final darkThemeData = darkBase.copyWith(
+          scaffoldBackgroundColor: Colors.transparent,
+          canvasColor: AppTheme.darkBackground,
+          colorScheme: darkBase.colorScheme.copyWith(
+            primary: accent,
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: darkBase.elevatedButtonTheme.style?.copyWith(
+              backgroundColor: WidgetStatePropertyAll(accent),
+              shadowColor:
+                  WidgetStatePropertyAll(accent.withOpacity(0.5)),
+            ),
+          ),
+          floatingActionButtonTheme: FloatingActionButtonThemeData(
+            backgroundColor: accent,
+            foregroundColor: Colors.white,
+            elevation: 4,
+          ),
+          tabBarTheme: darkBase.tabBarTheme.copyWith(
+            indicatorColor: accent,
+          ),
+        );
+
         return MaterialApp(
           title: 'eduVerse',
           debugShowCheckedModeBanner: false,
-          theme: AppTheme.lightTheme.copyWith(
-            // Ensure no gaps in light theme
-            scaffoldBackgroundColor: AppTheme.backgroundColor,
-            canvasColor: AppTheme.backgroundColor,
-          ),
-          darkTheme: AppTheme.darkTheme.copyWith(
-            // Transparent so AnimatedDarkBackground shows through
-            scaffoldBackgroundColor: Colors.transparent,
-            canvasColor: AppTheme.darkBackground,
-          ),
+          theme: lightTheme,
+          darkTheme: darkThemeData,
           themeMode: themeService.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           builder: (context, child) {
             // Aggressive fix for white line - use LayoutBuilder for accurate sizing
