@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:video_player/video_player.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 
 /// Advanced Video Player with YouTube-like controls
 /// Features: Play/Pause, Skip 10s, Progress bar, Fullscreen, Speed control
@@ -49,6 +50,9 @@ class _AdvancedVideoPlayerState extends State<AdvancedVideoPlayer> {
   @override
   void initState() {
     super.initState();
+    // Apply default playback speed from user preferences
+    _playbackSpeed =
+        UserCustomizationService.instance.defaultPlaybackSpeed;
     _initializePlayer();
   }
 
@@ -71,6 +75,10 @@ class _AdvancedVideoPlayerState extends State<AdvancedVideoPlayer> {
           // Seek to start position if provided
           if (widget.startPosition != null) {
             _controller.seekTo(widget.startPosition!);
+          }
+          // Apply user's preferred playback speed
+          if (_playbackSpeed != 1.0) {
+            _controller.setPlaybackSpeed(_playbackSpeed);
           }
           _controller.addListener(_videoListener);
         }
