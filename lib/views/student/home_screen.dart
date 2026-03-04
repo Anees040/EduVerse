@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:eduverse/services/notification_service.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/services/data_preloader_service.dart';
 import 'package:eduverse/services/maintenance_service.dart';
 import 'package:eduverse/views/notifications_screen.dart';
@@ -83,6 +84,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ],
         ),
         actions: [
+          // Hide notification bell in Focus Mode
+          if (!UserCustomizationService.instance.focusModeEnabled)
           StreamBuilder<int>(
             stream: _notificationService.getUnreadCountStream(_uid),
             builder: (context, snapshot) {
