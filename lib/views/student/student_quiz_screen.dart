@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:eduverse/services/quiz_service.dart';
 import 'package:eduverse/services/study_streak_service.dart';
 import 'package:eduverse/services/learning_stats_service.dart';
+import 'package:eduverse/services/gamification_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -1092,6 +1093,31 @@ class _StudentQuizScreenState extends State<StudentQuizScreen> {
         activityType: 'quiz',
         courseId: widget.courseId,
       );
+
+      // Award XP for completing a quiz
+      final newBadges = await GamificationService().awardXP(
+        amount: GamificationService.xpQuiz,
+        reason: 'quiz',
+      );
+      if (newBadges.isNotEmpty && mounted) {
+        for (final id in newBadges) {
+          final def = GamificationService.getBadgeDefinition(id);
+          if (def == null) continue;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Text(def['icon'] as String, style: const TextStyle(fontSize: 22)),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text('Badge unlocked: ${def['name']}!', style: const TextStyle(fontWeight: FontWeight.w600))),
+                ],
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+      }
     }
   }
 
