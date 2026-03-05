@@ -8,6 +8,8 @@ import 'package:eduverse/services/analytics_service.dart';
 import 'package:eduverse/services/certificate_service.dart';
 import 'package:eduverse/services/study_streak_service.dart';
 import 'package:eduverse/services/learning_stats_service.dart';
+import 'package:eduverse/services/gamification_service.dart';
+import 'package:eduverse/services/offline_service.dart';
 import 'package:eduverse/services/ai_service.dart';
 import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/advanced_video_player.dart';
@@ -144,6 +146,55 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         ),
         backgroundColor: newStatus ? AppTheme.success : null,
         duration: const Duration(seconds: 1),
+      ),
+    );
+  }
+
+  Widget _buildSaveOfflineButton(bool isDark) {
+    final offlineService = OfflineService();
+    final isPinned = offlineService.isCoursePinned(widget.courseUid);
+    final accent = AppTheme.getPrimaryColor(context);
+    return GestureDetector(
+      onTap: () async {
+        await offlineService.togglePinCourse(widget.courseUid);
+        setState(() {});
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              offlineService.isCoursePinned(widget.courseUid)
+                  ? 'Saved for offline access! 📥'
+                  : 'Removed from offline',
+            ),
+            backgroundColor: offlineService.isCoursePinned(widget.courseUid)
+                ? AppTheme.success
+                : null,
+            duration: const Duration(seconds: 1),
+          ),
+        );
+      },
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        margin: const EdgeInsets.only(right: 8),
+        decoration: BoxDecoration(
+          color: isPinned ? accent.withOpacity(0.1) : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: isPinned
+                ? accent
+                : AppTheme.getTextSecondary(context).withOpacity(0.3),
+          ),
+        ),
+        child: Tooltip(
+          message: isPinned ? 'Saved offline' : 'Save for offline',
+          child: Icon(
+            isPinned
+                ? Icons.download_done_rounded
+                : Icons.download_for_offline_outlined,
+            color: isPinned ? accent : AppTheme.getTextSecondary(context),
+            size: 22,
+          ),
+        ),
       ),
     );
   }
@@ -416,6 +467,15 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
         videoId: videoId,
       );
 
+      // Award XP for completing a video
+      final newBadges = await GamificationService().awardXP(
+        amount: GamificationService.xpVideo,
+        reason: 'video',
+      );
+      if (newBadges.isNotEmpty && mounted) {
+        _showBadgeUnlockedSnackbar(newBadges);
+      }
+
       // Check if course is now complete and award certificate
       if (_overallProgress >= 1.0 && !_certificateAwarded) {
         await _checkAndAwardCertificate();
@@ -458,11 +518,46 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
       if (certificateId != null && mounted) {
         setState(() => _certificateAwarded = true);
 
+        // Award XP for completing the course
+        final courseBadges = await GamificationService().awardXP(
+          amount: GamificationService.xpCourseComplete,
+          reason: 'course',
+        );
+        if (courseBadges.isNotEmpty && mounted) {
+          _showBadgeUnlockedSnackbar(courseBadges);
+        }
+
         // Show celebration dialog
         _showCertificateAwardedDialog(studentName);
       }
     } catch (e) {
       // Certificate awarding is non-critical
+    }
+  }
+
+  /// Show a brief snackbar when a badge is unlocked during playback.
+  void _showBadgeUnlockedSnackbar(List<String> badgeIds) {
+    for (final id in badgeIds) {
+      final def = GamificationService.getBadgeDefinition(id);
+      if (def == null) continue;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              Text(def['icon'] as String, style: const TextStyle(fontSize: 22)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  'Badge unlocked: ${def['name']}!',
+                  style: const TextStyle(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
+          ),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 3),
+        ),
+      );
     }
   }
 
@@ -924,6 +1019,8 @@ class _StudentCourseDetailScreenState extends State<StudentCourseDetailScreen> {
                   ),
                 ),
               ),
+              // Save Offline button
+              _buildSaveOfflineButton(isDark),
               Text(
                 '$progressPercent%',
                 style: TextStyle(
