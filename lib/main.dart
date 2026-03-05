@@ -7,6 +7,7 @@ import 'package:eduverse/views/eduverse_app.dart';
 import 'package:eduverse/firebase_options.dart';
 import 'package:eduverse/services/theme_service.dart';
 import 'package:eduverse/services/user_customization_service.dart';
+import 'package:eduverse/services/offline_service.dart';
 import 'package:eduverse/features/admin/providers/admin_provider.dart';
 import 'package:eduverse/services/platform_settings_service.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -37,6 +38,9 @@ Future<void> main() async {
     await PlatformSettingsService.instance.ensureLoaded().catchError((e) {
       debugPrint('Warning: Could not load platform settings: $e');
     });
+
+    // Start offline connectivity monitoring
+    OfflineService().startMonitoring();
   } catch (e) {
     debugPrint('Initialization error: $e');
   }
