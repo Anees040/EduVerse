@@ -16,7 +16,7 @@ class XpLevelCard extends StatelessWidget {
     return StreamBuilder<Map<String, dynamic>>(
       stream: GamificationService().profileStream(),
       builder: (context, snapshot) {
-        final profile = snapshot.data ?? GamificationService().profileStream().first as Map<String, dynamic>? ?? _defaults();
+        final profile = snapshot.data ?? _defaults();
 
         final int totalXP = (profile['totalXP'] as num?)?.toInt() ?? 0;
         final int level = (profile['level'] as num?)?.toInt() ?? 1;
