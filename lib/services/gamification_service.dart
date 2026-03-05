@@ -374,10 +374,17 @@ class GamificationService {
     final uid = _uid;
     if (uid == null) return Stream.value(_emptyProfile());
 
-    return _db.child('gamification').child(uid).onValue.map((event) {
+    return _db
+        .child('gamification')
+        .child(uid)
+        .onValue
+        .map((event) {
       if (event.snapshot.value == null) return _emptyProfile();
       final data = Map<String, dynamic>.from(event.snapshot.value as Map);
       return _normalize(data);
+    }).handleError((error) {
+      debugPrint('GamificationService.profileStream error: $error');
+      return _emptyProfile();
     });
   }
 
