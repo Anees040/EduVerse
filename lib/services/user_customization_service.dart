@@ -121,6 +121,7 @@ class UserCustomizationService extends ChangeNotifier {
 
   static const List<String> allDashboardWidgets = [
     'streak',
+    'xp_level',
     'stats',
     'recommendations',
     'featured_courses',
@@ -130,6 +131,7 @@ class UserCustomizationService extends ChangeNotifier {
 
   static const Map<String, String> dashboardWidgetLabels = {
     'streak': 'Study Streak',
+    'xp_level': 'XP & Level',
     'stats': 'Quick Stats',
     'recommendations': 'Recommended For You',
     'featured_courses': 'Featured Courses',
@@ -139,6 +141,7 @@ class UserCustomizationService extends ChangeNotifier {
 
   static const Map<String, IconData> dashboardWidgetIcons = {
     'streak': Icons.local_fire_department,
+    'xp_level': Icons.emoji_events,
     'stats': Icons.bar_chart,
     'recommendations': Icons.auto_awesome,
     'featured_courses': Icons.star,
