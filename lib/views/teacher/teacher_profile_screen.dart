@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:eduverse/services/user_service.dart';
 import 'package:eduverse/services/course_service.dart';
 import 'package:eduverse/services/theme_service.dart';
+import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/services/cache_service.dart';
 import 'package:eduverse/services/preferences_service.dart';
 import 'package:eduverse/services/analytics_service.dart';
@@ -686,6 +687,8 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   @override
   Widget build(BuildContext context) {
     super.build(context); // Required for AutomaticKeepAliveClientMixin
+    // Watch customization for live banner/accent color updates (no reload needed)
+    context.watch<UserCustomizationService>();
     final isDark = AppTheme.isDarkMode(context);
 
     if (_isInitialLoading && userName == "...") {
@@ -714,16 +717,12 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                     width: double.infinity,
                     padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      gradient: isDark
-                          ? AppTheme.darkPrimaryGradient
-                          : AppTheme.primaryGradient,
+                      gradient: _getProfileBannerGradient(isDark),
                       borderRadius: BorderRadius.circular(24),
                       boxShadow: [
                         BoxShadow(
                           color:
-                              (isDark
-                                      ? AppTheme.darkPrimaryLight
-                                      : AppTheme.primaryColor)
+                              AppTheme.getPrimaryColor(context)
                                   .withOpacity(0.3),
                           blurRadius: 15,
                           offset: const Offset(0, 8),
@@ -908,30 +907,28 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                         // Dark Mode Toggle
                         Consumer<ThemeService>(
                           builder: (context, themeService, child) {
+                            final themeColor = AppTheme.getPrimaryColor(context);
                             return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 8),
                               leading: Container(
-                                padding: const EdgeInsets.all(8),
+                                padding: const EdgeInsets.all(10),
                                 decoration: BoxDecoration(
-                                  color:
-                                      (isDark
-                                              ? AppTheme.darkPrimaryLight
-                                              : AppTheme.primaryColor)
-                                          .withOpacity(0.1),
+                                  color: themeColor.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(10),
                                 ),
                                 child: Icon(
                                   themeService.isDarkMode
                                       ? Icons.dark_mode
                                       : Icons.light_mode,
-                                  color: isDark
-                                      ? AppTheme.darkPrimaryLight
-                                      : AppTheme.primaryColor,
+                                  color: themeColor,
+                                  size: 22,
                                 ),
                               ),
                               title: Text(
                                 "Dark Mode",
                                 style: TextStyle(
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
                                   color: AppTheme.getTextPrimary(context),
                                 ),
                               ),
@@ -945,9 +942,145 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                               trailing: Switch(
                                 value: themeService.isDarkMode,
                                 onChanged: (_) => themeService.toggleTheme(),
-                                activeColor: isDark
-                                    ? AppTheme.darkAccentColor
-                                    : AppTheme.accentColor,
+                                activeColor: themeColor,
+                              ),
+                            );
+                          },
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        // Accent Color Picker
+                        Consumer<UserCustomizationService>(
+                          builder: (context, customization, _) {
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 8),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: customization.accentColor
+                                      .withOpacity(0.15),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.palette,
+                                    color: customization.accentColor,
+                                    size: 22),
+                              ),
+                              title: Text("Accent Color",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          AppTheme.getTextPrimary(context))),
+                              subtitle: Text("Personalize your theme color",
+                                  style: TextStyle(
+                                      color:
+                                          AppTheme.getTextSecondary(context),
+                                      fontSize: 12)),
+                              trailing: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: customization.accentColor,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(
+                                      color:
+                                          AppTheme.getBorderColor(context)),
+                                ),
+                              ),
+                              onTap: () =>
+                                  _showAccentColorPicker(context),
+                            );
+                          },
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        // Text Size
+                        Consumer<UserCustomizationService>(
+                          builder: (context, customization, _) {
+                            final themeColor =
+                                AppTheme.getPrimaryColor(context);
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 8),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: themeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.text_fields,
+                                    color: themeColor, size: 22),
+                              ),
+                              title: Text("Text Size",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          AppTheme.getTextPrimary(context))),
+                              subtitle: Text(customization.fontScaleLabel,
+                                  style: TextStyle(
+                                      color:
+                                          AppTheme.getTextSecondary(context),
+                                      fontSize: 12)),
+                              trailing: Icon(Icons.arrow_forward_ios,
+                                  size: 16,
+                                  color:
+                                      AppTheme.getTextSecondary(context)),
+                              onTap: () => _showFontSizePicker(context),
+                            );
+                          },
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        // Profile Banner
+                        _buildActionTile(
+                          Icons.photo_size_select_actual,
+                          "Profile Banner",
+                          "Choose your banner gradient",
+                          () => _showBannerColorPicker(context),
+                        ),
+                        Divider(
+                          height: 1,
+                          color: AppTheme.getBorderColor(context),
+                        ),
+                        // Focus Mode Toggle
+                        Consumer<UserCustomizationService>(
+                          builder: (context, customization, _) {
+                            final themeColor =
+                                AppTheme.getPrimaryColor(context);
+                            return ListTile(
+                              contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 8),
+                              leading: Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: themeColor.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Icon(Icons.do_not_disturb_on,
+                                    color: themeColor, size: 22),
+                              ),
+                              title: Text("Focus Mode",
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color:
+                                          AppTheme.getTextPrimary(context))),
+                              subtitle: Text(
+                                  "Hide distractions while watching videos",
+                                  style: TextStyle(
+                                      color:
+                                          AppTheme.getTextSecondary(context),
+                                      fontSize: 12)),
+                              trailing: Switch(
+                                value: customization.focusModeEnabled,
+                                onChanged: (v) =>
+                                    customization.setFocusMode(v),
+                                activeColor: themeColor,
                               ),
                             );
                           },
@@ -997,19 +1130,18 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
-    final isDark = AppTheme.isDarkMode(context);
+    final themeColor = AppTheme.getPrimaryColor(context);
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                .withOpacity(0.1),
+            color: themeColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+            color: themeColor,
             size: 22,
           ),
         ),
@@ -1030,7 +1162,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
                 value,
                 style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context),
                 ),
               ),
@@ -1042,12 +1174,12 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
   }
 
   Widget _buildStatItem(String title, String value, IconData icon) {
-    final isDark = AppTheme.isDarkMode(context);
+    final themeColor = AppTheme.getPrimaryColor(context);
     return Column(
       children: [
         Icon(
           icon,
-          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+          color: themeColor,
           size: 24,
         ),
         const SizedBox(height: 8),
@@ -1056,7 +1188,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+            color: themeColor,
           ),
         ),
         Text(
@@ -1077,10 +1209,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
     VoidCallback onTap, {
     bool isDestructive = false,
   }) {
-    final isDark = AppTheme.isDarkMode(context);
     final color = isDestructive
         ? AppTheme.error
-        : (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor);
+        : AppTheme.getPrimaryColor(context);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -1114,6 +1245,304 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen>
         color: AppTheme.getTextSecondary(context),
       ),
       onTap: onTap,
+    );
+  }
+
+  // ──────────── Profile Banner Gradient ────────────
+
+  LinearGradient _getProfileBannerGradient(bool isDark) {
+    final customization = UserCustomizationService.instance;
+    final colors = customization.bannerGradient;
+    if (isDark) {
+      return LinearGradient(
+        colors: colors.map((c) => Color.lerp(c, Colors.black, 0.4)!).toList(),
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+      );
+    }
+    return LinearGradient(
+      colors: colors,
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+  }
+
+  // ──────────── Accent Color Picker ────────────
+
+  void _showAccentColorPicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Accent Color",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("Choose a color to personalize your experience",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 16,
+                runSpacing: 16,
+                children: List.generate(
+                    UserCustomizationService.accentColorOptions.length,
+                    (index) {
+                  final color =
+                      UserCustomizationService.accentColorOptions[index];
+                  final isSelected =
+                      customization.accentColorIndex == index;
+                  return GestureDetector(
+                    onTap: () {
+                      customization.setAccentColor(index);
+                      Navigator.pop(ctx);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color:
+                              isSelected ? Colors.white : Colors.transparent,
+                          width: 3,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                    color: color.withOpacity(0.5),
+                                    blurRadius: 10,
+                                    spreadRadius: 2)
+                              ]
+                            : [],
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 22)
+                          : null,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────── Font Size Picker ────────────
+
+  void _showFontSizePicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Text Size",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("Adjust the text size across the app",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              ...UserCustomizationService.fontScaleOptions.entries.map((entry) {
+                final isSelected =
+                    customization.fontScaleLabel == entry.key;
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(12),
+                    onTap: () {
+                      customization.setFontScale(entry.key);
+                      Navigator.pop(ctx);
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 14, horizontal: 16),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? AppTheme.getPrimaryColor(context)
+                                .withOpacity(0.1)
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSelected
+                              ? AppTheme.getPrimaryColor(context)
+                              : AppTheme.getBorderColor(context),
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Text(entry.key,
+                              style: TextStyle(
+                                  fontSize: 14 * entry.value,
+                                  fontWeight: FontWeight.w600,
+                                  color: isSelected
+                                      ? AppTheme.getPrimaryColor(context)
+                                      : AppTheme.getTextPrimary(context))),
+                          const Spacer(),
+                          if (isSelected)
+                            Icon(Icons.check_circle,
+                                color: AppTheme.getPrimaryColor(context),
+                                size: 22),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+              const SizedBox(height: 8),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ──────────── Banner Color Picker ────────────
+
+  void _showBannerColorPicker(BuildContext context) {
+    final customization = UserCustomizationService.instance;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: AppTheme.getCardColor(context),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.getTextSecondary(context).withOpacity(0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text("Profile Banner",
+                  style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.getTextPrimary(context))),
+              const SizedBox(height: 4),
+              Text("Choose your profile banner gradient",
+                  style: TextStyle(
+                      fontSize: 13,
+                      color: AppTheme.getTextSecondary(context))),
+              const SizedBox(height: 20),
+              Wrap(
+                spacing: 12,
+                runSpacing: 12,
+                children: List.generate(
+                    UserCustomizationService.bannerGradients.length, (index) {
+                  final gradient =
+                      UserCustomizationService.bannerGradients[index];
+                  final isSelected =
+                      customization.bannerGradientIndex == index;
+                  return GestureDetector(
+                    onTap: () {
+                      customization.setBannerGradient(index);
+                      Navigator.pop(ctx);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 200),
+                      width: 64,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: gradient),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: isSelected
+                              ? Colors.white
+                              : Colors.transparent,
+                          width: 2.5,
+                        ),
+                        boxShadow: isSelected
+                            ? [
+                                BoxShadow(
+                                    color:
+                                        gradient.first.withOpacity(0.4),
+                                    blurRadius: 8,
+                                    spreadRadius: 1)
+                              ]
+                            : [],
+                      ),
+                      child: isSelected
+                          ? const Icon(Icons.check,
+                              color: Colors.white, size: 20)
+                          : null,
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
     );
   }
 
