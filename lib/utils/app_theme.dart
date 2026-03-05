@@ -261,11 +261,10 @@ class AppTheme {
         : primaryGradient;
   }
 
-  /// Get primary color based on theme (for interactive elements)
+  /// Get primary color based on theme (for interactive elements).
+  /// Reads from the theme's colorScheme so the user's accent color is used.
   static Color getPrimaryColor(BuildContext context) {
-    return Theme.of(context).brightness == Brightness.dark
-        ? darkPrimary
-        : primaryColor;
+    return Theme.of(context).colorScheme.primary;
   }
 
   /// Get secondary color for dark mode
