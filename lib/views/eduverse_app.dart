@@ -74,28 +74,71 @@ class EduVerseApp extends StatelessWidget {
           ),
         );
 
-        // Build dark theme with user's accent color overrides
+        // Build dark theme with user's accent color overrides.
+        // Adapt the accent so it always looks good on a dark background.
+        final darkAccent = AppTheme.adaptAccentForDarkMode(accent);
         final darkBase = AppTheme.darkTheme;
         final darkThemeData = darkBase.copyWith(
           scaffoldBackgroundColor: Colors.transparent,
           canvasColor: AppTheme.darkBackground,
           colorScheme: darkBase.colorScheme.copyWith(
-            primary: accent,
+            primary: darkAccent,
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
             style: darkBase.elevatedButtonTheme.style?.copyWith(
-              backgroundColor: WidgetStatePropertyAll(accent),
+              backgroundColor: WidgetStatePropertyAll(darkAccent),
               shadowColor:
-                  WidgetStatePropertyAll(accent.withOpacity(0.5)),
+                  WidgetStatePropertyAll(darkAccent.withOpacity(0.5)),
             ),
           ),
           floatingActionButtonTheme: FloatingActionButtonThemeData(
-            backgroundColor: accent,
+            backgroundColor: darkAccent,
             foregroundColor: Colors.white,
             elevation: 4,
           ),
           tabBarTheme: darkBase.tabBarTheme.copyWith(
-            indicatorColor: accent,
+            indicatorColor: darkAccent,
+          ),
+          // Also adapt switch / checkbox / radio / slider accents
+          switchTheme: darkBase.switchTheme.copyWith(
+            thumbColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) return darkAccent;
+              return AppTheme.darkTextSecondary;
+            }),
+            trackColor: WidgetStateProperty.resolveWith((states) {
+              if (states.contains(WidgetState.selected)) {
+                return darkAccent.withOpacity(0.4);
+              }
+              return AppTheme.darkElevated;
+            }),
+          ),
+          progressIndicatorTheme: darkBase.progressIndicatorTheme.copyWith(
+            color: darkAccent,
+          ),
+          inputDecorationTheme: darkBase.inputDecorationTheme.copyWith(
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(16),
+              borderSide: BorderSide(color: darkAccent, width: 2),
+            ),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: darkAccent,
+              textStyle: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.3,
+              ),
+            ),
+          ),
+          bottomNavigationBarTheme: darkBase.bottomNavigationBarTheme.copyWith(
+            selectedItemColor: darkAccent,
+          ),
+          sliderTheme: darkBase.sliderTheme.copyWith(
+            activeTrackColor: darkAccent,
+            thumbColor: darkAccent,
+            overlayColor: darkAccent.withOpacity(0.2),
+            valueIndicatorColor: darkAccent,
           ),
         );
 
