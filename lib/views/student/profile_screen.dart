@@ -1204,30 +1204,28 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // Dark Mode Toggle
                   Consumer<ThemeService>(
                     builder: (context, themeService, child) {
+                      final themeColor = AppTheme.getPrimaryColor(context);
                       return ListTile(
+                        contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 20, vertical: 8),
                         leading: Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color:
-                                (isDark
-                                        ? AppTheme.darkPrimaryLight
-                                        : AppTheme.primaryColor)
-                                    .withOpacity(0.1),
+                            color: themeColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(
                             themeService.isDarkMode
                                 ? Icons.dark_mode
                                 : Icons.light_mode,
-                            color: isDark
-                                ? AppTheme.darkPrimaryLight
-                                : AppTheme.primaryColor,
+                            color: themeColor,
+                            size: 22,
                           ),
                         ),
                         title: Text(
                           "Dark Mode",
                           style: TextStyle(
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                             color: AppTheme.getTextPrimary(context),
                           ),
                         ),
@@ -1241,9 +1239,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         trailing: Switch(
                           value: themeService.isDarkMode,
                           onChanged: (_) => themeService.toggleTheme(),
-                          activeColor: isDark
-                              ? AppTheme.darkAccentColor
-                              : AppTheme.accentColor,
+                          activeColor: themeColor,
                         ),
                       );
                     },
@@ -1266,7 +1262,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         ),
                         title: Text("Accent Color",
                             style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 color: AppTheme.getTextPrimary(context))),
                         subtitle: Text("Personalize your theme color",
                             style: TextStyle(
@@ -1290,27 +1286,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // Font Size
                   Consumer<UserCustomizationService>(
                     builder: (context, customization, _) {
+                      final themeColor = AppTheme.getPrimaryColor(context);
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 8),
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (isDark
-                                    ? AppTheme.darkPrimaryLight
-                                    : AppTheme.primaryColor)
-                                .withOpacity(0.1),
+                            color: themeColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(Icons.text_fields,
-                              color: isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor,
+                              color: themeColor,
                               size: 22),
                         ),
                         title: Text("Text Size",
                             style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 color: AppTheme.getTextPrimary(context))),
                         subtitle: Text(customization.fontScaleLabel,
                             style: TextStyle(
@@ -1351,27 +1343,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // Study Reminders
                   Consumer<UserCustomizationService>(
                     builder: (context, customization, _) {
+                      final themeColor = AppTheme.getPrimaryColor(context);
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 8),
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (isDark
-                                    ? AppTheme.darkPrimaryLight
-                                    : AppTheme.primaryColor)
-                                .withOpacity(0.1),
+                            color: themeColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(Icons.alarm,
-                              color: isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor,
+                              color: themeColor,
                               size: 22),
                         ),
                         title: Text("Study Reminders",
                             style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 color: AppTheme.getTextPrimary(context))),
                         subtitle: Text(
                             customization.studyReminderEnabled
@@ -1391,27 +1379,23 @@ class _ProfileScreenState extends State<ProfileScreen>
                   // Focus Mode Toggle
                   Consumer<UserCustomizationService>(
                     builder: (context, customization, _) {
+                      final themeColor = AppTheme.getPrimaryColor(context);
                       return ListTile(
                         contentPadding: const EdgeInsets.symmetric(
                             horizontal: 20, vertical: 8),
                         leading: Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: (isDark
-                                    ? AppTheme.darkPrimaryLight
-                                    : AppTheme.primaryColor)
-                                .withOpacity(0.1),
+                            color: themeColor.withOpacity(0.1),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Icon(Icons.do_not_disturb_on,
-                              color: isDark
-                                  ? AppTheme.darkPrimaryLight
-                                  : AppTheme.primaryColor,
+                              color: themeColor,
                               size: 22),
                         ),
                         title: Text("Focus Mode",
                             style: TextStyle(
-                                fontWeight: FontWeight.w500,
+                                fontWeight: FontWeight.w600,
                                 color: AppTheme.getTextPrimary(context))),
                         subtitle: Text(
                             "Hide distractions while watching videos",
@@ -1421,9 +1405,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                         trailing: Switch(
                           value: customization.focusModeEnabled,
                           onChanged: (v) => customization.setFocusMode(v),
-                          activeColor: isDark
-                              ? AppTheme.darkAccentColor
-                              : AppTheme.accentColor,
+                          activeColor: themeColor,
                         ),
                       );
                     },
@@ -1460,19 +1442,18 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildInfoRow(IconData icon, String label, String value) {
-    final isDark = AppTheme.isDarkMode(context);
+    final themeColor = AppTheme.getPrimaryColor(context);
     return Row(
       children: [
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor)
-                .withOpacity(0.1),
+            color: themeColor.withOpacity(0.1),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(
             icon,
-            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+            color: themeColor,
             size: 22,
           ),
         ),
@@ -1493,7 +1474,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                 value,
                 style: TextStyle(
                   fontSize: 15,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                   color: AppTheme.getTextPrimary(context),
                 ),
               ),
@@ -1505,12 +1486,12 @@ class _ProfileScreenState extends State<ProfileScreen>
   }
 
   Widget _buildStatItem(String title, String value, IconData icon) {
-    final isDark = AppTheme.isDarkMode(context);
+    final themeColor = AppTheme.getPrimaryColor(context);
     return Column(
       children: [
         Icon(
           icon,
-          color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+          color: themeColor,
           size: 24,
         ),
         const SizedBox(height: 8),
@@ -1519,7 +1500,7 @@ class _ProfileScreenState extends State<ProfileScreen>
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor,
+            color: themeColor,
           ),
         ),
         Text(
@@ -1540,10 +1521,9 @@ class _ProfileScreenState extends State<ProfileScreen>
     VoidCallback onTap, {
     bool isDestructive = false,
   }) {
-    final isDark = AppTheme.isDarkMode(context);
     final color = isDestructive
         ? AppTheme.error
-        : (isDark ? AppTheme.darkPrimaryLight : AppTheme.primaryColor);
+        : AppTheme.getPrimaryColor(context);
 
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
@@ -1875,9 +1855,7 @@ class _ProfileScreenState extends State<ProfileScreen>
                               child: ListTile(
                                 leading: Icon(icon,
                                     color: isVisible
-                                        ? (isDark
-                                            ? AppTheme.darkPrimaryLight
-                                            : AppTheme.primaryColor)
+                                        ? AppTheme.getPrimaryColor(context)
                                         : AppTheme.getTextSecondary(context)),
                                 title: Text(label,
                                     style: TextStyle(
@@ -1896,15 +1874,22 @@ class _ProfileScreenState extends State<ProfileScreen>
                                             .toggleDashboardWidget(widget);
                                         setSheetState(() {});
                                       },
-                                      activeColor: isDark
-                                          ? AppTheme.darkAccentColor
-                                          : AppTheme.accentColor,
+                                      activeColor: AppTheme.getPrimaryColor(context),
                                     ),
                                     if (isVisible)
-                                      Icon(Icons.drag_handle,
-                                          color:
-                                              AppTheme.getTextSecondary(
-                                                  context)),
+                                      ReorderableDragStartListener(
+                                        index: index,
+                                        child: Tooltip(
+                                          message: 'Hold & drag to reorder',
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(4),
+                                            child: Icon(Icons.drag_indicator,
+                                                color:
+                                                    AppTheme.getTextSecondary(
+                                                        context)),
+                                          ),
+                                        ),
+                                      ),
                                   ],
                                 ),
                               ),
