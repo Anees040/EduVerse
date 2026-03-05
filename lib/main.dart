@@ -30,8 +30,6 @@ Future<void> main() async {
     // Note: setPersistenceEnabled and keepSynced are not supported on web platform
     if (!kIsWeb) {
       FirebaseDatabase.instance.setPersistenceEnabled(true);
-      // Only keep critical small nodes synced — avoid syncing entire DB
-      FirebaseDatabase.instance.ref('app_config').keepSynced(true);
     }
 
     // Pre-load platform settings so they're cached for all screens
