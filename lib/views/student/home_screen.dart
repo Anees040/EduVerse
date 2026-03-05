@@ -9,6 +9,8 @@ import 'package:eduverse/views/student/courses_screen.dart';
 import 'package:eduverse/views/student/home_tab.dart';
 import 'package:eduverse/views/student/profile_screen.dart';
 import 'package:eduverse/utils/app_theme.dart';
+import 'package:eduverse/widgets/offline_indicator.dart';
+import 'package:eduverse/services/offline_service.dart';
 
 class HomeScreen extends StatefulWidget {
   final String uid;
@@ -32,6 +34,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
     // Start preloading all data in parallel immediately
     _preloaderService.preloadStudentData(uid: widget.uid, role: widget.role);
+
+    // Load offline‑pinned courses & re-sync them
+    OfflineService().loadPinnedCourses().then((_) {
+      OfflineService().resyncPinnedCourses();
+    });
 
     _screens = [
       HomeTab(
@@ -200,6 +207,7 @@ class _HomeScreenState extends State<HomeScreen> {
       // Use IndexedStack to keep all screens alive and avoid reloading
       body: Column(
         children: [
+          const OfflineIndicator(),
           MaintenanceService.instance.buildMaintenanceBanner(context),
           Expanded(
             child: IndexedStack(index: _selectedIndex, children: _screens),
