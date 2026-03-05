@@ -351,6 +351,12 @@
         ".write": "auth != null && $uid === auth.uid"
       }
     },
+    "gamification": {
+      "$uid": {
+        ".read": "auth != null && $uid === auth.uid",
+        ".write": "auth != null && $uid === auth.uid"
+      }
+    },
     "chat_history": {
       ".read": "auth != null",
       "$uid": {
