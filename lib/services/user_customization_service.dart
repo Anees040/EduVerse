@@ -58,7 +58,6 @@ class UserCustomizationService extends ChangeNotifier {
 
   /// Reset all in-memory values to defaults (no SharedPreferences clearing).
   void _resetToDefaults() {
-    _accentColorIndex = 0;
     _fontScaleLabel = 'Medium';
     _visibleDashboardWidgets = List.from(allDashboardWidgets);
     _bannerGradientIndex = 0;
@@ -68,32 +67,6 @@ class UserCustomizationService extends ChangeNotifier {
     _studyReminderEnabled = false;
     _studyReminderTime = const TimeOfDay(hour: 18, minute: 0);
     _studyReminderDays = [1, 2, 3, 4, 5];
-  }
-
-  // ──────────── Accent Color ────────────
-
-  static const List<Color> accentColorOptions = [
-    Color(0xFF1A237E), // Deep Indigo (default)
-    Color(0xFF00BFA5), // Teal
-    Color(0xFFE53935), // Red
-    Color(0xFF8E24AA), // Purple
-    Color(0xFF43A047), // Green
-    Color(0xFFFF6F00), // Amber
-    Color(0xFF1565C0), // Blue
-    Color(0xFFD81B60), // Pink
-  ];
-
-  int _accentColorIndex = 0;
-  int get accentColorIndex => _accentColorIndex;
-  Color get accentColor => accentColorOptions[_accentColorIndex];
-
-  Future<void> setAccentColor(int index) async {
-    if (index < 0 || index >= accentColorOptions.length) return;
-    _accentColorIndex = index;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_userKey('accent_color'), index);
-    _syncToFirebase('accentColorIndex', index);
-    notifyListeners();
   }
 
   // ──────────── Font Scale ────────────
@@ -328,7 +301,6 @@ class UserCustomizationService extends ChangeNotifier {
     if (_uid == null) return;
     final prefs = await SharedPreferences.getInstance();
 
-    _accentColorIndex = prefs.getInt(_userKey('accent_color')) ?? 0;
     _fontScaleLabel = prefs.getString(_userKey('font_scale')) ?? 'Medium';
     _bannerGradientIndex = prefs.getInt(_userKey('banner_gradient')) ?? 0;
     _focusModeEnabled = prefs.getBool(_userKey('focus_mode')) ?? false;
@@ -352,10 +324,6 @@ class UserCustomizationService extends ChangeNotifier {
       _visibleDashboardWidgets = widgets;
     }
 
-    // Clamp accent color index
-    if (_accentColorIndex >= accentColorOptions.length) {
-      _accentColorIndex = 0;
-    }
     if (_bannerGradientIndex >= bannerGradients.length) {
       _bannerGradientIndex = 0;
     }
@@ -388,9 +356,6 @@ class UserCustomizationService extends ChangeNotifier {
       if (!snapshot.exists || snapshot.value == null) return;
       final data = Map<String, dynamic>.from(snapshot.value as Map);
 
-      if (data['accentColorIndex'] is int) {
-        await setAccentColor(data['accentColorIndex'] as int);
-      }
       if (data['fontScale'] is String) {
         await setFontScale(data['fontScale'] as String);
       }
@@ -430,7 +395,7 @@ class UserCustomizationService extends ChangeNotifier {
 
     final prefs = await SharedPreferences.getInstance();
     final keys = [
-      'accent_color', 'font_scale', 'dashboard_widgets',
+      'font_scale', 'dashboard_widgets',
       'banner_gradient', 'focus_mode', 'certificate_style',
       'playback_speed', 'study_reminder_enabled',
       'study_reminder_hour', 'study_reminder_minute',
