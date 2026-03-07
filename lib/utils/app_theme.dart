@@ -1,49 +1,7 @@
-import 'dart:ui' show lerpDouble;
-
 import 'package:flutter/material.dart';
 
 /// EduVerse App Theme - Consistent colors and styles across the app
 class AppTheme {
-
-  // ──────────── Dark‑mode accent adapter ────────────
-  //
-  // When a user picks a vivid or very dark accent color and enables dark mode,
-  // the raw color can look invisible or overly harsh.  This helper gently
-  // adjusts the accent so it always looks attractive on a dark background:
-  //   • Too dark  → lighten until luminance ≥ 0.45
-  //   • Too vivid → soften saturation by ≈20 %
-  //   • Too pale  → bump saturation slightly so it doesn't look washed‑out
-  //
-  // **Light mode is never touched** — the user's choice is used as‑is.
-  static Color adaptAccentForDarkMode(Color color) {
-    final hsl = HSLColor.fromColor(color);
-
-    double lightness = hsl.lightness;
-    double saturation = hsl.saturation;
-
-    // 1. Ensure minimum lightness so it's visible on dark bg
-    if (lightness < 0.45) {
-      lightness = lerpDouble(lightness, 0.55, 0.7)!;
-    }
-    // Cap lightness so it doesn't look like white
-    if (lightness > 0.80) {
-      lightness = 0.75;
-    }
-
-    // 2. Tame overly vivid colors (neon look)
-    if (saturation > 0.85) {
-      saturation = lerpDouble(saturation, 0.65, 0.35)!;
-    }
-    // Ensure minimum saturation so it still has character
-    if (saturation < 0.30) {
-      saturation = lerpDouble(saturation, 0.45, 0.4)!;
-    }
-
-    return hsl
-        .withLightness(lightness.clamp(0.0, 1.0))
-        .withSaturation(saturation.clamp(0.0, 1.0))
-        .toColor();
-  }
 
   // Primary Colors
   static const Color primaryColor = Color(0xFF1A237E); // Deep Indigo
