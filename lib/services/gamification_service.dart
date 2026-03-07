@@ -423,6 +423,104 @@ class GamificationService {
         'counters': <String, dynamic>{},
       };
 
+  // ──────────── Retroactive Sync ────────────
+
+  /// Sync gamification data from existing Firebase data (learning_stats,
+  /// certificates, study_streaks). Call once when the gamification node
+  /// is empty/missing to bootstrap XP from historical activity.
+  Future<void> syncFromExistingData() async {
+    final uid = _uid;
+    if (uid == null) return;
+
+    try {
+      // Check if gamification data already has XP — skip if so
+      final existing = await _db.child('gamification').child(uid).child('totalXP').get();
+      if (existing.exists && (existing.value as num?)?.toInt() != null &&
+          (existing.value as num).toInt() > 0) {
+        return; // Already has data, don't overwrite
+      }
+
+      int totalXP = 0;
+      final Map<String, dynamic> counters = {};
+
+      // 1. Read learning_stats for activity counts
+      final statsSnap = await _db.child('learning_stats').child(uid).get();
+      if (statsSnap.exists && statsSnap.value != null) {
+        final stats = Map<String, dynamic>.from(statsSnap.value as Map);
+        final activityCounts = Map<String, dynamic>.from(
+          (stats['activityCounts'] as Map?) ?? {},
+        );
+
+        final videoCount = (activityCounts['video'] as num?)?.toInt() ?? 0;
+        final quizCount = (activityCounts['quiz'] as num?)?.toInt() ?? 0;
+        final assignmentCount = (activityCounts['assignment'] as num?)?.toInt() ?? 0;
+
+        counters['video'] = videoCount;
+        counters['quiz'] = quizCount;
+        counters['assignment'] = assignmentCount;
+
+        totalXP += videoCount * xpVideo;
+        totalXP += quizCount * xpQuiz;
+        totalXP += assignmentCount * xpAssignment;
+      }
+
+      // 2. Read certificates for course completions
+      final certSnap = await _db.child('student').child(uid).child('certificates').get();
+      int courseCount = 0;
+      if (certSnap.exists && certSnap.value != null) {
+        final certs = Map<String, dynamic>.from(certSnap.value as Map);
+        for (final entry in certs.values) {
+          if (entry is Map) {
+            final type = entry['type'] as String? ?? '';
+            if (type == 'course_completion') {
+              courseCount++;
+            }
+          }
+        }
+        counters['course'] = courseCount;
+        totalXP += courseCount * xpCourseComplete;
+      }
+
+      // 3. Read study_streaks for streak data
+      final streakSnap = await _db.child('study_streaks').child(uid).get();
+      int totalDaysStudied = 0;
+      if (streakSnap.exists && streakSnap.value != null) {
+        final streaks = Map<String, dynamic>.from(streakSnap.value as Map);
+        totalDaysStudied = (streaks['totalDaysStudied'] as num?)?.toInt() ?? 0;
+        // Award streak XP for each day studied
+        totalXP += totalDaysStudied * xpDailyStreak;
+      }
+
+      if (totalXP == 0) return; // No historical data
+
+      final level = levelFromXP(totalXP);
+
+      // Write the bootstrapped gamification profile
+      final ref = _db.child('gamification').child(uid);
+      await ref.set({
+        'totalXP': totalXP,
+        'level': level,
+        'counters': counters,
+        'lastActivityDate': _todayKey(),
+        'syncedFromHistory': true,
+        'updatedAt': ServerValue.timestamp,
+      });
+
+      // Now check badges against this bootstrapped data
+      final data = {
+        'totalXP': totalXP,
+        'counters': counters,
+        'badges': <String, dynamic>{},
+      };
+      await _checkBadges(ref, data, totalXP, counters);
+
+      debugPrint('GamificationService: synced from history — $totalXP XP, '
+          'level $level, ${counters.length} activity types');
+    } catch (e) {
+      debugPrint('GamificationService.syncFromExistingData error: $e');
+    }
+  }
+
   // ──────────── Helpers ────────────
 
   String _todayKey() {
