@@ -12,6 +12,7 @@ import 'package:eduverse/utils/app_theme.dart';
 import 'package:eduverse/widgets/engaging_loading_indicator.dart';
 import 'package:eduverse/widgets/study_streak_card.dart';
 import 'package:eduverse/widgets/xp_level_card.dart';
+import 'package:eduverse/services/gamification_service.dart';
 import 'package:eduverse/services/course_recommendation_service.dart';
 import 'package:eduverse/services/user_customization_service.dart';
 import 'package:eduverse/features/admin/services/admin_feature_service.dart';
@@ -102,6 +103,9 @@ class _HomeTabState extends State<HomeTab> with AutomaticKeepAliveClientMixin {
 
     _loadAllData();
     _loadAnnouncements();
+
+    // Bootstrap gamification data from historical activity if needed
+    GamificationService().syncFromExistingData();
   }
 
   @override
