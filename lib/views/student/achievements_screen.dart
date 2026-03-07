@@ -24,6 +24,8 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
 
   Future<void> _loadProfile() async {
     setState(() => _isLoading = true);
+    // Bootstrap XP from existing data if gamification node is empty
+    await _service.syncFromExistingData();
     final profile = await _service.getProfile();
     if (mounted) setState(() { _profile = profile; _isLoading = false; });
   }
