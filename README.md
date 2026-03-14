@@ -9,7 +9,7 @@
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge)
 
-*EduVerse is a production-grade, cross-platform Learning Management System for students, teachers, and administrators. It combines structured course delivery, AI-assisted learning tools, real-time operations, moderation workflows, and analytics on a secure Firebase-powered backend.*
+*EduVerse is an enterprise-style, cross-platform Learning Management System built with Flutter and Firebase. It provides role-based experiences for Students, Teachers, and Admins, combining modern course delivery, AI-assisted learning, real-time academic tracking, and operational control in a single platform. From content creation and assessments to moderation, analytics, and support workflows, EduVerse is designed to run end-to-end education operations with performance, scalability, and security.*
 
 [Features](#-features) · [Screenshots](#-screenshots) · [Tech Stack](#-tech-stack) · [Architecture](#-architecture) · [Installation](#%EF%B8%8F-installation) · [Services](#-services-reference) · [Contributing](#-contributing)
 
@@ -184,6 +184,36 @@ To keep the README clean and easy to scan, screenshots are split into a quick pr
         <img src="docs/screenshots/signin_page.png" alt="Sign In" width="280" />
         <img src="docs/screenshots/signup_page.png" alt="Sign Up" width="280" />
 </p>
+
+### Student Quick Preview
+<p align="center">
+        <img src="docs/screenshots/student_home_dashboard.png" alt="Student Home Dashboard" width="220" />
+        <img src="docs/screenshots/student_courses_my_courses.png" alt="Student Courses My Courses" width="220" />
+        <img src="docs/screenshots/student_profile_overview.png" alt="Student Profile Overview" width="220" />
+</p>
+
+<details>
+<summary><strong>View Full Student Gallery (8 Screens)</strong></summary>
+
+<br />
+
+| Courses | Course Detail |
+|---------|---------------|
+| ![Student Courses My Courses](docs/screenshots/student_courses_my_courses.png) | ![Student Course Detail Overview](docs/screenshots/student_course_detail_overview.png) |
+
+| Discussion | Home |
+|------------|------|
+| ![Student Course Discussion](docs/screenshots/student_course_detail_discussion.png) | ![Student Home Dashboard](docs/screenshots/student_home_dashboard.png) |
+
+| Quizzes | Assignments |
+|---------|-------------|
+| ![Student Quizzes List](docs/screenshots/student_quizzes_list.png) | ![Student Assignments List](docs/screenshots/student_assignments_list.png) |
+
+| Profile | Settings |
+|---------|----------|
+| ![Student Profile Overview](docs/screenshots/student_profile_overview.png) | ![Student Profile Settings](docs/screenshots/student_profile_settings.png) |
+
+</details>
 
 ### Admin Quick Preview
 <p align="center">
