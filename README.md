@@ -215,6 +215,44 @@ To keep the README clean and easy to scan, screenshots are split into a quick pr
 
 </details>
 
+### Teacher Quick Preview
+<p align="center">
+        <img src="docs/screenshots/teacher_home_dashboard.png" alt="Teacher Home Dashboard" width="220" />
+        <img src="docs/screenshots/teacher_courses_tab.png" alt="Teacher Courses Tab" width="220" />
+        <img src="docs/screenshots/teacher_insights_overview.png" alt="Teacher Insights Overview" width="220" />
+</p>
+
+<details>
+<summary><strong>View Full Teacher Gallery (11 Screens)</strong></summary>
+
+<br />
+
+| Home Dashboard | Courses Tab |
+|----------------|-------------|
+| ![Teacher Home Dashboard](docs/screenshots/teacher_home_dashboard.png) | ![Teacher Courses Tab](docs/screenshots/teacher_courses_tab.png) |
+
+| Course Detail | Course Engagement |
+|---------------|-------------------|
+| ![Teacher Course Detail Overview](docs/screenshots/teacher_course_detail_overview.png) | ![Teacher Course Engagement](docs/screenshots/teacher_course_engagement.png) |
+
+| Announcements | Revenue Dashboard |
+|---------------|-------------------|
+| ![Teacher Announcement Compose](docs/screenshots/teacher_announcement_compose.png) | ![Teacher Revenue Dashboard](docs/screenshots/teacher_revenue_dashboard.png) |
+
+| Insights | Profile Settings |
+|----------|------------------|
+| ![Teacher Insights Overview](docs/screenshots/teacher_insights_overview.png) | ![Teacher Profile Settings](docs/screenshots/teacher_profile_settings.png) |
+
+| Quizzes | Assignments |
+|---------|-------------|
+| ![Teacher Quizzes Empty](docs/screenshots/teacher_quizzes_empty.png) | ![Teacher Assignments Empty](docs/screenshots/teacher_assignments_empty.png) |
+
+| Add Videos Modal | — |
+|------------------|---|
+| ![Teacher Add Videos Modal](docs/screenshots/teacher_add_videos_modal.png) |  |
+
+</details>
+
 ### Admin Quick Preview
 <p align="center">
         <img src="docs/screenshots/admin_dashboard_overview.png" alt="Admin Dashboard Overview" width="220" />
