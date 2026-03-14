@@ -9,9 +9,9 @@
 ![Dart](https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white)
 ![Platforms](https://img.shields.io/badge/Platforms-Android%20%7C%20iOS%20%7C%20Web%20%7C%20Windows%20%7C%20macOS%20%7C%20Linux-green?style=for-the-badge)
 
-*A production-grade, cross-platform Learning Management System built with Flutter & Firebase. Features three distinct user roles (Student, Teacher, Admin), AI-powered study assistance, real-time analytics, content moderation, and 30+ integrated services — all running against Firebase Realtime Database with Cloudinary media management.*
+*EduVerse is a production-grade, cross-platform Learning Management System for students, teachers, and administrators. It combines structured course delivery, AI-assisted learning tools, real-time operations, moderation workflows, and analytics on a secure Firebase-powered backend.*
 
-[Features](#-features) · [Tech Stack](#-tech-stack) · [Architecture](#-architecture) · [Installation](#%EF%B8%8F-installation) · [Services](#-services-reference) · [Contributing](#-contributing)
+[Features](#-features) · [Screenshots](#-screenshots) · [Tech Stack](#-tech-stack) · [Architecture](#-architecture) · [Installation](#%EF%B8%8F-installation) · [Services](#-services-reference) · [Contributing](#-contributing)
 
 ---
 
@@ -175,35 +175,58 @@ The admin panel features a **responsive sidebar/drawer navigation** (desktop exp
 
 ---
 
-## � Screenshots
+## 📸 Screenshots
 
-### Authentication
+To keep this README fast to scan and professional for large galleries, screenshots are grouped in collapsible sections.
+
+### Authentication (Kept)
 | Sign In | Sign Up |
 |---------|---------|
 | ![Sign In](docs/screenshots/signin_page.png) | ![Sign Up](docs/screenshots/signup_page.png) |
 
-### Student
-| Home | Courses | Profile |
-|------|---------|---------|
-| ![Student Home](docs/screenshots/student_home.png) | ![Student Courses](docs/screenshots/student_courses.png) | ![Student Profile](docs/screenshots/student_profile.png) |
+### Admin Gallery (Updated Naming)
 
-| Course Video Player |
-|---------------------|
-| ![Course Video Player](docs/screenshots/course_video_player.png) |
+Use the following file names in `docs/screenshots/` for your new admin images:
 
-### Teacher
-| Home | Courses | Profile |
-|------|---------|---------|
-| ![Teacher Home](docs/screenshots/teacher_home.png) | ![Teacher Courses](docs/screenshots/teacher_courses.png) | ![Teacher Profile](docs/screenshots/teacher_profile.png) |
+| # | Screen | File Name |
+|---|--------|-----------|
+| 1 | Admin Dashboard | `admin_dashboard_overview.png` |
+| 2 | Admin Navigation Drawer | `admin_navigation_drawer.png` |
+| 3 | User Management | `admin_user_management.png` |
+| 4 | Content Moderation | `admin_content_moderation.png` |
+| 5 | Analytics | `admin_analytics_overview.png` |
+| 6 | Support Center | `admin_support_center.png` |
+| 7 | Course Management List | `admin_course_management_list.png` |
+| 8 | Course Detail | `admin_course_detail_videos.png` |
+| 9 | Admin Activity Log | `admin_activity_log.png` |
+| 10 | Platform Settings | `admin_platform_settings.png` |
 
-| Create Course | Insights |
-|---------------|----------|
-| ![Create Course](docs/screenshots/create_course.png) | ![Teacher Insights](docs/screenshots/teacher_insights.png) |
+<details>
+        <summary><strong>View Admin Screenshots (10)</strong></summary>
 
-### Admin
-| Dashboard | Course Management | Sidebar |
-|-----------|-------------------|---------|
-| ![Admin Dashboard](docs/screenshots/admin_dashboard.png) | ![Admin Course Management](docs/screenshots/admin_course_management.png) | ![Admin Sidebar](docs/screenshots/admin_sidebar.png) |
+        <br />
+
+        | Dashboard | Drawer |
+        |----------|--------|
+        | ![Admin Dashboard Overview](docs/screenshots/admin_dashboard_overview.png) | ![Admin Navigation Drawer](docs/screenshots/admin_navigation_drawer.png) |
+
+        | Users | Moderation |
+        |------|------------|
+        | ![Admin User Management](docs/screenshots/admin_user_management.png) | ![Admin Content Moderation](docs/screenshots/admin_content_moderation.png) |
+
+        | Analytics | Support |
+        |----------|---------|
+        | ![Admin Analytics Overview](docs/screenshots/admin_analytics_overview.png) | ![Admin Support Center](docs/screenshots/admin_support_center.png) |
+
+        | Courses | Course Detail |
+        |---------|---------------|
+        | ![Admin Course Management List](docs/screenshots/admin_course_management_list.png) | ![Admin Course Detail Videos](docs/screenshots/admin_course_detail_videos.png) |
+
+        | Activity | Settings |
+        |----------|----------|
+        | ![Admin Activity Log](docs/screenshots/admin_activity_log.png) | ![Admin Platform Settings](docs/screenshots/admin_platform_settings.png) |
+
+</details>
 
 ---
 
