@@ -177,54 +177,45 @@ The admin panel features a **responsive sidebar/drawer navigation** (desktop exp
 
 ## 📸 Screenshots
 
-To keep this README fast to scan and professional for large galleries, screenshots are grouped in collapsible sections.
+To keep the README clean and easy to scan, screenshots are split into a quick preview and an expandable full gallery.
 
-### Authentication (Kept)
-| Sign In | Sign Up |
-|---------|---------|
-| ![Sign In](docs/screenshots/signin_page.png) | ![Sign Up](docs/screenshots/signup_page.png) |
+### Authentication
+<p align="center">
+        <img src="docs/screenshots/signin_page.png" alt="Sign In" width="280" />
+        <img src="docs/screenshots/signup_page.png" alt="Sign Up" width="280" />
+</p>
 
-### Admin Gallery (Updated Naming)
-
-Use the following file names in `docs/screenshots/` for your new admin images:
-
-| # | Screen | File Name |
-|---|--------|-----------|
-| 1 | Admin Dashboard | `admin_dashboard_overview.png` |
-| 2 | Admin Navigation Drawer | `admin_navigation_drawer.png` |
-| 3 | User Management | `admin_user_management.png` |
-| 4 | Content Moderation | `admin_content_moderation.png` |
-| 5 | Analytics | `admin_analytics_overview.png` |
-| 6 | Support Center | `admin_support_center.png` |
-| 7 | Course Management List | `admin_course_management_list.png` |
-| 8 | Course Detail | `admin_course_detail_videos.png` |
-| 9 | Admin Activity Log | `admin_activity_log.png` |
-| 10 | Platform Settings | `admin_platform_settings.png` |
+### Admin Quick Preview
+<p align="center">
+        <img src="docs/screenshots/admin_dashboard_overview.png" alt="Admin Dashboard Overview" width="220" />
+        <img src="docs/screenshots/admin_user_management.png" alt="Admin User Management" width="220" />
+        <img src="docs/screenshots/admin_platform_settings.png" alt="Admin Platform Settings" width="220" />
+</p>
 
 <details>
-        <summary><strong>View Admin Screenshots (10)</strong></summary>
+<summary><strong>View Full Admin Gallery (10 Screens)</strong></summary>
 
-        <br />
+<br />
 
-        | Dashboard | Drawer |
-        |----------|--------|
-        | ![Admin Dashboard Overview](docs/screenshots/admin_dashboard_overview.png) | ![Admin Navigation Drawer](docs/screenshots/admin_navigation_drawer.png) |
+| Dashboard | Navigation Drawer |
+|----------|--------------------|
+| ![Admin Dashboard Overview](docs/screenshots/admin_dashboard_overview.png) | ![Admin Navigation Drawer](docs/screenshots/admin_navigation_drawer.png) |
 
-        | Users | Moderation |
-        |------|------------|
-        | ![Admin User Management](docs/screenshots/admin_user_management.png) | ![Admin Content Moderation](docs/screenshots/admin_content_moderation.png) |
+| User Management | Content Moderation |
+|-----------------|--------------------|
+| ![Admin User Management](docs/screenshots/admin_user_management.png) | ![Admin Content Moderation](docs/screenshots/admin_content_moderation.png) |
 
-        | Analytics | Support |
-        |----------|---------|
-        | ![Admin Analytics Overview](docs/screenshots/admin_analytics_overview.png) | ![Admin Support Center](docs/screenshots/admin_support_center.png) |
+| Analytics | Support Center |
+|----------|-----------------|
+| ![Admin Analytics Overview](docs/screenshots/admin_analytics_overview.png) | ![Admin Support Center](docs/screenshots/admin_support_center.png) |
 
-        | Courses | Course Detail |
-        |---------|---------------|
-        | ![Admin Course Management List](docs/screenshots/admin_course_management_list.png) | ![Admin Course Detail Videos](docs/screenshots/admin_course_detail_videos.png) |
+| Course Management | Course Detail |
+|-------------------|---------------|
+| ![Admin Course Management List](docs/screenshots/admin_course_management_list.png) | ![Admin Course Detail Videos](docs/screenshots/admin_course_detail_videos.png) |
 
-        | Activity | Settings |
-        |----------|----------|
-        | ![Admin Activity Log](docs/screenshots/admin_activity_log.png) | ![Admin Platform Settings](docs/screenshots/admin_platform_settings.png) |
+| Activity Log | Platform Settings |
+|--------------|-------------------|
+| ![Admin Activity Log](docs/screenshots/admin_activity_log.png) | ![Admin Platform Settings](docs/screenshots/admin_platform_settings.png) |
 
 </details>
 
